@@ -143,9 +143,9 @@ export default function MeseroHome() {
         </div>
       </div>
 
-      {/* Grid mesas — 2 columnas en móvil, 4 en desktop */}
+      {/* Grid mesas — Adaptable a diferentes pantallas */}
       <div className="flex-1 px-6 pb-4 relative z-10">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-8">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-6 md:gap-8">
           {(zoneTablesMap[displayZone] || []).map(table => (
             <div
               key={table.id}

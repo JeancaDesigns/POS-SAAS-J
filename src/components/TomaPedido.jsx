@@ -97,8 +97,11 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
   )
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col"
-      style={{ background: 'linear-gradient(160deg, #1A1A2E 0%, #2D1B4E 100%)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-6"
+      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}>
+      
+      <div className="w-full h-full md:max-w-4xl md:h-[90vh] md:rounded-3xl flex flex-col relative overflow-hidden shadow-2xl"
+        style={{ background: 'linear-gradient(160deg, #1A1A2E 0%, #2D1B4E 100%)' }}>
 
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-6 pb-3"
@@ -318,5 +321,6 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
         </div>
       )}
     </div>
+  </div>
   )
 }

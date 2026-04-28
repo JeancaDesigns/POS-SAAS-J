@@ -42,8 +42,8 @@ export default function NavBar() {
   if (orderedTabs.length <= 1) return null
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 h-[80px] w-full bg-gray-900 border-t border-gray-800 z-50">
-      <div className="flex items-center justify-around px-2 py-2">
+    <nav className="fixed bottom-0 left-0 right-0 h-[80px] lg:h-full lg:w-20 lg:top-0 lg:left-0 lg:right-auto bg-gray-900 border-t lg:border-t-0 lg:border-r border-gray-800 z-50 flex lg:flex-col items-center justify-around lg:justify-start lg:py-8 lg:gap-8">
+      <div className="flex lg:flex-col items-center justify-around lg:justify-start w-full px-2 py-2 lg:gap-8">
         {orderedTabs.map(tab => {
           const item = NAV_ITEMS[tab]
           const isActive = location.pathname === item.path
@@ -53,21 +53,23 @@ export default function NavBar() {
               onClick={() => navigate(item.path)}
               className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors
                 ${isActive
-                  ? 'text-orange-500'
+                  ? 'text-orange-500 bg-orange-500/10 lg:bg-transparent'
                   : 'text-gray-500 hover:text-gray-300'
                 }`}
             >
-              <span className="text-xl">{item.icon}</span>
-              <span className="text-xs font-medium">{item.label}</span>
+              <span className="text-xl lg:text-2xl">{item.icon}</span>
+              <span className="text-[10px] lg:text-xs font-medium">{item.label}</span>
             </button>
           )
         })}
+      </div>
+      <div className="lg:mt-auto lg:pb-4">
         <button
           onClick={handleLogout}
           className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-gray-500 hover:text-red-400 transition-colors"
         >
-          <span className="text-xl">🚪</span>
-          <span className="text-xs font-medium">Salir</span>
+          <span className="text-xl lg:text-2xl">🚪</span>
+          <span className="text-[10px] lg:text-xs font-medium">Salir</span>
         </button>
       </div>
     </nav>

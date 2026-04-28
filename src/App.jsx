@@ -38,7 +38,7 @@ export default function App() {
 
   return (
     <>
-      <div className='pb-[80px]'>
+      <div className='pb-[80px] lg:pb-0 lg:pl-20'>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/mesero" element={

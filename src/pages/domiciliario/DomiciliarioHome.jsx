@@ -155,7 +155,8 @@ export default function DomiciliarioHome() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-4 flex justify-center">
+        <div className="w-full max-w-2xl">
 
         {enRuta && tandaOrders.length > 0 && (
           <div>
@@ -313,6 +314,7 @@ export default function DomiciliarioHome() {
           </>
         )}
       </div>
+    </div>
 
       {!enRuta && tanda.length > 0 && (
         <div className="fixed bottom-22 left-0 right-0 p-4 bg-gray-950 border-t border-gray-800">
