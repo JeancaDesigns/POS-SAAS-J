@@ -35,11 +35,13 @@ export default function AdminHome() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        {section === 'usuarios' && <UsuariosPanel />}
-        {section === 'mesas' && <MesaPanel />}
-        {section === 'menu' && <MenuPanel />}
-        {section === 'config' && <ConfigPanel />}
+      <div className="flex-1 overflow-y-auto flex justify-center">
+        <div className="w-full max-w-6xl p-4">
+          {section === 'usuarios' && <UsuariosPanel />}
+          {section === 'mesas' && <MesaPanel />}
+          {section === 'menu' && <MenuPanel />}
+          {section === 'config' && <ConfigPanel />}
+        </div>
       </div>
 
     </div>

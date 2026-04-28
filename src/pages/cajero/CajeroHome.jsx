@@ -205,7 +205,7 @@ export default function CajeroHome() {
           {Object.keys(ordersByTable).length === 0 && (
             <p className="text-gray-500 text-center py-16">Sin mesas activas</p>
           )}
-          <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {Object.values(ordersByTable).map(tableOrders => {
               const first = tableOrders[0]
               const allTotal = tableOrders.reduce((s, o) => s + orderTotal(o), 0)
@@ -272,7 +272,8 @@ export default function CajeroHome() {
       )}
 
       {cobrarOrder && (
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-4 flex justify-center">
+          <div className="w-full max-w-2xl">
           <div className="flex items-center gap-3 mb-6">
             <button onClick={() => setCobrarOrder(null)} className="text-gray-400 hover:text-white">
               ← Volver
@@ -360,6 +361,7 @@ export default function CajeroHome() {
             {procesando ? 'Procesando...' : 'Registrar pago y liberar mesa'}
           </button>
         </div>
+      </div>
       )}
 
       {view === 'historial' && (
