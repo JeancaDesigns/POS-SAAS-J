@@ -18,28 +18,15 @@ export default function PedidoActivo({ table, onClose }) {
   const [scheduledMore, setScheduledMore] = useState('')
 
   const displayCategory = activeCategory || categories[0]?.id
-  const categoryProducts = products.filter(
-    p => p.category_id === displayCategory && p.available
-  )
-
+  const categoryProducts = products.filter(p => p.category_id === displayCategory && p.available)
   const activeItems = items.filter(i => i.status !== 'cancelled')
-  const total = activeItems.reduce(
-    (sum, i) => sum + i.product.price * i.quantity, 0
-  )
-  const newTotal = newItems.reduce(
-    (sum, i) => sum + i.product.price * i.quantity, 0
-  )
+  const total = activeItems.reduce((sum, i) => sum + i.product.price * i.quantity, 0)
+  const newTotal = newItems.reduce((sum, i) => sum + i.product.price * i.quantity, 0)
 
   function addProduct(product) {
     setNewItems(prev => {
       const existing = prev.find(i => i.product.id === product.id)
-      if (existing) {
-        return prev.map(i =>
-          i.product.id === product.id
-            ? { ...i, quantity: i.quantity + 1 }
-            : i
-        )
-      }
+      if (existing) return prev.map(i => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i)
       return [...prev, { product, quantity: 1, note: '' }]
     })
   }
@@ -47,14 +34,8 @@ export default function PedidoActivo({ table, onClose }) {
   function removeProduct(productId) {
     setNewItems(prev => {
       const existing = prev.find(i => i.product.id === productId)
-      if (existing?.quantity === 1) {
-        return prev.filter(i => i.product.id !== productId)
-      }
-      return prev.map(i =>
-        i.product.id === productId
-          ? { ...i, quantity: i.quantity - 1 }
-          : i
-      )
+      if (existing?.quantity === 1) return prev.filter(i => i.product.id !== productId)
+      return prev.map(i => i.product.id === productId ? { ...i, quantity: i.quantity - 1 } : i)
     })
   }
 
@@ -63,92 +44,62 @@ export default function PedidoActivo({ table, onClose }) {
   }
 
   function updateNewNote(productId, note) {
-    setNewItems(prev =>
-      prev.map(i => i.product.id === productId ? { ...i, note } : i)
-    )
+    setNewItems(prev => prev.map(i => i.product.id === productId ? { ...i, note } : i))
   }
 
   async function decreaseConfirmedItem(item) {
     if (item.quantity === 1) {
-      await supabase
-        .from('order_items')
-        .update({ status: 'cancelled' })
-        .eq('id', item.id)
+      await supabase.from('order_items').update({ status: 'cancelled' }).eq('id', item.id)
     } else {
-      await supabase
-        .from('order_items')
-        .update({ quantity: item.quantity - 1 })
-        .eq('id', item.id)
+      await supabase.from('order_items').update({ quantity: item.quantity - 1 }).eq('id', item.id)
     }
     refetch()
   }
 
   async function increaseConfirmedItem(item) {
-    await supabase
-      .from('order_items')
-      .update({ quantity: item.quantity + 1 })
-      .eq('id', item.id)
+    await supabase.from('order_items').update({ quantity: item.quantity + 1 }).eq('id', item.id)
     refetch()
   }
 
   async function saveNote(itemId, note) {
-    await supabase
-      .from('order_items')
-      .update({ note })
-      .eq('id', itemId)
+    await supabase.from('order_items').update({ note }).eq('id', itemId)
     setEditingNote(null)
-    refetch()
-  }
-
-  async function toggleDeliveryType() {
-    if (!order) return
-    const newType = order.delivery_type === 'delivery' ? 'pickup' : 'delivery'
-    await supabase
-      .from('orders')
-      .update({ delivery_type: newType })
-      .eq('id', order.id)
     refetch()
   }
 
   async function cancelFullOrder() {
     if (!order) return
     setCancelling(true)
-    await supabase
-      .from('order_items')
-      .update({ status: 'cancelled' })
-      .eq('order_id', order.id)
-
-    await supabase
-      .from('orders')
-      .update({ status: 'cancelled' })
-      .eq('id', order.id)
-
-    // No liberamos la mesa, cocina decide
+    await supabase.from('order_items').update({ status: 'cancelled' }).eq('order_id', order.id)
+    await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id)
     setCancelling(false)
     onClose()
+  }
+
+  async function toggleDeliveryType() {
+    if (!order) return
+    const newType = order.delivery_type === 'delivery' ? 'pickup' : 'delivery'
+    await supabase.from('orders').update({ delivery_type: newType }).eq('id', order.id)
+    refetch()
   }
 
   async function handleAddMore() {
     if (newItems.length === 0) return
     setConfirming(true)
-
-    const orderItems = newItems.map(i => ({
-      order_id: order.id,
-      product_id: i.product.id,
-      quantity: i.quantity,
-      note: i.note || null,
-      status: 'pending',
-      kitchen_only: false,
-    }))
-
-    await supabase.from('order_items').insert(orderItems)
+    await supabase.from('order_items').insert(
+      newItems.map(i => ({
+        order_id: order.id,
+        product_id: i.product.id,
+        quantity: i.quantity,
+        note: i.note || null,
+        status: 'pending',
+        kitchen_only: false,
+      }))
+    )
     if (scheduledMore) {
-      await supabase
-        .from('orders')
-        .update({
-          scheduled_for: new Date(`${new Date().toDateString()} ${scheduledMore}`).toISOString()
-        })
-        .eq('id', order.id)
+      await supabase.from('orders').update({
+        scheduled_for: new Date(`${new Date().toDateString()} ${scheduledMore}`).toISOString()
+      }).eq('id', order.id)
     }
     setNewItems([])
     setAddingMore(false)
@@ -157,17 +108,20 @@ export default function PedidoActivo({ table, onClose }) {
   }
 
   if (loading) return (
-    <div className="fixed inset-0 bg-gray-950 flex items-center justify-center z-50">
-      <p className="text-gray-400">Cargando pedido...</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: '#1A1A2E' }}>
+      <p style={{ color: '#A855F7' }}>Cargando pedido...</p>
     </div>
   )
 
   return (
-    <div className="fixed inset-0 bg-gray-950 flex flex-col z-50">
+    <div className="fixed inset-0 bottom-[80px] z-50 flex flex-col"
+      style={{ background: 'linear-gradient(160deg, #1A1A2E 0%, #2D1B4E 100%)' }}>
 
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-6 pb-3">
-        <button onClick={onClose} className="text-gray-400 hover:text-white">
+      <div className="flex items-center justify-between px-4 pt-6 pb-3"
+        style={{ borderBottom: '1px solid rgba(168,85,247,0.15)' }}>
+        <button onClick={onClose} style={{ color: 'rgba(168,85,247,0.8)' }} className="text-sm font-semibold">
           ← Volver
         </button>
         <h2 className="text-white font-bold text-lg">
@@ -176,25 +130,29 @@ export default function PedidoActivo({ table, onClose }) {
         <button
           onClick={cancelFullOrder}
           disabled={cancelling}
-          className="text-red-400 hover:text-red-300 text-sm font-semibold transition-colors"
+          className="text-sm font-semibold"
+          style={{ color: 'rgba(220,38,38,0.8)' }}
         >
-          Cancelar pedido
+          Cancelar
         </button>
       </div>
+
+      {/* Info domicilio */}
       {table.is_delivery && order?.customer_name && (
-        <div className="mx-4 mb-3 bg-gray-900 rounded-2xl px-4 py-3">
-          <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Cliente</p>
+        <div className="mx-4 mt-3 rounded-2xl px-4 py-3"
+          style={{ background: 'rgba(130,10,209,0.1)', border: '1px solid rgba(168,85,247,0.2)' }}>
+          <p className="text-xs mb-1" style={{ color: 'rgba(168,85,247,0.7)' }}>CLIENTE</p>
           <p className="text-white font-semibold">{order.customer_name}</p>
           {order.customer_phone && (
-            <p className="text-gray-400 text-sm">{order.customer_phone}</p>
+            <p className="text-sm" style={{ color: 'rgba(168,85,247,0.8)' }}>{order.customer_phone}</p>
           )}
           <button
             onClick={toggleDeliveryType}
-            className={`mt-2 w-full py-2 rounded-xl text-sm font-semibold transition-colors
-              ${order.delivery_type === 'delivery'
-                ? 'bg-orange-500/20 text-orange-400 hover:bg-orange-500/30'
-                : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
-              }`}
+            className="mt-2 w-full py-1.5 rounded-xl text-sm font-semibold transition-all"
+            style={order.delivery_type === 'delivery'
+              ? { background: 'rgba(130,10,209,0.2)', color: '#A855F7', border: '1px solid rgba(130,10,209,0.3)' }
+              : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.1)' }
+            }
           >
             {order.delivery_type === 'delivery' ? '🛵 A domicilio — cambiar a recoger' : '🏠 Recoge en local — cambiar a domicilio'}
           </button>
@@ -203,50 +161,53 @@ export default function PedidoActivo({ table, onClose }) {
 
       {!addingMore ? (
         <>
-          <div className="flex-1 overflow-y-auto px-4 pb-4">
-            <p className="text-gray-500 text-xs mb-3 uppercase tracking-wide">Pedido activo</p>
+          <div className="flex-1 overflow-y-auto px-4 py-3">
+            <p className="text-xs font-semibold mb-3" style={{ color: 'rgba(168,85,247,0.6)' }}>
+              PEDIDO ACTIVO
+            </p>
             <div className="flex flex-col gap-2">
               {activeItems.map(item => (
-                <div key={item.id} className="bg-gray-900 rounded-2xl p-4">
+                <div key={item.id} className="rounded-2xl p-4"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(168,85,247,0.1)' }}>
                   <div className="flex items-center justify-between">
                     <p className="text-white font-semibold">{item.product.name}</p>
                     <div className="flex items-center gap-3">
                       <button
                         onClick={() => decreaseConfirmedItem(item)}
-                        className="bg-gray-700 hover:bg-red-500/30 text-white w-8 h-8 rounded-full font-bold transition-colors"
+                        className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white"
+                        style={{ background: 'rgba(220,38,38,0.3)', border: '1px solid rgba(220,38,38,0.4)' }}
                       >
                         −
                       </button>
-                      <span className="text-white font-bold w-4 text-center">
-                        {item.quantity}
-                      </span>
+                      <span className="text-white font-bold w-4 text-center">{item.quantity}</span>
                       <button
                         onClick={() => increaseConfirmedItem(item)}
-                        className="bg-gray-700 hover:bg-orange-500/30 text-white w-8 h-8 rounded-full font-bold transition-colors"
+                        className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white"
+                        style={{ background: 'rgba(130,10,209,0.4)', border: '1px solid rgba(130,10,209,0.5)' }}
                       >
                         +
                       </button>
                     </div>
                   </div>
-
                   <div className="flex justify-between items-center mt-1">
-                    <span className="text-orange-400 text-sm">
+                    <span className="text-sm font-bold" style={{ color: '#A855F7' }}>
                       ${(item.product.price * item.quantity).toLocaleString('es-CO')}
                     </span>
-
                     {editingNote === item.id ? (
                       <input
                         autoFocus
                         type="text"
                         defaultValue={item.note || ''}
-                        onBlur={(e) => saveNote(item.id, e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && saveNote(item.id, e.target.value)}
-                        className="bg-gray-800 text-white text-xs rounded-xl px-3 py-1 outline-none focus:ring-2 focus:ring-orange-500 w-40"
+                        onBlur={e => saveNote(item.id, e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && saveNote(item.id, e.target.value)}
+                        className="rounded-xl px-3 py-1 text-white text-xs outline-none w-40"
+                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(168,85,247,0.3)' }}
                       />
                     ) : (
                       <button
                         onClick={() => setEditingNote(item.id)}
-                        className="text-xs text-gray-500 hover:text-orange-400 transition-colors"
+                        className="text-xs"
+                        style={{ color: item.note ? '#A855F7' : 'rgba(255,255,255,0.3)' }}
                       >
                         {item.note ? `📝 ${item.note}` : '+ Nota'}
                       </button>
@@ -257,16 +218,19 @@ export default function PedidoActivo({ table, onClose }) {
             </div>
           </div>
 
-          <div className="px-4 pb-24 pt-3 border-t border-gray-800 bg-gray-950">
+          <div className="px-4 pb-8 pt-3"
+            style={{ borderTop: '1px solid rgba(168,85,247,0.15)', background: 'rgba(26,26,46,0.95)' }}>
             <div className="flex justify-between mb-4">
-              <span className="text-gray-400">Total</span>
-              <span className="text-white font-bold text-lg">
-                ${total.toLocaleString('es-CO')}
-              </span>
+              <span style={{ color: 'rgba(255,255,255,0.5)' }}>Total</span>
+              <span className="text-white font-bold text-lg">${total.toLocaleString('es-CO')}</span>
             </div>
             <button
               onClick={() => setAddingMore(true)}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-2xl py-4 transition-colors"
+              className="w-full text-white font-bold rounded-2xl py-4 transition-all"
+              style={{
+                background: 'linear-gradient(135deg, #820AD1, #A855F7)',
+                boxShadow: '0 4px 20px rgba(130,10,209,0.4)',
+              }}
             >
               + Agregar más ítems
             </button>
@@ -274,16 +238,18 @@ export default function PedidoActivo({ table, onClose }) {
         </>
       ) : (
         <>
-          <div className="flex gap-2 px-4 pb-3 overflow-x-auto">
+          {/* Tabs categorías */}
+          <div className="flex gap-2 px-4 py-3 overflow-x-auto"
+            style={{ borderBottom: '1px solid rgba(168,85,247,0.15)' }}>
             {categories.map(cat => (
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
-                className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-colors
-                  ${displayCategory === cat.id
-                    ? 'bg-orange-500 text-white'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                  }`}
+                className="px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all"
+                style={displayCategory === cat.id
+                  ? { background: 'linear-gradient(135deg, #820AD1, #A855F7)', color: 'white' }
+                  : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' }
+                }
               >
                 {cat.icon && <span className="mr-1">{cat.icon}</span>}
                 {cat.name}
@@ -291,56 +257,61 @@ export default function PedidoActivo({ table, onClose }) {
             ))}
           </div>
 
-          <div className="flex-1 overflow-y-auto px-4 pb-4">
+          <div className="flex-1 overflow-y-auto px-4 py-3">
             <div className="flex flex-col gap-2">
               {categoryProducts.map(product => {
                 const qty = getQuantity(product.id)
                 const item = newItems.find(i => i.product.id === product.id)
                 return (
-                  <div key={product.id} className="bg-gray-900 rounded-2xl p-4">
+                  <div key={product.id} className="rounded-2xl p-4"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(168,85,247,0.1)' }}>
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-white font-semibold">{product.name}</p>
-                        <p className="text-orange-400 text-sm">
+                        <p className="text-sm font-bold mt-0.5" style={{ color: '#A855F7' }}>
                           ${product.price.toLocaleString('es-CO')}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
                         {qty > 0 && (
-                          <button
-                            onClick={() => removeProduct(product.id)}
-                            className="bg-gray-700 hover:bg-gray-600 text-white w-8 h-8 rounded-full font-bold transition-colors"
-                          >
-                            −
-                          </button>
-                        )}
-                        {qty > 0 && (
-                          <span className="text-white font-bold w-4 text-center">{qty}</span>
+                          <>
+                            <button
+                              onClick={() => removeProduct(product.id)}
+                              className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white"
+                              style={{ background: 'rgba(220,38,38,0.3)', border: '1px solid rgba(220,38,38,0.4)' }}
+                            >
+                              −
+                            </button>
+                            <span className="text-white font-bold w-4 text-center">{qty}</span>
+                          </>
                         )}
                         <button
                           onClick={() => addProduct(product)}
-                          className="bg-orange-500 hover:bg-orange-600 text-white w-8 h-8 rounded-full font-bold transition-colors"
+                          className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white"
+                          style={{ background: 'linear-gradient(135deg, #820AD1, #A855F7)' }}
                         >
                           +
                         </button>
                       </div>
                     </div>
                     {qty > 0 && (
-                      <div className="mt-3">
+                      <div className="mt-2">
                         {noteTarget === product.id ? (
                           <input
                             autoFocus
                             type="text"
                             placeholder="Ej: sin cebolla"
                             value={item?.note || ''}
-                            onChange={(e) => updateNewNote(product.id, e.target.value)}
+                            onChange={e => updateNewNote(product.id, e.target.value)}
                             onBlur={() => setNoteTarget(null)}
-                            className="w-full bg-gray-800 text-white text-sm rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-orange-500"
+                            className="w-full rounded-xl px-3 py-1.5 text-white text-sm outline-none"
+                            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(168,85,247,0.3)' }}
                           />
                         ) : (
                           <button
                             onClick={() => setNoteTarget(product.id)}
-                            className="text-xs text-gray-500 hover:text-orange-400 transition-colors"
+                            className="text-xs"
+                            style={{ color: item?.note ? '#A855F7' : 'rgba(255,255,255,0.3)' }}
                           >
                             {item?.note ? `📝 ${item.note}` : '+ Agregar nota'}
                           </button>
@@ -354,28 +325,36 @@ export default function PedidoActivo({ table, onClose }) {
           </div>
 
           {newItems.length > 0 && (
-            <div className="px-4 pb-8 pt-3 border-t border-gray-800 bg-gray-950">
+            <div className="px-4 pb-8 pt-4"
+              style={{ borderTop: '1px solid rgba(197, 144, 247, 0.15)', background: 'rgba(26,26,46,0.95)' }}>
               <div className="flex justify-between mb-3">
-                <span className="text-gray-400">
+                <span style={{ color: 'rgba(255,255,255,0.5)' }} className="text-sm">
                   {newItems.reduce((s, i) => s + i.quantity, 0)} ítems nuevos
                 </span>
-                <span className="text-white font-bold">
+                <span className="font-bold" style={{ color: '#A855F7' }}>
                   +${newTotal.toLocaleString('es-CO')}
                 </span>
               </div>
-              <div className='mb-3'>
-                <p className='text-gray-400 text-xs mb-1'>¿Programar entrega? (opcional)</p>
+              <div className="mb-3 pb-4">
+                <p className="text-xs mb-1" style={{ color: 'rgba(168,85,247,0.6)' }}>
+                  ¿Programar entrega? (opcional)
+                </p>
                 <input
-                  type='time'
+                  type="time"
                   value={scheduledMore}
                   onChange={e => setScheduledMore(e.target.value)}
-                  className='w-full bg-gray-800 text-white rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-orange-500 text-sm'
+                  className="w-full rounded-xl px-4 py-2 text-white text-sm outline-none"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(168,85,247,0.2)' }}
                 />
               </div>
               <button
                 onClick={handleAddMore}
                 disabled={confirming}
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-2xl py-4 transition-colors disabled:opacity-50"
+                className="w-full text-white font-bold rounded-2xl py-4 transition-all disabled:opacity-50"
+                style={{
+                  background: 'linear-gradient(135deg, #820AD1, #A855F7)',
+                  boxShadow: '0 4px 20px rgba(130,10,209,0.4)',
+                }}
               >
                 {confirming ? 'Agregando...' : 'Confirmar adición'}
               </button>

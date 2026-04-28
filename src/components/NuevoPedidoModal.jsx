@@ -19,13 +19,17 @@ export default function NuevoPedidoModal({ zones, tables, onClose, onTableSelect
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 pb-20 flex items-end justify-center z-50">
-      <div className="bg-gray-900 rounded-t-3xl w-full max-w-lg p-6 pb-10">
+    <div className="fixed inset-0 z-50 pb-[80px] flex items-end justify-center"
+      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
+      <div className="w-full max-w-lg rounded-t-3xl p-6 pb-10"
+        style={{ background: 'linear-gradient(160deg, #1A1A2E 0%, #2D1B4E 100%)', border: '1px solid rgba(168,85,247,0.2)', borderBottom: 'none' }}>
 
+        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <button
             onClick={step === 'mesa' ? () => setStep('zona') : onClose}
-            className="text-gray-400 hover:text-white transition-colors"
+            className="text-sm font-semibold transition-colors"
+            style={{ color: 'rgba(168,85,247,0.8)' }}
           >
             {step === 'mesa' ? '← Volver' : '✕ Cerrar'}
           </button>
@@ -35,13 +39,20 @@ export default function NuevoPedidoModal({ zones, tables, onClose, onTableSelect
           <div className="w-16" />
         </div>
 
+        {/* Paso 1: zona */}
         {step === 'zona' && (
           <div className="flex flex-col gap-3">
             {zones.map(zone => (
               <button
                 key={zone.id}
                 onClick={() => handleZoneSelect(zone)}
-                className="bg-gray-800 hover:bg-gray-700 text-white rounded-2xl px-5 py-4 text-left font-semibold transition-colors"
+                className="w-full py-4 rounded-2xl text-left px-5 font-semibold text-white transition-all duration-200 active:scale-98"
+                style={{
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(168,85,247,0.2)',
+                }}
+                onMouseEnter={e => e.currentTarget.style.border = '1px solid rgba(168,85,247,0.6)'}
+                onMouseLeave={e => e.currentTarget.style.border = '1px solid rgba(168,85,247,0.2)'}
               >
                 {zone.name}
               </button>
@@ -49,28 +60,32 @@ export default function NuevoPedidoModal({ zones, tables, onClose, onTableSelect
           </div>
         )}
 
+        {/* Paso 2: mesa */}
         {step === 'mesa' && (
-          <>
-            {freeTables.length === 0 ? (
-              <p className="text-gray-400 text-center py-8">
-                No hay mesas disponibles en esta zona
-              </p>
-            ) : (
-              <div className="grid grid-cols-3 gap-3">
-                {freeTables.map(table => (
-                  <button
-                    key={table.id}
-                    onClick={() => handleTableSelect(table)}
-                    className="bg-gray-800 hover:bg-orange-500 text-white rounded-2xl p-4 font-bold transition-colors"
-                  >
-                    {table.is_delivery ? `D-${table.number}` : `Mesa ${table.number}`}
-                  </button>
-                ))}
-              </div>
-            )}
-          </>
+          freeTables.length === 0 ? (
+            <p className="text-center py-8" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              No hay mesas disponibles en esta zona
+            </p>
+          ) : (
+            <div className="grid grid-cols-3 gap-3">
+              {freeTables.map(table => (
+                <button
+                  key={table.id}
+                  onClick={() => handleTableSelect(table)}
+                  className="py-4 rounded-2xl font-bold text-white transition-all duration-200 active:scale-95"
+                  style={{
+                    background: 'rgba(130,10,209,0.2)',
+                    border: '1px solid rgba(130,10,209,0.4)',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(130,10,209,0.4)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(130,10,209,0.2)'}
+                >
+                  {table.is_delivery ? `D-${table.number}` : `Mesa ${table.number}`}
+                </button>
+              ))}
+            </div>
+          )
         )}
-
       </div>
     </div>
   )
