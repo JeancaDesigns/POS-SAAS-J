@@ -8,10 +8,10 @@ export function useDeliveryCount(restaurantId) {
     // Reinicio cada martes — buscar el martes más reciente
     const now = new Date()
     const day = now.getDay() // 0 domingo, 2 martes
-    const daysFromTuesday = (day + 5) % 7 // días desde el último martes
+    const daysFromWednesday = (day + 4) % 7 // días desde el último martes
     const lastTuesday = new Date(now)
-    lastTuesday.setDate(now.getDate() - daysFromTuesday)
-    lastTuesday.setHours(0, 0, 0, 0)
+    lastWednesday.setDate(now.getDate() - daysFromWednesday)
+    lastWednesday.setHours(0, 0, 0, 0)
 
     const { data } = await supabase
       .from('payments')
@@ -19,7 +19,7 @@ export function useDeliveryCount(restaurantId) {
       .eq('restaurant_id', restaurantId)
       .eq('is_delivery', true)
       .eq('voided', false)
-      .gte('created_at', lastTuesday.toISOString())
+      .gte('created_at', lastWednesday.toISOString())
 
     setCount(data?.length || 0)
   }

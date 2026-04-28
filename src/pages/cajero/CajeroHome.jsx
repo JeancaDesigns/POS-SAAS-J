@@ -12,7 +12,7 @@ function useCajaOrders(restaurantId) {
       .from('orders')
       .select('*, table:tables(number, is_delivery, zone:zones(name)), items:order_items(*, product:products(name, price))')
       .eq('restaurant_id', restaurantId)
-      .in('status', ['draft', 'confirmed', 'dispatched'])
+      .in('status', ['draft', 'confirmed','delivered', 'dispatched'])
       .order('started_at', { ascending: true })
 
     setOrders(data || [])

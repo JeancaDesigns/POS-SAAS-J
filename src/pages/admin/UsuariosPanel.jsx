@@ -69,27 +69,30 @@ export default function UsuariosPanel() {
         .eq('id', editUser.id)
     } else {
       // Crear usuario nuevo en auth
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: form.email,
-        password: form.password,
-        email_confirm: true,
+      const { data, error } = await supabase.functions.invoke('create-user', {
+        body: {
+          email: form.email,
+          password: form.password,
+          name: form.name,
+          username: form.username,
+          roles: form.roles,
+          restaurant_id: user.restaurant_id,       
+        }
       })
 
-      if (authError) {
-        setError('Error al crear usuario: ' + authError.message)
+      if (error) {
+        setError('Error al crear usuario:' + error.message)
         setSaving(false)
         return
       }
-
-      await supabase.from('users').insert({
-        id: authData.user.id,
-        restaurant_id: user.restaurant_id,
-        name: form.name,
-        username: form.username,
-        email: form.email,
-        roles: form.roles,
-        active: true,
-      })
+      if (data?.error) {
+        setError(data.error.icludes('already registered')
+          ? 'Este email ya está registrado'
+          : data.error
+        )
+        setSaving(false)
+        return
+      } 
     }
 
     setSaving(false)

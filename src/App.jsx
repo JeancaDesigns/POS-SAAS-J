@@ -52,7 +52,7 @@ export default function App() {
             </ProtectedRoute>
           } />
           <Route path="/cocina" element={
-            <ProtectedRoute roles={['cocina', 'cajero', 'admin']}>
+            <ProtectedRoute roles={['cocina', 'cajero', 'admin', 'mesero']}>
               <CocinaHome />
             </ProtectedRoute>
           } />
