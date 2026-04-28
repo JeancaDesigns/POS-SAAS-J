@@ -30,7 +30,7 @@ function ProtectedRoute({ children, roles }) {
 }
 
 export default function App() {
-  const init = useAuthStore((s) => s.init)
+  const { user, init } = useAuthStore()
 
   useEffect(() => {
     init()
@@ -38,7 +38,7 @@ export default function App() {
 
   return (
     <>
-      <div className='pb-[80px] lg:pb-0 lg:pl-20'>
+      <div className={user ? 'pb-[80px] lg:pb-0 lg:pl-20' : ''}>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/mesero" element={
