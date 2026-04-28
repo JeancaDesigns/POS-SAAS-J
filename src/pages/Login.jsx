@@ -107,91 +107,88 @@ export default function Login() {
         }
       `}</style>
 
-      {/* Logo y nombre */}
-      <div className={`text-center mb-10 transition-all duration-700 ${visible ? 'opacity-100' : 'opacity-0'}`}>
-        <div className="fade-slide">
-          <div className="w-20 h-20 rounded-2xl mx-auto mb-4 flex items-center justify-center text-4xl"
-            style={{ background: 'linear-gradient(135deg, #820AD1, #A855F7)' }}
-          >
-            🍟
+      {/* Contenido Principal */}
+      <div className={`relative z-10 flex flex-col lg:flex-row items-center justify-center gap-12 lg:gap-24 transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+        
+        {/* Lado Izquierdo: Branding */}
+        <div className="text-center lg:text-left">
+          <div className="fade-slide">
+            <div className="w-24 h-24 lg:w-32 lg:h-32 rounded-3xl mx-auto lg:mx-0 mb-6 flex items-center justify-center text-5xl lg:text-6xl shadow-2xl"
+              style={{ background: 'linear-gradient(135deg, #820AD1, #A855F7)' }}
+            >
+              🍟
+            </div>
+          </div>
+          <div className="fade-slide-delay">
+            <h1 className="text-white font-black text-4xl lg:text-6xl tracking-tighter leading-tight">
+              BENDITAS<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">PAPAS</span>
+            </h1>
+            <p className="text-purple-300 text-sm lg:text-base font-medium tracking-[0.3em] mt-4 uppercase opacity-70">
+              Desde 1612
+            </p>
           </div>
         </div>
-        <div className="fade-slide-delay">
-          <h1 className="text-white font-black text-2xl tracking-wide leading-tight">
-            BENDITAS PAPAS
-          </h1>
-          <p className="text-purple-300 text-sm font-medium tracking-widest mt-1">
-            DESDE 1612
-          </p>
+
+        {/* Lado Derecho: Card login */}
+        <div
+          className="w-full max-w-sm rounded-[2.5rem] p-8 lg:p-10 shadow-2xl transition-all duration-700 fade-slide-delay-2"
+          style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(40px)', border: '1px solid rgba(168,85,247,0.15)' }}
+        >
+          <div className="mb-8">
+            <h2 className="text-white text-2xl font-bold">Bienvenido</h2>
+            <p className="text-purple-300/60 text-sm mt-1">Ingresa tus credenciales para continuar</p>
+          </div>
+
+          <div className="flex flex-col gap-5">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-purple-300/50 uppercase ml-1">Usuario</label>
+              <input
+                type="text"
+                placeholder="nombre.usuario"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full rounded-2xl px-5 py-4 text-white outline-none transition-all duration-300 bg-white/5 border border-white/10 focus:border-purple-500 focus:bg-white/10"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-purple-300/50 uppercase ml-1">Contraseña</label>
+              <input
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+                className="w-full rounded-2xl px-5 py-4 text-white outline-none transition-all duration-300 bg-white/5 border border-white/10 focus:border-purple-500 focus:bg-white/10"
+              />
+            </div>
+
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xl py-3 px-4">
+                <p className="text-red-400 text-xs text-center font-medium">{error}</p>
+              </div>
+            )}
+
+            <button
+              onClick={handleLogin}
+              disabled={loading}
+              className="w-full text-white font-bold rounded-2xl py-4 transition-all duration-300 disabled:opacity-50 mt-4 relative overflow-hidden group"
+              style={{
+                background: 'linear-gradient(135deg, #820AD1, #A855F7)',
+                boxShadow: '0 10px 25px -5px rgba(130,10,209,0.5)',
+              }}
+            >
+              <span className="relative z-10">{loading ? 'Verificando...' : 'Acceder al Sistema'}</span>
+              <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity" />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Card login */}
-      <div
-        className={`w-full max-w-sm rounded-3xl p-6 shadow-2xl transition-all duration-700 fade-slide-delay-2`}
-        style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(20px)', border: '1px solid rgba(168,85,247,0.2)' }}
-      >
-        <p className="text-purple-300 text-sm text-center mb-6 font-medium">
-          Acceso al sistema
-        </p>
-
-        <div className="flex flex-col gap-4">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Usuario"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full rounded-xl px-4 py-3 text-white outline-none transition-all duration-200"
-              style={{
-                background: 'rgba(255,255,255,0.08)',
-                border: '1px solid rgba(168,85,247,0.3)',
-              }}
-              onFocus={e => e.target.style.border = '1px solid #820AD1'}
-              onBlur={e => e.target.style.border = '1px solid rgba(168,85,247,0.3)'}
-            />
-          </div>
-
-          <div className="relative">
-            <input
-              type="password"
-              placeholder="Contraseña"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-              className="w-full rounded-xl px-4 py-3 text-white outline-none transition-all duration-200"
-              style={{
-                background: 'rgba(255,255,255,0.08)',
-                border: '1px solid rgba(168,85,247,0.3)',
-              }}
-              onFocus={e => e.target.style.border = '1px solid #820AD1'}
-              onBlur={e => e.target.style.border = '1px solid rgba(168,85,247,0.3)'}
-            />
-          </div>
-
-          {error && (
-            <p className="text-red-400 text-sm text-center">{error}</p>
-          )}
-
-          <button
-            onClick={handleLogin}
-            disabled={loading}
-            className="w-full text-white font-bold rounded-xl py-3 transition-all duration-200 disabled:opacity-50 mt-2"
-            style={{
-              background: 'linear-gradient(135deg, #820AD1, #A855F7)',
-              boxShadow: '0 4px 20px rgba(130,10,209,0.4)',
-            }}
-            onMouseEnter={e => e.target.style.boxShadow = '0 4px 30px rgba(130,10,209,0.7)'}
-            onMouseLeave={e => e.target.style.boxShadow = '0 4px 20px rgba(130,10,209,0.4)'}
-          >
-            {loading ? 'Entrando...' : 'Entrar'}
-          </button>
-        </div>
-      </div>
-
-      <p className="text-purple-900 text-xs mt-8 fade-slide-delay-2">
-        Sistema POS — Powered by Jeanca Dev
+      <p className="absolute bottom-8 text-purple-300/20 text-xs tracking-widest uppercase font-bold fade-slide-delay-2">
+        Powered by Jeanca Dev — POS System v2.0
       </p>
+
 
     </div>
   )
