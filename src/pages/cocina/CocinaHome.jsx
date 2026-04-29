@@ -2,6 +2,26 @@ import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useAuthStore } from '../../store/authStore'
 
+// Fuente Caveat
+const fontLink = document.createElement('link')
+fontLink.href = 'https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&display=swap'
+fontLink.rel = 'stylesheet'
+document.head.appendChild(fontLink)
+
+const PASTEL_COLORS = [
+  { bg: '#FFF9C4', border: '#F9E04B', pin: '#E53935' },
+  { bg: '#C8F6C8', border: '#81C784', pin: '#388E3C' },
+  { bg: '#B3E5FC', border: '#4FC3F7', pin: '#0288D1' },
+  { bg: '#FFCDD2', border: '#EF9A9A', pin: '#C62828' },
+  { bg: '#E1BEE7', border: '#CE93D8', pin: '#6A1B9A' },
+  { bg: '#FFE0B2', border: '#FFCC80', pin: '#E65100' },
+]
+
+function getPastelColor(orderId) {
+  const idx = orderId.charCodeAt(0) % PASTEL_COLORS.length
+  return PASTEL_COLORS[idx]
+}
+
 function playPing() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)()
@@ -15,7 +35,7 @@ function playPing() {
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6)
     osc.start(ctx.currentTime)
     osc.stop(ctx.currentTime + 0.6)
-  } catch (e) { }
+  } catch (e) {}
 }
 
 function timeAgo(dateStr) {
@@ -32,78 +52,135 @@ function timeDuration(startStr, endStr) {
   return `${diff} min`
 }
 
+function isDelayed(dateStr) {
+  return (Date.now() - new Date(dateStr)) / 1000 / 60 > 60
+}
+
 function useCountdown(targetStr) {
   const [display, setDisplay] = useState('')
-
   useEffect(() => {
     if (!targetStr) return
     function update() {
       const diff = Math.floor((new Date(targetStr) - Date.now()) / 1000)
-      if (diff <= 0) {
-        setDisplay('¡Ya!')
-        return
-      }
+      if (diff <= 0) { setDisplay('¡Ya!'); return }
       const h = Math.floor(diff / 3600)
       const m = Math.floor((diff % 3600) / 60)
       const s = diff % 60
-      setDisplay(h > 0
-        ? `${h}h ${m}m`
-        : `${m}m ${String(s).padStart(2, '0')}s`
-      )
+      setDisplay(h > 0 ? `${h}h ${m}m` : `${m}m ${String(s).padStart(2, '0')}s`)
     }
     update()
     const interval = setInterval(update, 1000)
     return () => clearInterval(interval)
   }, [targetStr])
-
   return display
 }
 
-function isDelayed(dateStr) {
-  return (Date.now() - new Date(dateStr)) / 1000 / 60 > 60
-}
-
-function ScheduledCard({ order, kItems, pending, isCancelled, delayed, isScheduled, scheduledPast, tableName, onClick }) {
+function NotaPin({ order, onClick, isActive }) {
+  const color = getPastelColor(order.id)
   const countdown = useCountdown(order.scheduled_for)
+  const isCancelled = order.status === 'cancelled'
+  const delayed = isDelayed(order.started_at)
+  const isScheduled = !!order.scheduled_for && new Date(order.scheduled_for) > Date.now()
+
+  const kitchenItems = order.items.filter(i =>
+    i.product?.category?.icon !== '🥤' && i.status !== 'cancelled'
+  )
+  const pending = kitchenItems.filter(i => i.status !== 'done').length
 
   return (
-    <button
+    <div
       onClick={onClick}
-      className={`rounded-2xl p-4 text-left transition-colors border
-        ${isCancelled
-          ? 'bg-red-950/50 border-red-500/50 hover:border-red-400'
-          : isScheduled && !scheduledPast
-            ? 'bg-blue-950/30 border-blue-500/50 hover:border-blue-400'
-            : delayed
-              ? 'bg-gray-900 border-red-500 hover:border-orange-500'
-              : 'bg-gray-900 border-gray-800 hover:border-orange-500'
-        }`}
+      className="relative cursor-pointer transition-transform duration-200 hover:-translate-y-1 active:scale-95"
+      style={{ filter: isActive ? 'brightness(1)' : 'brightness(0.85)' }}
     >
-      <div className="flex justify-between items-start mb-2">
-        <span className="font-bold text-sm">{tableName(order)}</span>
-        {isCancelled && (
-          <span className="text-xs bg-red-500/20 text-red-400 rounded-full px-2 py-0.5">Cancelado</span>
-        )}
-        {isScheduled && !scheduledPast && (
-          <span className="text-xs bg-blue-500/20 text-blue-400 rounded-full px-2 py-0.5">
+      {/* Pin */}
+      <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
+        <div className="w-5 h-5 rounded-full flex items-center justify-center shadow-md"
+          style={{ background: isCancelled ? '#B71C1C' : color.pin }}>
+          <div className="w-2 h-2 rounded-full bg-white opacity-60" />
+        </div>
+        <div className="w-0.5 h-3 mx-auto" style={{ background: color.pin, opacity: 0.6 }} />
+      </div>
+
+      {/* Papel */}
+      <div
+        className="rounded-sm shadow-lg pt-4 px-4 pb-4 min-w-36 max-w-44"
+        style={{
+          background: isCancelled ? '#FFCDD2' : color.bg,
+          border: `2px solid ${isCancelled ? '#EF9A9A' : color.border}`,
+          fontFamily: "'Caveat', cursive",
+          transform: `rotate(${(order.id.charCodeAt(1) % 7) - 3}deg)`,
+          boxShadow: '3px 4px 10px rgba(0,0,0,0.2)',
+        }}
+      >
+        {/* Mesa */}
+        <p className="font-bold text-lg leading-tight mb-1"
+          style={{ color: '#2D1B0E', fontFamily: "'Caveat', cursive" }}>
+          {order.table?.is_delivery
+            ? `🛵 D-${order.table.number}`
+            : `Mesa ${order.table?.number}`}
+          {order.table?.is_delivery && order.customer_name && (
+            <span className="block text-sm font-normal">{order.customer_name}</span>
+          )}
+        </p>
+
+        {/* Tiempo */}
+        <p className="text-sm mb-2"
+          style={{ color: delayed ? '#C62828' : '#5D4037', fontFamily: "'Caveat', cursive" }}>
+          {delayed ? `⚠️ ${timeAgo(order.started_at)}` : timeAgo(order.started_at)}
+        </p>
+
+        {/* Programado */}
+        {isScheduled && (
+          <p className="text-sm mb-2" style={{ color: '#1565C0', fontFamily: "'Caveat', cursive" }}>
             🕐 {new Date(order.scheduled_for).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
-          </span>
+            {' '}({countdown})
+          </p>
         )}
-        {delayed && !isCancelled && !isScheduled && (
-          <span className="text-xs bg-red-500/20 text-red-400 rounded-full px-2 py-0.5">⚠️ +1h</span>
+
+        {/* Separador */}
+        <div className="border-t border-dashed mb-2" style={{ borderColor: color.border }} />
+
+        {/* Ítems */}
+        {isCancelled ? (
+          <p className="text-base font-bold" style={{ color: '#C62828', fontFamily: "'Caveat', cursive" }}>
+            ✕ Cancelado
+          </p>
+        ) : (
+          <div className="flex flex-col gap-0.5">
+            {kitchenItems.slice(0, 4).map(item => (
+              <p key={item.id} className="text-base leading-snug"
+                style={{
+                  color: item.status === 'done' ? '#9E9E9E' : '#2D1B0E',
+                  textDecoration: item.status === 'done' ? 'line-through' : 'none',
+                  fontFamily: "'Caveat', cursive",
+                }}>
+                {item.quantity}x {item.product.name}
+              </p>
+            ))}
+            {kitchenItems.length > 4 && (
+              <p className="text-sm" style={{ color: '#795548', fontFamily: "'Caveat', cursive" }}>
+                +{kitchenItems.length - 4} más...
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Pendientes */}
+        {!isCancelled && (
+          <p className="text-sm mt-2" style={{ color: '#795548', fontFamily: "'Caveat', cursive" }}>
+            {pending} pendiente{pending !== 1 ? 's' : ''}
+          </p>
+        )}
+
+        {/* Adición */}
+        {order.is_addition && (
+          <p className="text-sm mt-1 font-bold" style={{ color: '#1565C0', fontFamily: "'Caveat', cursive" }}>
+            ⚡ Adición
+          </p>
         )}
       </div>
-      {!isCancelled && (
-        <p className="text-gray-400 text-sm">{kItems.length} ítems · {pending} pendientes</p>
-      )}
-      {isScheduled && !scheduledPast ? (
-        <p className="text-blue-400 text-xs mt-1">Faltan {countdown}</p>
-      ) : (
-        <p className={`text-xs mt-1 ${delayed ? 'text-red-400' : 'text-orange-400'}`}>
-          {timeAgo(order.started_at)}
-        </p>
-      )}
-    </button>
+    </div>
   )
 }
 
@@ -119,23 +196,13 @@ export default function CocinaHome() {
   async function fetchOrders() {
     const { data } = await supabase
       .from('orders')
-      .select(`
-        *,
-        table:tables(number, is_delivery, zone:zones(name)),
-        items:order_items(
-          *,
-          product:products(name, category_id,
-            category:categories(name, icon))
-        )
-      `)
+      .select('*, table:tables(number, is_delivery, zone:zones(name)), items:order_items(*, product:products(name, category_id, category:categories(name, icon)))')
       .eq('restaurant_id', user.restaurant_id)
       .in('status', ['confirmed', 'delivered', 'cancelled'])
-      .neq('status', 'voided')
       .order('started_at', { ascending: true })
 
     const newOrders = data || []
 
-    // Detectar cambios en pedido activo
     if (activeOrderId) {
       const updated = newOrders.find(o => o.id === activeOrderId)
       if (updated) {
@@ -166,16 +233,16 @@ export default function CocinaHome() {
   }, [])
 
   useEffect(() => {
-      const filtered = orders.filter(o => {
-        if (o.status !== 'delivered' && o.status !== 'dispatched') return true
-        const deliveredAt = new Date(o.delivered_at)
-        const hoursAgo = (Date.now() - deliveredAt) / 1000 / 3600
+    const interval = setInterval(() => {
+      const now = Date.now()
+      setOrders(prev => prev.filter(o => {
+        if (o.status !== 'delivered') return true
+        const hoursAgo = (now - new Date(o.delivered_at)) / 1000 / 3600
         return hoursAgo < 12
-      })
-      if (filtered.length !== orders.length) {
-        setOrders(filtered)
-      }
-  }, [orders])
+      }))
+    }, 60000)
+    return () => clearInterval(interval)
+  }, [])
 
   async function markItemDone(itemId) {
     await supabase.from('order_items').update({ status: 'done' }).eq('id', itemId)
@@ -203,9 +270,7 @@ export default function CocinaHome() {
   }
 
   function tableName(order) {
-    if (order.table?.is_delivery) {
-      return `Domicilio ${order.table.number}${order.customer_name ? ` -- ${order.customer_name}`:''}`
-    }
+    if (order.table?.is_delivery) return `Domicilio ${order.table.number}${order.customer_name ? ` — ${order.customer_name}` : ''}`
     return `Mesa ${order.table?.number} — ${order.table?.zone?.name}`
   }
 
@@ -213,150 +278,215 @@ export default function CocinaHome() {
   const deliveredOrders = orders.filter(o => o.status === 'delivered')
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-
-      <div className="px-6 pt-6 pb-4 border-b border-gray-800 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Cocina</h1>
-        <span className="text-gray-400 text-sm">{activeOrders.length} pedidos activos</span>
+    <div className="min-h-screen flex flex-col pb-20"
+      style={{
+        background: '#C8A97E',
+        backgroundImage: `
+          radial-gradient(ellipse at 20% 30%, rgba(180,140,100,0.4) 0%, transparent 60%),
+          radial-gradient(ellipse at 80% 70%, rgba(150,110,70,0.3) 0%, transparent 60%),
+          repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 2px,
+            rgba(150,100,50,0.05) 2px,
+            rgba(150,100,50,0.05) 4px
+          )
+        `,
+      }}
+    >
+      {/* Header */}
+      <div className="px-6 pt-6 pb-4 flex items-center justify-between"
+        style={{ borderBottom: '2px solid rgba(101,67,33,0.3)' }}>
+        <h1 className="font-bold text-2xl" style={{ color: '#3E2723', fontFamily: "'Caveat', cursive" }}>
+          📋 Cocina
+        </h1>
+        <span className="text-sm font-semibold px-3 py-1 rounded-full"
+          style={{ background: 'rgba(62,39,35,0.15)', color: '#3E2723', fontFamily: "'Caveat', cursive" }}>
+          {activeOrders.length} pedidos
+        </span>
       </div>
 
-      {/* Vista general */}
+      {/* Vista general — tablero de corcho */}
       {!activeOrderId && (
-        <div className="p-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+        <div className="flex-1 p-6">
           {activeOrders.length === 0 && deliveredOrders.length === 0 && (
-            <p className="text-gray-500 col-span-full text-center py-16">Sin pedidos activos</p>
+            <p className="text-center py-16 text-xl"
+              style={{ color: 'rgba(62,39,35,0.4)', fontFamily: "'Caveat', cursive" }}>
+              Sin pedidos activos
+            </p>
           )}
 
-          {activeOrders.map(order => {
-            const kItems = kitchenItems(order)
-            const pending = kItems.filter(i => i.status !== 'done' && i.status !== 'cancelled').length
-            const isCancelled = order.status === 'cancelled'
-            const delayed = isDelayed(order.started_at)
-            const isScheduled = !!order.scheduled_for
-            const scheduledPast = isScheduled && new Date(order.scheduled_for) <= Date.now()
-
-            return (
-              <ScheduledCard
+          {/* Notas activas */}
+          <div className="flex flex-wrap gap-8 pt-4">
+            {activeOrders.map(order => (
+              <NotaPin
                 key={order.id}
                 order={order}
-                kItems={kItems}
-                pending={pending}
-                isCancelled={isCancelled}
-                delayed={delayed}
-                isScheduled={isScheduled}
-                scheduledPast={scheduledPast}
-                tableName={tableName}
                 onClick={() => setActiveOrderId(order.id)}
+                isActive={true}
               />
-            )
-          })}
-
-          {deliveredOrders.map(order => (
-            <div
-              key={order.id}
-              className="rounded-2xl p-4 border border-green-800/30 bg-green-950/20 opacity-50"
-            >
-              <div className="flex justify-between items-start mb-2">
-                <span className="font-bold text-green-400 text-sm">{tableName(order)}</span>
-                <span className="text-xs bg-green-500/20 text-green-400 rounded-full px-2 py-0.5">
-                  Entregado
-                </span>
-              </div>
-              <p className="text-gray-500 text-xs">
-                Tardó {timeDuration(order.started_at, order.delivered_at)}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Vista detallada */}
-      {activeOrderId && activeOrder && (
-        <div className={`p-6 max-w-2xl mx-auto transition-all duration-150 ${flashing ? 'bg-orange-500/10' : ''}`}>
-          <div className="flex items-center justify-between mb-6">
-            <button onClick={() => setActiveOrderId(null)} className="text-gray-400 hover:text-white">
-              ← Todos
-            </button>
-            <h2 className="text-xl font-bold">{tableName(activeOrder)}</h2>
-            <span className={`text-sm ${isDelayed(activeOrder.started_at) ? 'text-red-400' : 'text-orange-400'}`}>
-              {timeAgo(activeOrder.started_at)}
-            </span>
+            ))}
           </div>
 
-          {activeOrder.is_addition && (
-            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl px-4 py-2 mb-4 text-blue-400 text-sm">
-              ⚡ Adición posterior — pedido inicial ya entregado
-            </div>
-          )}
-
-          {isDelayed(activeOrder.started_at) && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-2 mb-4 text-red-400 text-sm">
-              ⚠️ Este pedido lleva más de 1 hora esperando
-            </div>
-          )}
-
-          {activeOrder.status === 'cancelled' ? (
-            <>
-              <div className="bg-red-950/50 border border-red-500/30 rounded-2xl p-4 mb-6">
-                <p className="text-red-400 font-semibold mb-3">Pedido cancelado por el mesero</p>
-                <div className="flex flex-col gap-2">
-                  {kitchenItems(activeOrder).map(item => (
-                    <p key={item.id} className="text-gray-500 line-through text-sm">
-                      {item.quantity}x {item.product.name}
-                    </p>
-                  ))}
-                </div>
-              </div>
-              <button
-                onClick={() => discardCancelledOrder(activeOrder)}
-                className="w-full bg-red-500 hover:bg-red-400 text-white font-bold rounded-2xl py-4 text-lg transition-colors"
-              >
-                Aceptar y desechar
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="flex flex-col gap-3 mb-8">
-                {kitchenItems(activeOrder).map(item => {
-                  const isCancelled = item.status === 'cancelled'
-                  const isDone = item.status === 'done'
-                  return (
-                    <div
-                      key={item.id}
-                      className={`rounded-2xl p-4 flex items-center justify-between transition-colors
-                        ${isCancelled ? 'bg-red-950/30 opacity-60' : isDone ? 'bg-gray-800/50 opacity-50' : 'bg-gray-900'}`}
-                    >
-                      <div>
-                        <p className={`font-semibold text-lg
-                          ${isCancelled ? 'line-through text-red-400' : isDone ? 'line-through text-gray-500' : 'text-white'}`}>
-                          {item.quantity}x {item.product.name}
-                        </p>
-                        {item.note && (
-                          <p className="text-yellow-400 text-sm mt-1">📝 {item.note}</p>
-                        )}
-                      </div>
-                      {!isDone && !isCancelled && (
-                        <button
-                          onClick={() => markItemDone(item.id)}
-                          className="bg-green-500 hover:bg-green-400 text-white rounded-xl px-4 py-2 font-semibold transition-colors"
-                        >
-                          Listo
-                        </button>
-                      )}
+          {/* Entregados — más pequeños y opacos abajo */}
+          {deliveredOrders.length > 0 && (
+            <div className="mt-8">
+              <p className="text-sm mb-4 font-semibold"
+                style={{ color: 'rgba(62,39,35,0.5)', fontFamily: "'Caveat', cursive" }}>
+                — Entregados —
+              </p>
+              <div className="flex flex-wrap gap-6 opacity-40">
+                {deliveredOrders.map(order => (
+                  <div key={order.id} className="relative">
+                    <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-10">
+                      <div className="w-4 h-4 rounded-full" style={{ background: '#9E9E9E' }} />
                     </div>
-                  )
-                })}
+                    <div className="rounded-sm px-3 py-2 text-sm shadow"
+                      style={{
+                        background: '#F5F5F5',
+                        border: '1px solid #E0E0E0',
+                        fontFamily: "'Caveat', cursive",
+                        transform: `rotate(${(order.id.charCodeAt(2) % 5) - 2}deg)`,
+                      }}>
+                      <p className="font-bold" style={{ color: '#757575' }}>{tableName(order)}</p>
+                      <p className="text-xs" style={{ color: '#9E9E9E' }}>
+                        Tardó {timeDuration(order.started_at, order.delivered_at)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <button
-                onClick={() => markOrderDone(activeOrder)}
-                className="w-full bg-green-500 hover:bg-green-400 text-white font-bold rounded-2xl py-4 text-lg transition-colors"
-              >
-                ✓ Pedido completo — entregar
-              </button>
-            </>
+            </div>
           )}
         </div>
       )}
-    </div>
-  )
-}
+
+      {/* Vista detallada — nota ampliada */}
+      {activeOrderId && activeOrder && (() => {
+        const color = getPastelColor(activeOrder.id)
+        const isCancelled = activeOrder.status === 'cancelled'
+        const kItems = kitchenItems(activeOrder)
+
+        return (
+          <div className={`flex-1 flex flex-col p-4 transition-all duration-150 ${flashing ? 'brightness-110' : ''}`}>
+            <div className="max-w-lg mx-auto w-full flex flex-col flex-1">
+
+              {/* Nota grande */}
+              <div className="relative flex-1 rounded-lg shadow-2xl p-6 flex flex-col"
+                style={{
+                  background: isCancelled ? '#FFCDD2' : color.bg,
+                  border: `3px solid ${isCancelled ? '#EF9A9A' : color.border}`,
+                  fontFamily: "'Caveat', cursive",
+                  boxShadow: '6px 8px 20px rgba(0,0,0,0.25)',
+                }}>
+
+                {/* Pin grande */}
+                <div className="absolute -top-5 left-1/2 -translate-x-1/2">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center shadow-lg"
+                    style={{ background: isCancelled ? '#B71C1C' : color.pin }}>
+                    <div className="w-3 h-3 rounded-full bg-white opacity-60" />
+                  </div>
+                  <div className="w-1 h-4 mx-auto" style={{ background: color.pin, opacity: 0.6 }} />
+                </div>
+
+                {/* Header nota */}
+                <div className="flex items-start justify-between mb-4 mt-2">
+                  <div>
+                    <h2 className="text-3xl font-bold leading-tight" style={{ color: '#2D1B0E' }}>
+                      {activeOrder.table?.is_delivery
+                        ? `🛵 D-${activeOrder.table.number}`
+                        : `Mesa ${activeOrder.table?.number}`}
+                    </h2>
+                    {activeOrder.table?.is_delivery && activeOrder.customer_name && (
+                      <p className="text-xl" style={{ color: '#5D4037' }}>{activeOrder.customer_name}</p>
+                    )}
+                    <p className="text-lg mt-1"
+                      style={{ color: isDelayed(activeOrder.started_at) ? '#C62828' : '#795548' }}>
+                      {isDelayed(activeOrder.started_at) ? `⚠️ ${timeAgo(activeOrder.started_at)}` : timeAgo(activeOrder.started_at)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setActiveOrderId(null)}
+                    className="text-2xl font-bold px-3 py-1 rounded-lg transition-all"
+                    style={{ color: '#795548', background: 'rgba(0,0,0,0.08)' }}
+                  >
+                    ←
+                  </button>
+                </div>
+
+                {activeOrder.is_addition && (
+                  <p className="text-xl font-bold mb-3" style={{ color: '#1565C0' }}>⚡ Adición posterior</p>
+                )}
+
+                {isDelayed(activeOrder.started_at) && (
+                  <p className="text-lg mb-3 font-bold" style={{ color: '#C62828' }}>⚠️ Más de 1 hora esperando</p>
+                )}
+
+                <div className="border-t-2 border-dashed mb-4" style={{ borderColor: color.border }} />
+
+                {/* Ítems */}
+                {isCancelled ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <p className="text-3xl font-bold text-center" style={{ color: '#C62828' }}>
+                      ✕ Pedido Cancelado
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col gap-3 overflow-y-auto">
+                    {kItems.map(item => {
+                      const isCancelledItem = item.status === 'cancelled'
+                      const isDone = item.status === 'done'
+                      return (
+                        <div key={item.id} className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <p className="text-2xl leading-snug"
+                              style={{
+                                color: isCancelledItem ? '#EF9A9A' : isDone ? '#9E9E9E' : '#2D1B0E',
+                                textDecoration: isCancelledItem || isDone ? 'line-through' : 'none',
+                              }}>
+                              {item.quantity}x {item.product.name}
+                            </p>
+                            {item.note && (
+                              <p className="text-lg" style={{ color: '#795548' }}>
+                                📝 {item.note}
+                              </p>
+                            )}
+                          </div>
+                          {!isDone && !isCancelledItem && (
+                            <button
+                              onClick={() => markItemDone(item.id)}
+                              className="ml-3 px-4 py-2 rounded-xl font-bold text-white text-lg transition-all active:scale-95"
+                              style={{ background: '#388E3C', fontFamily: "'Caveat', cursive" }}
+                            >
+                              ✓
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                <div className="border-t-2 border-dashed mt-4 pt-4" style={{ borderColor: color.border }}>
+                  {isCancelled ? (
+                    <button
+                      onClick={() => discardCancelledOrder(activeOrder)}
+                      className="w-full py-4 rounded-xl font-bold text-white text-xl transition-all active:scale-95"
+                      style={{ background: '#C62828', fontFamily: "'Caveat', cursive" }}
+                    >
+                      Aceptar y desechar
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => markOrderDone(activeOrder)}
+                      className="w-full py-4 rounded-xl font-bold text-white text-xl transition-all active:scale-95"
+                      style={{ background: '#388E3C', fontFamily: "'Caveat', cursive" }}
+                    >
+                      ✓ Pedido listo — entregar
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        
