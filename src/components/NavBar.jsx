@@ -6,7 +6,7 @@ const NAV_ITEMS = {
   mesero: { path: '/mesero', label: 'Mesas', icon: '🍽️' },
   caja: { path: '/caja', label: 'Caja', icon: '💰' },
   cocina: { path: '/cocina', label: 'Cocina', icon: '👨‍🍳' },
-  domiciliario: { path: '/domiciliario', label: 'Domicilios', icon: '🛵' },
+  domiciliario: { path: '/domiciliario', label: 'Domis', icon: '🛵' },
   admin: { path: '/admin', label: 'Admin', icon: '⚙️' },
 }
 
@@ -51,7 +51,7 @@ export default function NavBar() {
             <button
               key={tab}
               onClick={() => navigate(item.path)}
-              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors
+              className={`flex flex-col cursor-pointer items-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors
                 ${isActive
                   ? 'text-orange-500 bg-orange-500/10 lg:bg-transparent'
                   : 'text-gray-500 hover:text-gray-300'
@@ -66,7 +66,7 @@ export default function NavBar() {
       <div className="lg:mt-auto lg:pb-4">
         <button
           onClick={handleLogout}
-          className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-gray-500 hover:text-red-400 transition-colors"
+          className="flex flex-col cursor-pointer items-center gap-0.5 px-3 py-1.5 rounded-xl text-gray-500 hover:text-red-400 transition-colors"
         >
           <span className="text-xl lg:text-2xl">🚪</span>
           <span className="text-[10px] lg:text-xs font-medium">Salir</span>

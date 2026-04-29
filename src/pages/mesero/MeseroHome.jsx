@@ -131,7 +131,7 @@ export default function MeseroHome() {
             <button
               key={zone.id}
               onClick={() => setActiveZone(zone.id)}
-              className="px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200"
+              className="px-4 py-2 cursor-pointer rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200"
               style={displayZone === zone.id
                 ? { background: 'linear-gradient(135deg, #820AD1, #A855F7)', color: 'white' }
                 : { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)' }
@@ -166,7 +166,7 @@ export default function MeseroHome() {
 
       {/* Botón flotante */}
       <button
-        className="fixed bottom-24 right-6 w-14 h-14 rounded-full flex items-center justify-center text-white text-2xl font-bold z-20 active:scale-95 transition-transform duration-150"
+        className="fixed bottom-6 cursor-pointer right-6 w-14 h-14 rounded-full flex items-center justify-center text-white text-2xl font-bold z-20 active:scale-95 transition-transform duration-150"
         style={{
           background: 'linear-gradient(135deg, #820AD1, #A855F7)',
           boxShadow: '0 4px 24px rgba(130,10,209,0.6)',

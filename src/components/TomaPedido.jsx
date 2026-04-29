@@ -15,6 +15,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
   const [customerPhone, setCustomerPhone] = useState('')
   const [deliveryType, setDeliveryType] = useState('delivery')
   const [confirming, setConfirming] = useState(false)
+  const [headerCollapsed, setHeaderCollapsed] = useState(false)
 
   const displayCategory = activeCategory || categories[0]?.id
   const categoryProducts = products.filter(
@@ -99,228 +100,253 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-6"
       style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}>
-      
+
       <div className="w-full h-full md:max-w-4xl md:h-[90vh] md:rounded-3xl flex flex-col relative overflow-hidden shadow-2xl"
         style={{ background: 'linear-gradient(160deg, #1A1A2E 0%, #2D1B4E 100%)' }}>
 
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-6 pb-3"
-        style={{ borderBottom: '1px solid rgba(168,85,247,0.15)' }}>
-        <button onClick={onClose} style={{ color: 'rgba(168,85,247,0.8)' }} className="text-sm font-semibold">
-          ← Volver
-        </button>
-        <h2 className="text-white font-bold text-lg">
-          {table.is_delivery ? `Domicilio ${table.number}` : `Mesa ${table.number}`}
-        </h2>
-        <div className="w-16" />
-      </div>
+        {/* Header fijo */}
+        <div style={{ borderBottom: '1px solid rgba(168,85,247,0.15)' }}>
 
-      {/* Datos domicilio */}
-      {table.is_delivery && (
-        <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(168,85,247,0.15)' }}>
-          <p className="text-xs font-semibold mb-2" style={{ color: 'rgba(168,85,247,0.7)' }}>
-            DATOS DEL CLIENTE
-          </p>
-          <div className="flex flex-col gap-2">
-            <input
-              type="text"
-              placeholder="Nombre del cliente *"
-              value={customerName}
-              onChange={e => setCustomerName(e.target.value)}
-              className="w-full rounded-xl px-4 py-2.5 text-white text-sm outline-none"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(168,85,247,0.2)' }}
-              onFocus={e => e.target.style.border = '1px solid #820AD1'}
-              onBlur={e => e.target.style.border = '1px solid rgba(168,85,247,0.2)'}
-            />
-            <input
-              type="tel"
-              placeholder="Teléfono (opcional)"
-              value={customerPhone}
-              onChange={e => setCustomerPhone(e.target.value)}
-              className="w-full rounded-xl px-4 py-2.5 text-white text-sm outline-none"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(168,85,247,0.2)' }}
-              onFocus={e => e.target.style.border = '1px solid #820AD1'}
-              onBlur={e => e.target.style.border = '1px solid rgba(168,85,247,0.2)'}
-            />
-            <div className="flex gap-2 mt-1">
-              {[
-                { key: 'delivery', label: '🛵 A domicilio' },
-                { key: 'pickup', label: '🏠 Recoge en local' },
-              ].map(opt => (
-                <button
-                  key={opt.key}
-                  onClick={() => setDeliveryType(opt.key)}
-                  className="flex-1 py-2 rounded-xl text-sm font-semibold transition-all duration-200"
-                  style={deliveryType === opt.key
-                    ? { background: 'linear-gradient(135deg, #820AD1, #A855F7)', color: 'white' }
-                    : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(168,85,247,0.2)' }
-                  }
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+          {/* Barra superior siempre visible */}
+          <div className="flex items-center justify-between px-4 pt-6 pb-3">
+            <button onClick={onClose} style={{ color: 'rgba(168,85,247,0.8)' }} className="text-sm cursor-pointer font-semibold">
+              ← Volver
+            </button>
+            <h2 className="text-white font-bold text-lg">
+              {table.is_delivery ? `Domicilio ${table.number}` : `Mesa ${table.number}`}
+            </h2>
+            {table.is_delivery ? (
+              <button
+                onClick={() => setHeaderCollapsed(prev => !prev)}
+                className="text-sm font-semibold cursor-pointer px-3 py-1 rounded-full transition-all"
+                style={{
+                  background: headerCollapsed
+                    ? 'rgba(130,10,209,0.3)'
+                    : 'rgba(255,255,255,0.08)',
+                  color: headerCollapsed ? '#D1A7F7' : 'rgba(255,255,255,0.5)',
+                  border: '1px solid rgba(168,85,247,0.2)',
+                }}
+              >
+                {headerCollapsed ? '+ Datos' : '− Ocultar'}
+              </button>
+            ) : (
+              <div className="w-16" />
+            )}
           </div>
-        </div>
-      )}
 
-      {/* Tabs categorías */}
-      <div className="flex gap-2 px-4 py-3 overflow-x-auto"
-        style={{ borderBottom: '1px solid rgba(168,85,247,0.15)' }}>
-        {categories.map(cat => (
-          <button
-            key={cat.id}
-            onClick={() => setActiveCategory(cat.id)}
-            className="px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200"
-            style={displayCategory === cat.id
-              ? { background: 'linear-gradient(135deg, #820AD1, #A855F7)', color: 'white' }
-              : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' }
-            }
-          >
-            {cat.icon && <span className="mr-1">{cat.icon}</span>}
-            {cat.name}
-          </button>
-        ))}
-      </div>
-
-      {/* Productos */}
-      <div className="flex-1 overflow-y-auto px-4 py-3">
-        {categoryProducts.length === 0 ? (
-          <p className="text-center py-12" style={{ color: 'rgba(255,255,255,0.3)' }}>
-            Sin productos disponibles
-          </p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {categoryProducts.map(product => {
-              const qty = getQuantity(product.id)
-              const item = items.find(i => i.product.id === product.id)
-              return (
-                <div key={product.id} className="rounded-2xl p-4"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(168,85,247,0.1)' }}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-white font-semibold">{product.name}</p>
-                      <p className="text-sm font-bold mt-0.5" style={{ color: '#A855F7' }}>
-                        ${product.price.toLocaleString('es-CO')}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {qty > 0 && (
-                        <>
-                          <button
-                            onClick={() => removeProduct(product.id)}
-                            className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white transition-all"
-                            style={{ background: 'rgba(220,38,38,0.3)', border: '1px solid rgba(220,38,38,0.4)' }}
-                          >
-                            −
-                          </button>
-                          <span className="text-white font-bold w-4 text-center">{qty}</span>
-                        </>
-                      )}
-                      <button
-                        onClick={() => addProduct(product)}
-                        className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white transition-all"
-                        style={{ background: 'linear-gradient(135deg, #820AD1, #A855F7)' }}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                  {qty > 0 && (
-                    <div className="mt-2">
-                      {noteTarget === product.id ? (
-                        <input
-                          autoFocus
-                          type="text"
-                          placeholder="Ej: sin cebolla"
-                          value={item?.note || ''}
-                          onChange={e => updateNote(product.id, e.target.value)}
-                          onBlur={() => setNoteTarget(null)}
-                          className="w-full rounded-xl px-3 py-1.5 text-white text-sm outline-none"
-                          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(168,85,247,0.3)' }}
-                        />
-                      ) : (
-                        <button
-                          onClick={() => setNoteTarget(product.id)}
-                          className="text-xs transition-colors"
-                          style={{ color: item?.note ? '#A855F7' : 'rgba(255,255,255,0.3)' }}
-                        >
-                          {item?.note ? `📝 ${item.note}` : '+ Agregar nota'}
-                        </button>
-                      )}
-                    </div>
-                  )}
+          {/* Datos domicilio — colapsable */}
+          {table.is_delivery && !headerCollapsed && (
+            <div className="px-4 pb-3">
+              {/* Resumen colapsado si hay nombre */}
+              <div className="flex flex-col gap-2">
+                <input
+                  type="text"
+                  placeholder="Nombre del cliente *"
+                  value={customerName}
+                  onChange={e => setCustomerName(e.target.value)}
+                  className="w-full rounded-xl px-4 py-2.5 text-white text-sm outline-none"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(168,85,247,0.2)' }}
+                  onFocus={e => e.target.style.border = '1px solid #820AD1'}
+                  onBlur={e => e.target.style.border = '1px solid rgba(168,85,247,0.2)'}
+                />
+                <input
+                  type="tel"
+                  placeholder="Teléfono (opcional)"
+                  value={customerPhone}
+                  onChange={e => setCustomerPhone(e.target.value)}
+                  className="w-full rounded-xl px-4 py-2.5 text-white text-sm outline-none"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(168,85,247,0.2)' }}
+                  onFocus={e => e.target.style.border = '1px solid #820AD1'}
+                  onBlur={e => e.target.style.border = '1px solid rgba(168,85,247,0.2)'}
+                />
+                <div className="flex gap-2">
+                  {[
+                    { key: 'delivery', label: '🛵 A domicilio' },
+                    { key: 'pickup', label: '🏠 Recoger' },
+                  ].map(opt => (
+                    <button
+                      key={opt.key}
+                      onClick={() => setDeliveryType(opt.key)}
+                      className="flex-1 py-2 cursor-pointer rounded-xl text-sm font-semibold transition-all"
+                      style={deliveryType === opt.key
+                        ? { background: 'linear-gradient(135deg, #820AD1, #A855F7)', color: 'white' }
+                        : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(168,85,247,0.2)' }
+                      }
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Footer */}
-      {items.length > 0 && (
-        <div className="px-4 pb-22 pt-3"
-          style={{ borderTop: '1px solid rgba(168,85,247,0.15)', background: 'rgba(26,26,46,0.95)' }}>
-
-          {/* Hora programada */}
-          <div className="mb-3">
-            <p className="text-xs mb-1" style={{ color: 'rgba(168,85,247,0.6)' }}>
-              ¿Pedido programado? (opcional)
-            </p>
-            <input
-              type="time"
-              value={scheduled}
-              onChange={e => setScheduled(e.target.value)}
-              className="w-full rounded-xl px-4 py-2 text-white text-sm outline-none"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(168,85,247,0.2)' }}
-            />
-          </div>
-
-          {/* Resumen expandible */}
-          {showResumen && (
-            <div className="mb-3 rounded-2xl p-3 max-h-40 overflow-y-auto"
-              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(168,85,247,0.15)' }}>
-              {items.map(i => (
-                <div key={i.product.id} className="flex justify-between items-start py-1">
-                  <div>
-                    <span className="text-white text-sm">{i.quantity}x {i.product.name}</span>
-                    {i.note && <p className="text-xs" style={{ color: 'rgba(168,85,247,0.7)' }}>📝 {i.note}</p>}
-                  </div>
-                  <span className="text-sm font-semibold" style={{ color: '#A855F7' }}>
-                    ${(i.product.price * i.quantity).toLocaleString('es-CO')}
-                  </span>
-                </div>
-              ))}
+              </div>
             </div>
           )}
 
-          <div className="flex items-center justify-between mb-3">
-            <button
-              onClick={() => setShowResumen(prev => !prev)}
-              className="text-sm font-semibold"
-              style={{ color: '#A855F7' }}
-            >
-              {items.reduce((s, i) => s + i.quantity, 0)} ítems {showResumen ? '▲' : '▼'}
-            </button>
-            <span className="text-white font-bold text-lg">
-              ${total.toLocaleString('es-CO')}
-            </span>
-          </div>
+          {/* Resumen cuando está colapsado */}
+          {table.is_delivery && headerCollapsed && customerName && (
+            <div className="px-4 pb-3 flex items-center gap-2">
+              <span className="text-sm" style={{ color: '#D1A7F7' }}>
+                {deliveryType === 'delivery' ? '🛵' : '🏠'} {customerName}
+                {customerPhone && ` · ${customerPhone}`}
+              </span>
+            </div>
+          )}
 
-          <button
-            onClick={handleConfirm}
-            disabled={confirming}
-            className="w-full text-white font-bold rounded-2xl py-4 transition-all disabled:opacity-50"
-            style={{
-              background: 'linear-gradient(135deg, #820AD1, #A855F7)',
-              boxShadow: '0 4px 20px rgba(130,10,209,0.4)',
-            }}
-          >
-            {confirming ? 'Confirmando...' : 'Confirmar pedido'}
-          </button>
+          {/* Tabs categorías */}
+          <div className="flex gap-2 px-4 py-3 overflow-x-auto"
+            style={{ borderTop: '1px solid rgba(168,85,247,0.1)' }}>
+            {categories.map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id)}
+                className="px-4 py-1.5 cursor-pointer rounded-full text-sm font-semibold whitespace-nowrap transition-all"
+                style={displayCategory === cat.id
+                  ? { background: 'linear-gradient(135deg, #820AD1, #A855F7)', color: 'white' }
+                  : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' }
+                }
+              >
+                {cat.icon && <span className="mr-1">{cat.icon}</span>}
+                {cat.name}
+              </button>
+            ))}
+          </div>
         </div>
-      )}
+
+        {/* Productos */}
+        <div className="flex-1 overflow-y-auto px-4 py-3">
+          {categoryProducts.length === 0 ? (
+            <p className="text-center py-12" style={{ color: 'rgba(255,255,255,0.3)' }}>
+              Sin productos disponibles
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {categoryProducts.map(product => {
+                const qty = getQuantity(product.id)
+                const item = items.find(i => i.product.id === product.id)
+                return (
+                  <div key={product.id} className="rounded-2xl p-4"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(168,85,247,0.1)' }}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-white font-semibold">{product.name}</p>
+                        <p className="text-sm font-bold mt-0.5" style={{ color: '#A855F7' }}>
+                          ${product.price.toLocaleString('es-CO')}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {qty > 0 && (
+                          <>
+                            <button
+                              onClick={() => removeProduct(product.id)}
+                              className="w-8 h-8 cursor-pointer rounded-full flex items-center justify-center font-bold text-white"
+                              style={{ background: 'rgba(220,38,38,0.3)', border: '1px solid rgba(220,38,38,0.4)' }}
+                            >
+                              −
+                            </button>
+                            <span className="text-white font-bold w-4 text-center">{qty}</span>
+                          </>
+                        )}
+                        <button
+                          onClick={() => addProduct(product)}
+                          className="w-8 h-8 rounded-full flex cursor-pointer items-center justify-center font-bold text-white"
+                          style={{ background: 'linear-gradient(135deg, #820AD1, #A855F7)' }}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    {qty > 0 && (
+                      <div className="mt-2">
+                        {noteTarget === product.id ? (
+                          <input
+                            autoFocus
+                            type="text"
+                            placeholder="Ej: sin cebolla"
+                            value={item?.note || ''}
+                            onChange={e => updateNote(product.id, e.target.value)}
+                            onBlur={() => setNoteTarget(null)}
+                            className="w-full rounded-xl px-3 py-1.5 text-white text-sm outline-none"
+                            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(168,85,247,0.3)' }}
+                          />
+                        ) : (
+                          <button
+                            onClick={() => setNoteTarget(product.id)}
+                            className="text-xs cursor-pointer"
+                            style={{ color: item?.note ? '#A855F7' : 'rgba(255,255,255,0.3)' }}
+                          >
+                            {item?.note ? `📝 ${item.note}` : '+ Agregar nota'}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        {items.length > 0 && (
+          <div className="px-4 pb-22 pt-3 md:pb-4"
+            style={{ borderTop: '1px solid rgba(168,85,247,0.15)', background: 'rgba(26,26,46,0.95)' }}>
+
+            <div className="mb-3">
+              <p className="text-xs mb-1" style={{ color: 'rgba(168,85,247,0.6)' }}>
+                ¿Pedido programado? (opcional)
+              </p>
+              <input
+                type="time"
+                value={scheduled}
+                onChange={e => setScheduled(e.target.value)}
+                className="w-full rounded-xl px-4 py-2 text-white text-sm outline-none"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(168,85,247,0.2)' }}
+              />
+            </div>
+
+            {showResumen && (
+              <div className="mb-3 rounded-2xl p-3 max-h-40 overflow-y-auto"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(168,85,247,0.15)' }}>
+                {items.map(i => (
+                  <div key={i.product.id} className="flex justify-between items-start py-1">
+                    <div>
+                      <span className="text-white text-sm">{i.quantity}x {i.product.name}</span>
+                      {i.note && <p className="text-xs" style={{ color: 'rgba(168,85,247,0.7)' }}>📝 {i.note}</p>}
+                    </div>
+                    <span className="text-sm font-semibold" style={{ color: '#A855F7' }}>
+                      ${(i.product.price * i.quantity).toLocaleString('es-CO')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between mb-3">
+              <button
+                onClick={() => setShowResumen(prev => !prev)}
+                className="text-sm font-semibold cursor-pointer"
+                style={{ color: '#A855F7' }}
+              >
+                {items.reduce((s, i) => s + i.quantity, 0)} ítems {showResumen ? '▲' : '▼'}
+              </button>
+              <span className="text-white font-bold text-lg">
+                ${total.toLocaleString('es-CO')}
+              </span>
+            </div>
+
+            <button
+              onClick={handleConfirm}
+              disabled={confirming}
+              className="w-full text-white font-bold cursor-pointer rounded-2xl py-4 transition-all disabled:opacity-50"
+              style={{
+                background: 'linear-gradient(135deg, #820AD1, #A855F7)',
+                boxShadow: '0 4px 20px rgba(130,10,209,0.4)',
+              }}
+            >
+              {confirming ? 'Confirmando...' : 'Confirmar pedido'}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
-  </div>
   )
 }

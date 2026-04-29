@@ -124,7 +124,7 @@ export default function PedidoActivo({ table, onClose }) {
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-6 pb-3"
         style={{ borderBottom: '1px solid rgba(168,85,247,0.15)' }}>
-        <button onClick={onClose} style={{ color: 'rgba(168,85,247,0.8)' }} className="text-sm font-semibold">
+        <button onClick={onClose} style={{ color: 'rgba(168,85,247,0.8)' }} className="text-sm cursor-pointer font-semibold">
           ← Volver
         </button>
         <h2 className="text-white font-bold text-lg">
@@ -133,7 +133,7 @@ export default function PedidoActivo({ table, onClose }) {
         <button
           onClick={cancelFullOrder}
           disabled={cancelling}
-          className="text-sm font-semibold"
+          className="text-sm font-semibold cursor-pointer"
           style={{ color: 'rgba(220,38,38,0.8)' }}
         >
           Cancelar
@@ -151,7 +151,7 @@ export default function PedidoActivo({ table, onClose }) {
           )}
           <button
             onClick={toggleDeliveryType}
-            className="mt-2 w-full py-1.5 rounded-xl text-sm font-semibold transition-all"
+            className="mt-2 w-full py-1.5 rounded-xl cursor-pointer text-sm font-semibold transition-all"
             style={order.delivery_type === 'delivery'
               ? { background: 'rgba(130,10,209,0.2)', color: '#A855F7', border: '1px solid rgba(130,10,209,0.3)' }
               : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.1)' }
@@ -177,7 +177,7 @@ export default function PedidoActivo({ table, onClose }) {
                     <div className="flex items-center gap-3">
                       <button
                         onClick={() => decreaseConfirmedItem(item)}
-                        className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white"
+                        className="w-8 h-8 rounded-full cursor-pointer flex items-center justify-center font-bold text-white"
                         style={{ background: 'rgba(220,38,38,0.3)', border: '1px solid rgba(220,38,38,0.4)' }}
                       >
                         −
@@ -185,7 +185,7 @@ export default function PedidoActivo({ table, onClose }) {
                       <span className="text-white font-bold w-4 text-center">{item.quantity}</span>
                       <button
                         onClick={() => increaseConfirmedItem(item)}
-                        className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white"
+                        className="w-8 h-8 rounded-full flex cursor-pointer items-center justify-center font-bold text-white"
                         style={{ background: 'rgba(130,10,209,0.4)', border: '1px solid rgba(130,10,209,0.5)' }}
                       >
                         +
@@ -209,7 +209,7 @@ export default function PedidoActivo({ table, onClose }) {
                     ) : (
                       <button
                         onClick={() => setEditingNote(item.id)}
-                        className="text-xs"
+                        className="text-xs cursor-pointer"
                         style={{ color: item.note ? '#A855F7' : 'rgba(255,255,255,0.3)' }}
                       >
                         {item.note ? `📝 ${item.note}` : '+ Nota'}
@@ -221,7 +221,7 @@ export default function PedidoActivo({ table, onClose }) {
             </div>
           </div>
 
-          <div className="px-4 pb-8 pt-3"
+          <div className="px-4 pb-22 pt-3 md:pb-4"
             style={{ borderTop: '1px solid rgba(168,85,247,0.15)', background: 'rgba(26,26,46,0.95)' }}>
             <div className="flex justify-between mb-4">
               <span style={{ color: 'rgba(255,255,255,0.5)' }}>Total</span>
@@ -229,7 +229,7 @@ export default function PedidoActivo({ table, onClose }) {
             </div>
             <button
               onClick={() => setAddingMore(true)}
-              className="w-full text-white font-bold rounded-2xl py-4 transition-all"
+              className="w-full cursor-pointer text-white font-bold rounded-2xl py-4 transition-all"
               style={{
                 background: 'linear-gradient(135deg, #820AD1, #A855F7)',
                 boxShadow: '0 4px 20px rgba(130,10,209,0.4)',
@@ -248,7 +248,7 @@ export default function PedidoActivo({ table, onClose }) {
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
-                className="px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all"
+                className="px-4 py-1.5 cursor-pointer rounded-full text-sm font-semibold whitespace-nowrap transition-all"
                 style={displayCategory === cat.id
                   ? { background: 'linear-gradient(135deg, #820AD1, #A855F7)', color: 'white' }
                   : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' }
@@ -280,7 +280,7 @@ export default function PedidoActivo({ table, onClose }) {
                           <>
                             <button
                               onClick={() => removeProduct(product.id)}
-                              className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white"
+                              className="w-8 h-8 rounded-full cursor-pointer flex items-center justify-center font-bold text-white"
                               style={{ background: 'rgba(220,38,38,0.3)', border: '1px solid rgba(220,38,38,0.4)' }}
                             >
                               −
@@ -290,7 +290,7 @@ export default function PedidoActivo({ table, onClose }) {
                         )}
                         <button
                           onClick={() => addProduct(product)}
-                          className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white"
+                          className="w-8 h-8 rounded-full cursor-pointer flex items-center justify-center font-bold text-white"
                           style={{ background: 'linear-gradient(135deg, #820AD1, #A855F7)' }}
                         >
                           +
@@ -313,7 +313,7 @@ export default function PedidoActivo({ table, onClose }) {
                         ) : (
                           <button
                             onClick={() => setNoteTarget(product.id)}
-                            className="text-xs"
+                            className="text-xs cursor-pointer"
                             style={{ color: item?.note ? '#A855F7' : 'rgba(255,255,255,0.3)' }}
                           >
                             {item?.note ? `📝 ${item.note}` : '+ Agregar nota'}
@@ -328,7 +328,7 @@ export default function PedidoActivo({ table, onClose }) {
           </div>
 
           {newItems.length > 0 && (
-            <div className="px-4 pb-8 pt-4"
+            <div className="px-4 pb-22 pt-3 md:pb-4"
               style={{ borderTop: '1px solid rgba(197, 144, 247, 0.15)', background: 'rgba(26,26,46,0.95)' }}>
               <div className="flex justify-between mb-3">
                 <span style={{ color: 'rgba(255,255,255,0.5)' }} className="text-sm">
@@ -353,7 +353,7 @@ export default function PedidoActivo({ table, onClose }) {
               <button
                 onClick={handleAddMore}
                 disabled={confirming}
-                className="w-full text-white font-bold rounded-2xl py-4 transition-all disabled:opacity-50"
+                className="w-full cursor-pointer text-white font-bold rounded-2xl py-4 transition-all disabled:opacity-50"
                 style={{
                   background: 'linear-gradient(135deg, #820AD1, #A855F7)',
                   boxShadow: '0 4px 20px rgba(130,10,209,0.4)',
