@@ -297,11 +297,11 @@ export default function CocinaHome() {
       {/* Header */}
       <div className="px-6 pt-6 pb-4 flex items-center justify-between"
         style={{ borderBottom: '1px solid rgba(168,85,247,0.2)' }}>
-        <h1 className="font-bold text-2xl text-white" style={{ fontFamily: "'Caveat', cursive" }}>
+        <h1 className="font-bold text-2xl text-white">
           Cocina
         </h1>
         <span className="text-sm font-semibold px-3 py-1 rounded-full"
-          style={{ background: 'rgba(130,10,209,0.3)', color: '#D1A7F7', fontFamily: "'Caveat', cursive" }}>
+          style={{ background: 'rgba(130,10,209,0.3)', color: '#D1A7F7'}}>
           {activeOrders.length} pedidos
         </span>
       </div>
@@ -324,7 +324,7 @@ export default function CocinaHome() {
         >
           {activeOrders.length === 0 && deliveredOrders.length === 0 && (
             <p className="text-center py-16 text-xl"
-              style={{ color: 'rgba(255,255,255,0.4)', fontFamily: "'Caveat', cursive" }}>
+              style={{ color: 'rgba(255,255,255,0.4)'}}>
               Sin pedidos activos
             </p>
           )}
@@ -343,7 +343,7 @@ export default function CocinaHome() {
             <div className="mt-10">
               <div className="flex items-center gap-3 mb-4">
                 <div className="flex-1 border-t border-dashed" style={{ borderColor: 'rgba(255,255,255,0.2)' }} />
-                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: "'Caveat', cursive" }}>
+                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)'}}>
                   Entregados
                 </p>
                 <div className="flex-1 border-t border-dashed" style={{ borderColor: 'rgba(255,255,255,0.2)' }} />
