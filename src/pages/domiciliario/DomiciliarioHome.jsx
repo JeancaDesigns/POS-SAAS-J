@@ -2,25 +2,40 @@ import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useAuthStore } from '../../store/authStore'
 import { useDeliveryCount } from '../../hooks/useDeliveryCount'
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
+import L from 'leaflet'
+
+const deliveryIcon = new L.Icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+})
 
 export default function DomiciliarioHome() {
   const { user } = useAuthStore()
   const [orders, setOrders] = useState([])
   const [deliveryFee, setDeliveryFee] = useState(1000)
+
   const [tanda, setTanda] = useState(() => {
     try {
       const saved = localStorage.getItem(`tanda-${user.restaurant_id}`)
       return saved ? JSON.parse(saved) : []
-    } catch { return [] }
+    } catch {
+      return []
+    }
   })
+
   const tandaRef = useRef(tanda)
+
   const [enRuta, setEnRuta] = useState(() => {
     return localStorage.getItem(`enRuta-${user.restaurant_id}`) === 'true'
   })
+
   const [loading, setLoading] = useState(true)
+
   const { count: deliveryCount } = useDeliveryCount(user?.restaurant_id)
 
-  // Mantener ref sincronizado con estado
   useEffect(() => {
     tandaRef.current = tanda
   }, [tanda])
@@ -32,36 +47,51 @@ export default function DomiciliarioHome() {
       .eq('id', user.restaurant_id)
       .single()
 
-    if (restaurant) setDeliveryFee(restaurant.delivery_fee || 1000)
+    if (restaurant) {
+      setDeliveryFee(restaurant.delivery_fee || 1000)
+    }
 
     const { data } = await supabase
       .from('orders')
-      .select('*, table:tables(number, is_delivery), items:order_items(*, product:products(name, price))')
+      .select(`
+        *,
+        table:tables(number, is_delivery),
+        items:order_items(*, product:products(name, price))
+      `)
       .eq('restaurant_id', user.restaurant_id)
       .eq('delivery_type', 'delivery')
       .in('status', ['delivered', 'dispatched'])
       .order('started_at', { ascending: true })
 
     const now = Date.now()
+
     const filtered = (data || []).filter(o => {
       if (!o.table?.is_delivery) return false
+
       if (o.status === 'dispatched') {
         const hoursAgo = (now - new Date(o.delivered_at)) / 1000 / 3600
         return hoursAgo < 12
       }
+
       return true
     })
 
     setOrders(filtered)
 
-    // Usar ref para leer tanda actual sin problema de closure
     const existingIds = filtered.map(o => o.id)
     const currentTanda = tandaRef.current
+
     const cleanTanda = currentTanda.filter(id => existingIds.includes(id))
+
     if (cleanTanda.length !== currentTanda.length) {
       tandaRef.current = cleanTanda
       setTanda(cleanTanda)
-      localStorage.setItem(`tanda-${user.restaurant_id}`, JSON.stringify(cleanTanda))
+
+      localStorage.setItem(
+        `tanda-${user.restaurant_id}`,
+        JSON.stringify(cleanTanda)
+      )
+
       if (cleanTanda.length === 0) {
         setEnRuta(false)
         localStorage.setItem(`enRuta-${user.restaurant_id}`, 'false')
@@ -73,11 +103,21 @@ export default function DomiciliarioHome() {
 
   useEffect(() => {
     fetchData()
+
     const channel = supabase
       .channel('domiciliario-orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, fetchData)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        fetchData
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'order_items' },
+        fetchData
+      )
       .subscribe()
+
     return () => supabase.removeChannel(channel)
   }, [])
 
@@ -86,14 +126,21 @@ export default function DomiciliarioHome() {
       const next = prev.includes(orderId)
         ? prev.filter(id => id !== orderId)
         : [...prev, orderId]
+
       tandaRef.current = next
-      localStorage.setItem(`tanda-${user.restaurant_id}`, JSON.stringify(next))
+
+      localStorage.setItem(
+        `tanda-${user.restaurant_id}`,
+        JSON.stringify(next)
+      )
+
       return next
     })
   }
 
   function salir() {
     if (tanda.length === 0) return
+
     setEnRuta(true)
     localStorage.setItem(`enRuta-${user.restaurant_id}`, 'true')
   }
@@ -101,25 +148,37 @@ export default function DomiciliarioHome() {
   async function marcarEntregado(order) {
     await supabase
       .from('orders')
-      .update({ status: 'dispatched', delivered_at: new Date().toISOString() })
+      .update({
+        status: 'dispatched',
+        delivered_at: new Date().toISOString(),
+      })
       .eq('id', order.id)
 
     const newTanda = tanda.filter(id => id !== order.id)
+
     tandaRef.current = newTanda
     setTanda(newTanda)
-    localStorage.setItem(`tanda-${user.restaurant_id}`, JSON.stringify(newTanda))
+
+    localStorage.setItem(
+      `tanda-${user.restaurant_id}`,
+      JSON.stringify(newTanda)
+    )
 
     if (newTanda.length === 0) {
       setEnRuta(false)
       localStorage.setItem(`enRuta-${user.restaurant_id}`, 'false')
     }
+
     fetchData()
   }
 
   function orderTotal(order) {
     const itemsTotal = order.items
       .filter(i => i.status !== 'cancelled')
-      .reduce((sum, i) => sum + i.product.price * i.quantity, 0)
+      .reduce((sum, i) => {
+        return sum + i.product.price * i.quantity
+      }, 0)
+
     return itemsTotal + deliveryFee
   }
 
@@ -127,203 +186,352 @@ export default function DomiciliarioHome() {
     return order.items.filter(i => i.status !== 'cancelled')
   }
 
-  if (loading) return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-      <p className="text-gray-400">Cargando...</p>
-    </div>
-  )
+  function openMaps(order) {
+    if (!order.delivery_lat || !order.delivery_lng) return
+
+    window.open(
+      `https://www.google.com/maps?q=${order.delivery_lat},${order.delivery_lng}`,
+      '_blank'
+    )
+  }
+
+  function openWhatsApp(phone) {
+    const cleanPhone = phone?.replace(/\D/g, '')
+
+    window.open(
+      `https://wa.me/57${cleanPhone}`,
+      '_blank'
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <p className="text-gray-400">Cargando domicilios...</p>
+      </div>
+    )
+  }
 
   const pendingOrders = orders.filter(o => o.status === 'delivered')
+
   const dispatchedOrders = orders.filter(o => o.status === 'dispatched')
-  const tandaOrders = orders.filter(o => tanda.includes(o.id) && o.status === 'delivered')
-  const noTandaOrders = pendingOrders.filter(o => !tanda.includes(o.id))
 
-  return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col pb-24">
+  const tandaOrders = orders.filter(
+    o => tanda.includes(o.id) && o.status === 'delivered'
+  )
 
-      <div className="px-4 pt-6 pb-3 border-b border-gray-800">
-        <h1 className="text-xl font-bold">Domicilios</h1>
-        <div className="flex items-center justify-between mt-1">
-          {enRuta && (
-            <span className="text-xs bg-orange-500/20 text-orange-400 rounded-full px-3 py-1">
-              🛵 En ruta — {tandaOrders.length} domicilio{tandaOrders.length !== 1 ? 's' : ''}
-            </span>
-          )}
-          <span className="text-xs text-gray-400 ml-auto">
-            Esta semana: <span className="text-orange-400 font-bold">{deliveryCount}</span> domicilios
-          </span>
-        </div>
-      </div>
+  const noTandaOrders = pendingOrders.filter(
+    o => !tanda.includes(o.id)
+  )
 
-      <div className="flex-1 overflow-y-auto p-4 flex justify-center">
-        <div className="w-full max-w-2xl">
+  function DeliveryCard({ order, orange = false, delivered = false, showDeliverButton = false }) {
+    return (
+      <div
+        className={`
+          rounded-3xl border p-4 md:p-5 transition-all duration-200
+          ${orange
+            ? 'bg-orange-500/10 border-orange-500/40'
+            : delivered
+              ? 'bg-green-950/20 border-green-800/30 opacity-60'
+              : 'bg-gray-900 border-gray-800 hover:border-orange-500/30'
+          }
+        `}
+      >
 
-        {enRuta && tandaOrders.length > 0 && (
+        <div className="flex items-start justify-between gap-3 mb-4">
           <div>
-            <p className="text-gray-400 text-xs uppercase tracking-wide mb-3">En ruta</p>
-            <div className="flex flex-col gap-3 mb-6">
-              {tandaOrders.map(order => (
-                <div key={order.id} className="bg-orange-500/10 border border-orange-500/30 rounded-2xl p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="font-bold text-white">{order.customer_name}</p>
-                      {order.customer_phone && (
-                        <a href={`tel:${order.customer_phone}`} className="text-orange-400 text-sm">
-                          📞 {order.customer_phone}
-                        </a>
-                      )}
-                    </div>
-                    <span className="text-white font-bold">
-                      ${orderTotal(order).toLocaleString('es-CO')}
-                    </span>
-                  </div>
-                  <div className="bg-gray-900/50 rounded-xl p-3 mb-3">
-                    <p className="text-gray-400 text-xs mb-2">Pedido</p>
-                    {orderItems(order).map(item => (
-                      <p key={item.id} className="text-white text-sm">
-                        {item.quantity}x {item.product.name}
-                        {item.note && <span className="text-gray-400"> — {item.note}</span>}
-                      </p>
-                    ))}
-                    <div className="border-t border-gray-700 mt-2 pt-2 flex justify-between">
-                      <span className="text-gray-400 text-xs">Costo domicilio</span>
-                      <span className="text-orange-400 text-xs">+${deliveryFee.toLocaleString('es-CO')}</span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => marcarEntregado(order)}
-                    className="w-full bg-green-500 hover:bg-green-400 text-white font-bold rounded-xl py-3 transition-colors"
-                  >
-                    ✓ Entregado
-                  </button>
-                </div>
-              ))}
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-lg">🛵</span>
+
+              <h2 className="font-bold text-lg text-white">
+                {order.customer_name}
+              </h2>
             </div>
+
+            {order.customer_phone && (
+              <p className="text-sm text-gray-400">
+                {order.customer_phone}
+              </p>
+            )}
+          </div>
+
+          <div className="text-right">
+            <p className="text-xs text-gray-500 mb-1">
+              Total
+            </p>
+
+            <p className="font-bold text-lg text-orange-400">
+              ${orderTotal(order).toLocaleString('es-CO')}
+            </p>
+          </div>
+        </div>
+
+        {(order.delivery_address || order.delivery_reference) && (
+          <div className="bg-gray-950/60 rounded-2xl p-3 border border-gray-800 mb-4">
+
+            {order.delivery_address && (
+              <div className="mb-2">
+                <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-1">
+                  Dirección
+                </p>
+
+                <p className="text-sm text-white leading-relaxed">
+                  {order.delivery_address}
+                </p>
+              </div>
+            )}
+
+            {order.delivery_reference && (
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-1">
+                  Referencia
+                </p>
+
+                <p className="text-sm text-gray-300 leading-relaxed">
+                  {order.delivery_reference}
+                </p>
+              </div>
+            )}
           </div>
         )}
 
-        {pendingOrders.length === 0 && dispatchedOrders.length === 0 && (
-          <p className="text-gray-500 text-center py-16">Sin domicilios listos</p>
+        {order.delivery_lat && order.delivery_lng && (
+          <div className="overflow-hidden rounded-2xl border border-gray-800 mb-4">
+            <MapContainer
+              center={[order.delivery_lat, order.delivery_lng]}
+              zoom={16}
+              scrollWheelZoom={false}
+              style={{ height: '180px', width: '100%' }}
+            >
+              <TileLayer
+                attribution='&copy; OpenStreetMap contributors'
+                url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+              />
+
+              <Marker
+                position={[order.delivery_lat, order.delivery_lng]}
+                icon={deliveryIcon}
+              >
+                <Popup>
+                  {order.customer_name}
+                </Popup>
+              </Marker>
+            </MapContainer>
+          </div>
         )}
 
-        {noTandaOrders.length > 0 && (
-          <>
-            <p className="text-gray-400 text-xs uppercase tracking-wide mb-3">
-              {enRuta ? 'Esperando siguiente tanda' : 'Listos para entregar'}
-            </p>
-            <div className="flex flex-col gap-3 mb-6">
-              {noTandaOrders.map(order => (
-                <div
-                  key={order.id}
-                  className={`rounded-2xl p-4 border transition-colors
-                    ${enRuta ? 'bg-gray-900/40 border-gray-800 opacity-50' : 'bg-gray-900 border-gray-800'}`}
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="font-bold text-white">{order.customer_name}</p>
-                      {order.customer_phone && (
-                        <p className="text-gray-400 text-sm">{order.customer_phone}</p>
-                      )}
-                    </div>
-                    <span className="text-white font-bold">
-                      ${orderTotal(order).toLocaleString('es-CO')}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    {orderItems(order).map(item => (
-                      <span key={item.id} className="text-xs bg-gray-800 text-gray-300 rounded-full px-2 py-0.5">
-                        {item.quantity}x {item.product.name}
-                      </span>
-                    ))}
-                  </div>
-                  {!enRuta && (
-                    <button
-                      onClick={() => toggleTanda(order.id)}
-                      className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl py-2 text-sm font-semibold transition-colors"
-                    >
-                      Agregar a tanda
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </>
+        <div className="mb-4">
+          <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-2">
+            Pedido
+          </p>
+
+          <div className="flex flex-wrap gap-2">
+            {orderItems(order).map(item => (
+              <span
+                key={item.id}
+                className="bg-gray-800 text-gray-200 text-xs rounded-full px-3 py-1"
+              >
+                {item.quantity}x {item.product.name}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mb-4">
+
+          {order.customer_phone && (
+            <button
+              onClick={() => openWhatsApp(order.customer_phone)}
+              className="bg-green-500 hover:bg-green-400 text-white font-semibold rounded-2xl py-3 transition-colors"
+            >
+              WhatsApp
+            </button>
+          )}
+
+          {order.delivery_lat && order.delivery_lng ? (
+            <button
+              onClick={() => openMaps(order)}
+              className="bg-blue-500 hover:bg-blue-400 text-white font-semibold rounded-2xl py-3 transition-colors"
+            >
+              Ver ruta
+            </button>
+          ) : (
+            <button
+              disabled
+              className="bg-gray-800 text-gray-500 font-semibold rounded-2xl py-3"
+            >
+              Sin ubicación
+            </button>
+          )}
+        </div>
+
+        {!enRuta && !delivered && (
+          <button
+            onClick={() => toggleTanda(order.id)}
+            className={`
+              w-full rounded-2xl py-3 font-bold transition-colors
+              ${orange
+                ? 'bg-orange-500 hover:bg-orange-400 text-white'
+                : 'bg-gray-800 hover:bg-gray-700 text-white'
+              }
+            `}
+          >
+            {orange ? '✓ En esta tanda — quitar' : 'Agregar a tanda'}
+          </button>
         )}
 
-        {tandaOrders.length > 0 && !enRuta && (
-          <>
-            <p className="text-gray-400 text-xs uppercase tracking-wide mb-3">En esta tanda</p>
-            <div className="flex flex-col gap-3 mb-6">
-              {tandaOrders.map(order => (
-                <div key={order.id} className="rounded-2xl p-4 border border-orange-500/50 bg-orange-500/10">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="font-bold text-white">{order.customer_name}</p>
-                      {order.customer_phone && (
-                        <p className="text-gray-400 text-sm">{order.customer_phone}</p>
-                      )}
-                    </div>
-                    <span className="text-white font-bold">
-                      ${orderTotal(order).toLocaleString('es-CO')}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    {orderItems(order).map(item => (
-                      <span key={item.id} className="text-xs bg-gray-800 text-gray-300 rounded-full px-2 py-0.5">
-                        {item.quantity}x {item.product.name}
-                      </span>
-                    ))}
-                  </div>
-                  <button
-                    onClick={() => toggleTanda(order.id)}
-                    className="w-full bg-orange-500 text-white rounded-xl py-2 text-sm font-semibold transition-colors"
-                  >
-                    ✓ En esta tanda — quitar
-                  </button>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-
-        {dispatchedOrders.length > 0 && (
-          <>
-            <p className="text-gray-400 text-xs uppercase tracking-wide mb-3">Entregados</p>
-            <div className="flex flex-col gap-3">
-              {dispatchedOrders.map(order => (
-                <div key={order.id} className="rounded-2xl p-4 border border-green-800/30 bg-green-950/20 opacity-50">
-                  <div className="flex justify-between items-start mb-1">
-                    <p className="font-bold text-green-400">{order.customer_name}</p>
-                    <span className="text-xs bg-green-500/20 text-green-400 rounded-full px-2 py-0.5">
-                      Entregado
-                    </span>
-                  </div>
-                  {order.customer_phone && (
-                    <p className="text-gray-500 text-sm">{order.customer_phone}</p>
-                  )}
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {orderItems(order).map(item => (
-                      <span key={item.id} className="text-xs bg-gray-800 text-gray-500 rounded-full px-2 py-0.5">
-                        {item.quantity}x {item.product.name}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
+        {showDeliverButton && (
+          <button
+            onClick={() => marcarEntregado(order)}
+            className="w-full mt-3 bg-green-500 hover:bg-green-400 text-white font-bold rounded-2xl py-3 transition-colors"
+          >
+            ✓ Marcar entregado
+          </button>
         )}
       </div>
-    </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-950 text-white flex flex-col pb-28">
+
+      <div className="sticky top-0 z-20 bg-gray-950/95 backdrop-blur border-b border-gray-800 px-4 pt-6 pb-4">
+
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-black tracking-tight">
+              Domicilios
+            </h1>
+
+            <p className="text-sm text-gray-400 mt-1">
+              Gestión de entregas y rutas
+            </p>
+          </div>
+
+          <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl px-4 py-2">
+            <p className="text-xs text-gray-400">
+              Esta semana
+            </p>
+
+            <p className="font-black text-orange-400 text-lg">
+              {deliveryCount}
+            </p>
+          </div>
+        </div>
+
+        {enRuta && (
+          <div className="mt-4 bg-orange-500/10 border border-orange-500/30 rounded-2xl p-3 flex items-center justify-between">
+            <div>
+              <p className="text-orange-400 font-bold">
+                🛵 En ruta
+              </p>
+
+              <p className="text-xs text-gray-400 mt-1">
+                {tandaOrders.length} pedidos pendientes
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 flex justify-center">
+
+        <div className="w-full max-w-6xl">
+
+          {pendingOrders.length === 0 && dispatchedOrders.length === 0 && (
+            <div className="text-center py-24">
+              <p className="text-5xl mb-4">🛵</p>
+              <p className="text-gray-500">
+                No hay domicilios pendientes
+              </p>
+            </div>
+          )}
+
+          {noTandaOrders.length > 0 && (
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm uppercase tracking-wider text-gray-500 font-bold">
+                  Listos para entregar
+                </h2>
+
+                <span className="text-xs bg-gray-900 border border-gray-800 rounded-full px-3 py-1 text-gray-400">
+                  {noTandaOrders.length} pedidos
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {noTandaOrders.map(order => (
+                  <DeliveryCard
+                    key={order.id}
+                    order={order}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {tandaOrders.length > 0 && (
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm uppercase tracking-wider text-orange-400 font-bold">
+                  En esta tanda
+                </h2>
+
+                <span className="text-xs bg-orange-500/10 border border-orange-500/30 rounded-full px-3 py-1 text-orange-400">
+                  {tandaOrders.length} pedidos
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {tandaOrders.map(order => (
+                  <DeliveryCard
+                    key={order.id}
+                    order={order}
+                    orange
+                    showDeliverButton={enRuta}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {dispatchedOrders.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm uppercase tracking-wider text-green-400 font-bold">
+                  Entregados
+                </h2>
+
+                <span className="text-xs bg-green-500/10 border border-green-500/30 rounded-full px-3 py-1 text-green-400">
+                  {dispatchedOrders.length} entregados
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {dispatchedOrders.map(order => (
+                  <DeliveryCard
+                    key={order.id}
+                    order={order}
+                    delivered
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
 
       {!enRuta && tanda.length > 0 && (
-        <div className="fixed bottom-22 left-0 right-0 p-4 bg-gray-950 border-t border-gray-800">
-          <button
-            onClick={salir}
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-2xl py-4 transition-colors"
-          >
-            🛵 Salir con {tanda.length} domicilio{tanda.length !== 1 ? 's' : ''}
-          </button>
+        <div className="fixed bottom-22 left-0 right-0 p-4 bg-gray-950/95 backdrop-blur border-t border-gray-800">
+          <div className="max-w-2xl mx-auto">
+            <button
+              onClick={salir}
+              className="w-full bg-orange-500 hover:bg-orange-400 text-white font-black rounded-3xl py-5 text-lg transition-colors shadow-lg shadow-orange-500/20"
+            >
+              🛵 Salir con {tanda.length} domicilio{tanda.length !== 1 ? 's' : ''}
+            </button>
+          </div>
         </div>
       )}
 

@@ -8,6 +8,7 @@ import CocinaHome from './pages/cocina/CocinaHome'
 import AdminHome from './pages/admin/AdminHome'
 import DomiciliarioHome from './pages/domiciliario/DomiciliarioHome'
 import NavBar from './components/NavBar'
+import 'leaflet/dist/leaflet.css'
 
 function RoleRedirect() {
   const { user, loading } = useAuthStore()
@@ -65,6 +66,9 @@ export default function App() {
             <ProtectedRoute roles={['domiciliario', 'admin']}>
               <DomiciliarioHome />
             </ProtectedRoute>
+          } />
+          <Route path="/pedir" element={
+            <PedidoPublico />
           } />
           <Route path="*" element={<RoleRedirect />} />
         </Routes>
