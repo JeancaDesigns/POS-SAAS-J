@@ -6,9 +6,11 @@ import MeseroHome from './pages/mesero/MeseroHome'
 import CajeroHome from './pages/cajero/CajeroHome'
 import CocinaHome from './pages/cocina/CocinaHome'
 import AdminHome from './pages/admin/AdminHome'
+import PedidoPublico from './pages/pedir/PedidoPublico'
 import DomiciliarioHome from './pages/domiciliario/DomiciliarioHome'
 import NavBar from './components/NavBar'
 import 'leaflet/dist/leaflet.css'
+import { useLocation } from 'react-router-dom'
 
 function RoleRedirect() {
   const { user, loading } = useAuthStore()
@@ -32,6 +34,9 @@ function ProtectedRoute({ children, roles }) {
 
 export default function App() {
   const { user, init } = useAuthStore()
+  const location = useLocation()
+  const hideNavbar = location.pathname.startsWith('/pedir')
+  const isPublicOrder = location.pathname.startsWith('/pedir')
 
   useEffect(() => {
     init()
@@ -39,7 +44,12 @@ export default function App() {
 
   return (
     <>
-      <div className={user ? 'pb-[80px] lg:pb-0 lg:pl-20' : ''}>
+      <div className={user 
+        ? isPublicOrder 
+         ? ''
+         : 'pb-[80px] lg:pb-0 lg:pl-20' 
+        : ''
+      }>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/mesero" element={
@@ -73,7 +83,7 @@ export default function App() {
           <Route path="*" element={<RoleRedirect />} />
         </Routes>
       </div>
-      <NavBar />
+      {!hideNavbar && <NavBar />}
     </>
   )
 }

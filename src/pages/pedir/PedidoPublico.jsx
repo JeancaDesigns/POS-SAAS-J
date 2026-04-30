@@ -51,6 +51,7 @@ export default function PedidoPublico() {
   const [selectedLocation, setSelectedLocation] = useState(null)
 
   const [confirming, setConfirming] = useState(false)
+  const [activeSection, setActiveSection] = useState('menu')
 
   useEffect(() => {
     fetchData()
@@ -59,7 +60,7 @@ export default function PedidoPublico() {
   async function fetchData() {
 
     // CAMBIA ESTE ID DESPUÉS
-    const restaurantId = 1
+    const restaurantId = '94393adb-b409-42f5-bf8d-6650e0e2d6d6'
 
     const { data: restaurantData } = await supabase
       .from('restaurants')
@@ -171,7 +172,7 @@ export default function PedidoPublico() {
     setConfirming(true)
 
     // CAMBIA ESTE ID DESPUÉS
-    const restaurantId = 1
+    const restaurantId = '94393adb-b409-42f5-bf8d-6650e0e2d6d6'
 
     // Mesa delivery automática
     const { data: table } = await supabase
@@ -256,9 +257,37 @@ export default function PedidoPublico() {
     setConfirming(false)
   }
 
+  function getCurrentLocation() {
+
+    if (!navigator.geolocation) {
+      alert('Tu dispositivo no soporta ubicación')
+      return
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      position => {
+
+        const lat = position.coords.latitude
+        const lng = position.coords.longitude
+
+        setSelectedLocation({
+          lat,
+          lng,
+        })
+
+        setDeliveryAddress(
+          `Ubicación GPS (${lat.toFixed(5)}, ${lng.toFixed(5)})`
+        )
+      },
+      () => {
+        alert('No se pudo obtener ubicación')
+      }
+    )
+  }
+
   return (
     <div
-      className="min-h-screen text-white"
+      className="min-h-[100dvh] text-white pb-[env(safe-area-inset-bottom)]"
       style={{
         background:
           'linear-gradient(160deg, #1A1A2E 0%, #2D1B4E 100%)'
@@ -297,286 +326,371 @@ export default function PedidoPublico() {
           </div>
 
         </div>
-
       </div>
 
-      <div className="max-w-6xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6">
+      <div className="max-w-7xl mx-auto px-4 py-6">
 
-        {/* Productos */}
-        <div>
+        {/* NAVBAR PEDIR */}
+        <div className="sticky top-[88px] z-10 mb-5">
 
-          {/* Categorías */}
-          <div className="flex gap-2 overflow-x-auto mb-5">
+          <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-3xl p-2 flex gap-2">
 
-            {categories.map(cat => (
+            {[
+              {
+                key: 'menu',
+                label: '🍔 Menú',
+              },
+              {
+                key: 'delivery',
+                label: '🛵 Entrega',
+              },
+            ].map(section => (
+
               <button
-                key={cat.id}
-                onClick={() => setActiveCategory(cat.id)}
-                className="px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all"
+                key={section.key}
+                onClick={() => setActiveSection(section.key)}
+                className="flex-1 py-3 rounded-2xl font-bold transition-all"
                 style={
-                  activeCategory === cat.id
+                  activeSection === section.key
                     ? {
-                        background:
-                          'linear-gradient(135deg, #820AD1, #A855F7)',
-                        color: 'white',
-                      }
+                      background:
+                        'linear-gradient(135deg, #820AD1, #A855F7)',
+                    }
                     : {
-                        background: 'rgba(255,255,255,0.06)',
-                        color: 'rgba(255,255,255,0.6)',
-                      }
+                      background: 'transparent',
+                      color: 'rgba(255,255,255,0.5)',
+                    }
                 }
               >
-                {cat.name}
+                {section.label}
               </button>
+
             ))}
 
           </div>
 
-          {/* Productos */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        </div>
 
-            {categoryProducts.map(product => {
+        {/* MENÚ */}
+        {activeSection === 'menu' && (
 
-              const qty = getQuantity(product.id)
+          <div>
 
-              return (
-                <div
-                  key={product.id}
-                  className="rounded-3xl p-4 border border-white/10 bg-white/5 backdrop-blur"
+            {/* Categorías */}
+            <div className="flex gap-2 overflow-x-auto mb-5">
+
+              {categories.map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => setActiveCategory(cat.id)}
+                  className="px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all"
+                  style={
+                    activeCategory === cat.id
+                      ? {
+                        background:
+                          'linear-gradient(135deg, #820AD1, #A855F7)',
+                        color: 'white',
+                      }
+                      : {
+                        background: 'rgba(255,255,255,0.06)',
+                        color: 'rgba(255,255,255,0.6)',
+                      }
+                  }
                 >
+                  {cat.name}
+                </button>
+              ))}
 
-                  <div className="flex items-start justify-between gap-4">
+            </div>
 
-                    <div>
-                      <h2 className="font-bold text-lg">
-                        {product.name}
-                      </h2>
+            {/* Productos */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
 
-                      <p className="text-purple-300 font-bold mt-1">
-                        ${product.price.toLocaleString('es-CO')}
-                      </p>
-                    </div>
+              {categoryProducts.map(product => {
 
-                    <div className="flex items-center gap-3">
+                const qty = getQuantity(product.id)
 
-                      {qty > 0 && (
-                        <>
-                          <button
-                            onClick={() => removeProduct(product.id)}
-                            className="w-8 h-8 rounded-full bg-red-500/30 border border-red-400/30"
-                          >
-                            −
-                          </button>
+                return (
+                  <div
+                    key={product.id}
+                    className="rounded-3xl p-4 border border-white/10 bg-white/5 backdrop-blur"
+                  >
 
-                          <span className="font-bold w-4 text-center">
-                            {qty}
-                          </span>
-                        </>
-                      )}
+                    <div className="flex items-start justify-between gap-4">
 
-                      <button
-                        onClick={() => addProduct(product)}
-                        className="w-8 h-8 rounded-full bg-purple-500"
-                      >
-                        +
-                      </button>
+                      <div>
+                        <h2 className="font-bold text-lg">
+                          {product.name}
+                        </h2>
+
+                        <p className="text-purple-300 font-bold mt-1">
+                          ${product.price.toLocaleString('es-CO')}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+
+                        {qty > 0 && (
+                          <>
+                            <button
+                              onClick={() => removeProduct(product.id)}
+                              className="w-8 h-8 rounded-full bg-red-500/30 border border-red-400/30"
+                            >
+                              −
+                            </button>
+
+                            <span className="font-bold w-4 text-center">
+                              {qty}
+                            </span>
+                          </>
+                        )}
+
+                        <button
+                          onClick={() => addProduct(product)}
+                          className="w-8 h-8 rounded-full bg-purple-500"
+                        >
+                          +
+                        </button>
+
+                      </div>
 
                     </div>
 
                   </div>
+                )
+              })}
 
-                </div>
-              )
-            })}
+            </div>
+
+            {/* BOTÓN IR ENTREGA */}
+            {items.length > 0 && (
+
+              <div className="fixed bottom-4 left-4 right-4 z-20">
+
+                <button
+                  onClick={() => setActiveSection('delivery')}
+                  className="w-full rounded-3xl py-4 font-black text-lg"
+                  style={{
+                    background:
+                      'linear-gradient(135deg, #820AD1, #A855F7)',
+                    boxShadow:
+                      '0 10px 30px rgba(130,10,209,0.35)',
+                  }}
+                >
+                  Continuar pedido · $
+                  {total.toLocaleString('es-CO')}
+                </button>
+
+              </div>
+
+            )}
 
           </div>
 
-        </div>
+        )}
 
-        {/* Sidebar pedido */}
-        <div className="lg:sticky lg:top-28 h-fit">
+        {/* ENTREGA */}
+        {activeSection === 'delivery' && (
 
-          <div className="rounded-3xl border border-white/10 bg-black/20 backdrop-blur-xl p-5">
+          <div className="max-w-2xl mx-auto">
 
-            <h2 className="text-xl font-black mb-5">
-              Tu pedido
-            </h2>
+            <div className="rounded-3xl border border-white/10 bg-black/20 backdrop-blur-xl p-5">
 
-            {/* Cliente */}
-            <div className="space-y-3 mb-5">
+              <h2 className="text-2xl font-black mb-5">
+                Datos de entrega
+              </h2>
 
-              <input
-                type="text"
-                placeholder="Nombre completo *"
-                value={customerName}
-                onChange={e => setCustomerName(e.target.value)}
-                className="w-full rounded-2xl px-4 py-3 bg-white/5 border border-white/10 outline-none"
-              />
-
-              <input
-                type="tel"
-                placeholder="Teléfono"
-                value={customerPhone}
-                onChange={e => setCustomerPhone(e.target.value)}
-                className="w-full rounded-2xl px-4 py-3 bg-white/5 border border-white/10 outline-none"
-              />
-
-            </div>
-
-            {/* Tipo */}
-            <div className="grid grid-cols-2 gap-2 mb-5">
-
-              {[
-                {
-                  key: 'delivery',
-                  label: '🛵 Domicilio',
-                },
-                {
-                  key: 'pickup',
-                  label: '🏠 Recoger',
-                },
-              ].map(opt => (
-
-                <button
-                  key={opt.key}
-                  onClick={() => setDeliveryType(opt.key)}
-                  className="rounded-2xl py-3 font-semibold transition-all"
-                  style={
-                    deliveryType === opt.key
-                      ? {
-                          background:
-                            'linear-gradient(135deg, #820AD1, #A855F7)',
-                        }
-                      : {
-                          background: 'rgba(255,255,255,0.06)',
-                        }
-                  }
-                >
-                  {opt.label}
-                </button>
-
-              ))}
-
-            </div>
-
-            {/* Dirección */}
-            {deliveryType === 'delivery' && (
+              {/* Cliente */}
               <div className="space-y-3 mb-5">
 
                 <input
                   type="text"
-                  placeholder="Dirección *"
-                  value={deliveryAddress}
-                  onChange={e => setDeliveryAddress(e.target.value)}
+                  placeholder="Nombre completo *"
+                  value={customerName}
+                  onChange={e => setCustomerName(e.target.value)}
                   className="w-full rounded-2xl px-4 py-3 bg-white/5 border border-white/10 outline-none"
                 />
 
                 <input
-                  type="text"
-                  placeholder="Referencia"
-                  value={deliveryReference}
-                  onChange={e => setDeliveryReference(e.target.value)}
+                  type="tel"
+                  placeholder="Teléfono"
+                  value={customerPhone}
+                  onChange={e => setCustomerPhone(e.target.value)}
                   className="w-full rounded-2xl px-4 py-3 bg-white/5 border border-white/10 outline-none"
                 />
 
-                {/* MAPA */}
-                <div className="overflow-hidden rounded-3xl border border-white/10">
+              </div>
 
-                  <MapContainer
-                    center={[4.6097, -74.0817]}
-                    zoom={13}
-                    style={{
-                      height: '300px',
-                      width: '100%',
-                    }}
+              {/* Tipo */}
+              <div className="grid grid-cols-2 gap-2 mb-5">
+
+                {[
+                  {
+                    key: 'delivery',
+                    label: '🛵 Domicilio',
+                  },
+                  {
+                    key: 'pickup',
+                    label: '🏠 Recoger',
+                  },
+                ].map(opt => (
+
+                  <button
+                    key={opt.key}
+                    onClick={() => setDeliveryType(opt.key)}
+                    className="rounded-2xl py-3 font-semibold transition-all"
+                    style={
+                      deliveryType === opt.key
+                        ? {
+                          background:
+                            'linear-gradient(135deg, #820AD1, #A855F7)',
+                        }
+                        : {
+                          background: 'rgba(255,255,255,0.06)',
+                        }
+                    }
                   >
+                    {opt.label}
+                  </button>
 
-                    <TileLayer
-                      attribution="&copy; OpenStreetMap contributors"
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    />
-
-                    <LocationPicker
-                      selectedLocation={selectedLocation}
-                      setSelectedLocation={setSelectedLocation}
-                    />
-
-                  </MapContainer>
-
-                </div>
-
-                <p className="text-xs text-purple-200/60">
-                  Toca el mapa para seleccionar tu ubicación exacta
-                </p>
+                ))}
 
               </div>
-            )}
 
-            {/* Resumen */}
-            <div className="space-y-2 mb-5">
+              {/* Delivery */}
+              {deliveryType === 'delivery' && (
 
-              {items.length === 0 && (
-                <p className="text-sm text-white/40">
-                  No hay productos agregados
-                </p>
-              )}
+                <div className="space-y-3 mb-5">
 
-              {items.map(item => (
-                <div
-                  key={item.product.id}
-                  className="flex justify-between text-sm"
-                >
+                  <input
+                    type="text"
+                    placeholder="Dirección *"
+                    value={deliveryAddress}
+                    onChange={e => setDeliveryAddress(e.target.value)}
+                    className="w-full rounded-2xl px-4 py-3 bg-white/5 border border-white/10 outline-none"
+                  />
 
-                  <span>
-                    {item.quantity}x {item.product.name}
-                  </span>
+                  <input
+                    type="text"
+                    placeholder="Referencia"
+                    value={deliveryReference}
+                    onChange={e => setDeliveryReference(e.target.value)}
+                    className="w-full rounded-2xl px-4 py-3 bg-white/5 border border-white/10 outline-none"
+                  />
 
-                  <span className="font-semibold text-purple-300">
-                    $
-                    {(
-                      item.product.price * item.quantity
-                    ).toLocaleString('es-CO')}
-                  </span>
+                  <button
+                    onClick={getCurrentLocation}
+                    className="w-full rounded-2xl py-3 font-semibold bg-blue-500 hover:bg-blue-400 transition-colors"
+                  >
+                    📍 Usar mi ubicación actual
+                  </button>
+
+                  {/* MAPA */}
+                  <div className="overflow-hidden rounded-3xl border border-white/10">
+
+                    <MapContainer
+                      center={
+                        selectedLocation
+                          ? [
+                            selectedLocation.lat,
+                            selectedLocation.lng,
+                          ]
+                          : [4.6097, -74.0817]
+                      }
+                      zoom={13}
+                      style={{
+                        height:
+                          window.innerWidth < 768
+                            ? '220px'
+                            : '320px',
+                        width: '100%',
+                      }}
+                    >
+
+                      <TileLayer
+                        attribution="&copy; OpenStreetMap contributors"
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      />
+
+                      <LocationPicker
+                        selectedLocation={selectedLocation}
+                        setSelectedLocation={setSelectedLocation}
+                      />
+
+                    </MapContainer>
+
+                  </div>
 
                 </div>
-              ))}
+
+              )}
+
+              {/* Resumen */}
+              <div className="space-y-2 mb-5">
+
+                {items.map(item => (
+
+                  <div
+                    key={item.product.id}
+                    className="flex justify-between text-sm"
+                  >
+
+                    <span>
+                      {item.quantity}x {item.product.name}
+                    </span>
+
+                    <span className="font-semibold text-purple-300">
+                      $
+                      {(
+                        item.product.price * item.quantity
+                      ).toLocaleString('es-CO')}
+                    </span>
+
+                  </div>
+
+                ))}
+
+              </div>
+
+              {/* Total */}
+              <div className="flex justify-between items-center mb-5 pt-4 border-t border-white/10">
+
+                <span className="font-bold text-lg">
+                  Total
+                </span>
+
+                <span className="font-black text-2xl text-purple-300">
+                  ${total.toLocaleString('es-CO')}
+                </span>
+
+              </div>
+
+              {/* Botón */}
+              <div className="sticky bottom-0 pt-4 bg-gradient-to-t from-[#1A1A2E] via-[#1A1A2E] to-transparent">
+
+                <button
+                  onClick={handleConfirm}
+                  disabled={confirming || items.length === 0}
+                  className="w-full rounded-3xl py-4 font-black text-lg transition-all disabled:opacity-50"
+                  style={{
+                    background:
+                      'linear-gradient(135deg, #820AD1, #A855F7)',
+                    boxShadow:
+                      '0 10px 30px rgba(130,10,209,0.35)',
+                  }}
+                >
+                  {confirming
+                    ? 'Enviando pedido...'
+                    : 'Confirmar pedido'}
+                </button>
+
+              </div>
 
             </div>
-
-            {/* Total */}
-            <div className="flex justify-between items-center mb-5 pt-4 border-t border-white/10">
-
-              <span className="font-bold text-lg">
-                Total
-              </span>
-
-              <span className="font-black text-2xl text-purple-300">
-                ${total.toLocaleString('es-CO')}
-              </span>
-
-            </div>
-
-            {/* Confirmar */}
-            <button
-              onClick={handleConfirm}
-              disabled={confirming || items.length === 0}
-              className="w-full rounded-3xl py-4 font-black text-lg transition-all disabled:opacity-50"
-              style={{
-                background:
-                  'linear-gradient(135deg, #820AD1, #A855F7)',
-                boxShadow:
-                  '0 10px 30px rgba(130,10,209,0.35)',
-              }}
-            >
-              {confirming
-                ? 'Enviando pedido...'
-                : 'Confirmar pedido'}
-            </button>
 
           </div>
 
-        </div>
-
+        )}
       </div>
 
     </div>
