@@ -144,15 +144,15 @@ export default function MeseroHome() {
       </div>
 
       {/* Grid mesas — Adaptable a diferentes pantallas */}
-      <div className="flex-1 px-6 pb-4 relative z-10">
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-6 md:gap-8">
+      <div className="flex-1 px-6 pb-4 relative z-10 ">
+        <div className="flex flex-wrap justify-center gap-4">
           {(zoneTablesMap[displayZone] || []).map(table => (
             <div
               key={table.id}
               onClick={() => handleSelectTable(table)}
-              className="flex flex-col items-center cursor-pointer active:scale-95 transition-transform duration-150"
+              className="inline-flex flex-col items-center cursor-pointer active:scale-95 transition-transform duration-150"
             >
-              <div className="w-24 h-24">
+              <div className="w-36 h-36">
                 <MesaSVG
                   status={table.status}
                   number={table.number}

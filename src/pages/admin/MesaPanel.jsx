@@ -145,13 +145,13 @@ export default function MesasPanel() {
           placeholder="Nombre de la zona"
           value={zoneForm.name}
           onChange={e => setZoneForm({ name: e.target.value })}
-          className="bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500"
+          className="bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#820AD1]"
         />
         {error && <p className="text-red-400 text-sm">{error}</p>}
         <button
           onClick={saveZone}
           disabled={saving}
-          className="bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-2xl py-4 transition-colors disabled:opacity-50"
+          className="bg-[#820AD1] hover:bg-[#820AD1] text-white font-bold rounded-2xl py-4 transition-colors disabled:opacity-50"
         >
           {saving ? 'Guardando...' : 'Guardar'}
         </button>
@@ -173,14 +173,14 @@ export default function MesasPanel() {
           placeholder="Número de mesa"
           value={tableForm.number}
           onChange={e => setTableForm(p => ({ ...p, number: e.target.value }))}
-          className="bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500"
+          className="bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#820AD1]"
         />
         <input
           type="number"
           placeholder="Capacidad (opcional)"
           value={tableForm.capacity}
           onChange={e => setTableForm(p => ({ ...p, capacity: e.target.value }))}
-          className="bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500"
+          className="bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#820AD1]"
         />
         <div>
           <p className="text-gray-400 text-sm mb-2">Zona</p>
@@ -191,7 +191,7 @@ export default function MesasPanel() {
                 onClick={() => setTableForm(p => ({ ...p, zone_id: zone.id }))}
                 className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors
                   ${tableForm.zone_id === zone.id
-                    ? 'bg-orange-500 text-white'
+                    ? 'bg-[#820AD1] text-white'
                     : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
                   }`}
               >
@@ -203,7 +203,7 @@ export default function MesasPanel() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setTableForm(p => ({ ...p, is_delivery: !p.is_delivery }))}
-            className={`w-12 h-6 rounded-full transition-colors ${tableForm.is_delivery ? 'bg-orange-500' : 'bg-gray-700'}`}
+            className={`w-12 h-6 rounded-full transition-colors ${tableForm.is_delivery ? 'bg-[#820AD1]' : 'bg-gray-700'}`}
           >
             <div className={`w-5 h-5 bg-white rounded-full transition-transform mx-0.5 ${tableForm.is_delivery ? 'translate-x-6' : ''}`} />
           </button>
@@ -213,7 +213,7 @@ export default function MesasPanel() {
         <button
           onClick={saveTable}
           disabled={saving}
-          className="bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-2xl py-4 transition-colors disabled:opacity-50"
+          className="bg-[#820AD1] hover:bg-[#820AD1] text-white font-bold rounded-2xl py-4 transition-colors disabled:opacity-50"
         >
           {saving ? 'Guardando...' : 'Guardar'}
         </button>
@@ -229,7 +229,7 @@ export default function MesasPanel() {
         <p className="text-gray-400 text-sm">Zonas</p>
         <button
           onClick={openNewZone}
-          className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors"
+          className="bg-[#820AD1] hover:bg-[#820AD1] text-white rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors"
         >
           + Nueva zona
         </button>
@@ -240,12 +240,12 @@ export default function MesasPanel() {
           <div
             key={zone.id}
             className={`rounded-2xl px-4 py-3 flex items-center justify-between cursor-pointer transition-colors
-              ${activeZone === zone.id ? 'bg-orange-500/20 border border-orange-500/50' : 'bg-gray-900 border border-gray-800'}`}
+              ${activeZone === zone.id ? 'bg-[#820AD1] border border-[#820AD1]' : 'bg-gray-900 border border-gray-800'}`}
             onClick={() => setActiveZone(zone.id)}
           >
             <div>
               <p className="font-semibold text-white">{zone.name}</p>
-              <p className="text-gray-500 text-xs">
+              <p className="text-[#FFFFFF] text-xs">
                 {tables.filter(t => t.zone_id === zone.id).length} mesas
               </p>
             </div>
@@ -276,7 +276,7 @@ export default function MesasPanel() {
             </p>
             <button
               onClick={openNewTable}
-              className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors"
+              className="bg-[#820AD1]hover:bg-[#820AD1] text-white rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors"
             >
               + Nueva mesa
             </button>
@@ -298,7 +298,7 @@ export default function MesasPanel() {
                     )}
                     <span className={`text-xs ${
                       table.status === 'free' ? 'text-green-400' :
-                      table.status === 'occupied' ? 'text-orange-400' : 'text-blue-400'
+                      table.status === 'occupied' ? 'text-[#820AD1]' : 'text-blue-400'
                     }`}>
                       {table.status === 'free' ? 'Libre' : table.status === 'occupied' ? 'Ocupada' : 'Por cobrar'}
                     </span>

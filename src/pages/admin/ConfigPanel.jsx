@@ -51,7 +51,7 @@ export default function ConfigPanel() {
             type="text"
             value={form.name}
             onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-            className="w-full bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500"
+            className="w-full bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#820AD1]"
           />
         </div>
         <div>
@@ -60,7 +60,7 @@ export default function ConfigPanel() {
             type="time"
             value={form.opening_time}
             onChange={e => setForm(p => ({ ...p, opening_time: e.target.value }))}
-            className="w-full bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500"
+            className="w-full bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#820AD1]"
           />
         </div>
         <div>
@@ -69,7 +69,7 @@ export default function ConfigPanel() {
             type="time"
             value={form.closing_time}
             onChange={e => setForm(p => ({ ...p, closing_time: e.target.value }))}
-            className="w-full bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500"
+            className="w-full bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#820AD1]"
           />
         </div>
         <div>
@@ -78,14 +78,14 @@ export default function ConfigPanel() {
             type="number"
             value={form.delivery_fee}
             onChange={e => setForm(p => ({ ...p, delivery_fee: e.target.value }))}
-            className="w-full bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500"
+            className="w-full bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#820AD1]"
           />
         </div>
 
         <button
           onClick={handleSave}
           disabled={saving}
-          className="bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-2xl py-4 transition-colors disabled:opacity-50"
+          className="bg-[#820AD1] hover:bg-[#820AD1] text-white font-bold rounded-2xl py-4 transition-colors disabled:opacity-50"
         >
           {saved ? '✓ Guardado' : saving ? 'Guardando...' : 'Guardar cambios'}
         </button>

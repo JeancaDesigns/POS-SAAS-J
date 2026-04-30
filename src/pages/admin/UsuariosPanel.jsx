@@ -119,7 +119,7 @@ export default function UsuariosPanel() {
             <p className="text-gray-400 text-sm">{usuarios.length} usuarios</p>
             <button
               onClick={openNew}
-              className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl px-4 py-2 text-sm font-semibold transition-colors"
+              className="bg-[#820AD1] hover:bg-[#820AD1] text-white rounded-xl px-4 py-2 text-sm font-semibold transition-colors"
             >
               + Nuevo usuario
             </button>
@@ -139,7 +139,7 @@ export default function UsuariosPanel() {
                 </div>
                 <div className="flex flex-wrap gap-1 mb-3">
                   {u.roles.map(r => (
-                    <span key={r} className="text-xs bg-orange-500/20 text-orange-400 rounded-full px-2 py-0.5">
+                    <span key={r} className="text-xs bg-[#820AD1] text-[#FFFFFF] rounded-full px-2 py-0.5">
                       {r}
                     </span>
                   ))}
@@ -183,14 +183,14 @@ export default function UsuariosPanel() {
               placeholder="Nombre completo"
               value={form.name}
               onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-              className="bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500"
+              className="bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#820AD1]"
             />
             <input
               type="text"
               placeholder="Usuario (para login)"
               value={form.username}
               onChange={e => setForm(p => ({ ...p, username: e.target.value }))}
-              className="bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500"
+              className="bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#820AD1]"
             />
 
             {!editUser && (
@@ -200,14 +200,14 @@ export default function UsuariosPanel() {
                   placeholder="Email"
                   value={form.email}
                   onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
-                  className="bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500"
+                  className="bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#820AD1]"
                 />
                 <input
                   type="password"
                   placeholder="Contraseña"
                   value={form.password}
                   onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
-                  className="bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500"
+                  className="bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#820AD1]"
                 />
               </>
             )}
@@ -221,7 +221,7 @@ export default function UsuariosPanel() {
                     onClick={() => toggleRole(role)}
                     className={`px-4 py-2 rounded-full text-sm font-semibold capitalize transition-colors
                       ${form.roles.includes(role)
-                        ? 'bg-orange-500 text-white'
+                        ? 'bg-[#820AD1] text-white'
                         : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
                       }`}
                   >
@@ -236,7 +236,7 @@ export default function UsuariosPanel() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-2xl py-4 transition-colors disabled:opacity-50"
+              className="bg-[#820AD1] hover:bg-[#820AD1] text-white font-bold rounded-2xl py-4 transition-colors disabled:opacity-50"
             >
               {saving ? 'Guardando...' : 'Guardar'}
             </button>

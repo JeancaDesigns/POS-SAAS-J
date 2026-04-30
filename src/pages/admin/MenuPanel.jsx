@@ -133,7 +133,7 @@ export default function MenuPanel() {
             key={v}
             onClick={() => { setView(v); setShowForm(false) }}
             className={`px-4 py-2 rounded-full text-sm font-semibold capitalize transition-colors
-              ${view === v ? 'bg-orange-500 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+              ${view === v ? 'bg-[#820AD1] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
           >
             {v === 'categorias' ? 'Categorías' : 'Productos'}
           </button>
@@ -147,7 +147,7 @@ export default function MenuPanel() {
             <p className="text-gray-400 text-sm">{categories.length} categorías</p>
             <button
               onClick={openNewCat}
-              className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl px-4 py-2 text-sm font-semibold transition-colors"
+              className="bg-[#820AD1] hover:bg-[#820AD1] text-white rounded-xl px-4 py-2 text-sm font-semibold transition-colors"
             >
               + Nueva categoría
             </button>
@@ -199,7 +199,7 @@ export default function MenuPanel() {
               placeholder="Nombre de la categoría"
               value={catForm.name}
               onChange={e => setCatForm(p => ({ ...p, name: e.target.value }))}
-              className="bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500"
+              className="bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#820AD1]"
             />
             <div>
               <p className="text-gray-400 text-sm mb-2">Ícono</p>
@@ -209,7 +209,7 @@ export default function MenuPanel() {
                     key={icon}
                     onClick={() => setCatForm(p => ({ ...p, icon }))}
                     className={`text-2xl p-2 rounded-xl transition-colors
-                      ${catForm.icon === icon ? 'bg-orange-500' : 'bg-gray-800 hover:bg-gray-700'}`}
+                      ${catForm.icon === icon ? 'bg-[#820AD1]' : 'bg-gray-800 hover:bg-gray-700'}`}
                   >
                     {icon}
                   </button>
@@ -220,7 +220,7 @@ export default function MenuPanel() {
             <button
               onClick={saveCat}
               disabled={saving}
-              className="bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-2xl py-4 transition-colors disabled:opacity-50"
+              className="bg-[#820AD1] hover:bg-[#820AD1] text-white font-bold rounded-2xl py-4 transition-colors disabled:opacity-50"
             >
               {saving ? 'Guardando...' : 'Guardar'}
             </button>
@@ -235,7 +235,7 @@ export default function MenuPanel() {
             <p className="text-gray-400 text-sm">{products.length} productos</p>
             <button
               onClick={openNewProd}
-              className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl px-4 py-2 text-sm font-semibold transition-colors"
+              className="bg-[#820AD1] hover:bg-[#820AD1] text-white rounded-xl px-4 py-2 text-sm font-semibold transition-colors"
             >
               + Nuevo producto
             </button>
@@ -250,7 +250,7 @@ export default function MenuPanel() {
                     </p>
                     <p className="text-gray-500 text-xs">{prod.category?.name}</p>
                   </div>
-                  <span className="text-orange-400 font-bold">
+                  <span className="text-[#FFFFFF] font-bold">
                     ${prod.price.toLocaleString('es-CO')}
                   </span>
                 </div>
@@ -299,14 +299,14 @@ export default function MenuPanel() {
               placeholder="Nombre del producto"
               value={prodForm.name}
               onChange={e => setProdForm(p => ({ ...p, name: e.target.value }))}
-              className="bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500"
+              className="bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#820AD1]"
             />
             <input
               type="number"
               placeholder="Precio"
               value={prodForm.price}
               onChange={e => setProdForm(p => ({ ...p, price: e.target.value }))}
-              className="bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500"
+              className="bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#820AD1]"
             />
             <div>
               <p className="text-gray-400 text-sm mb-2">Categoría</p>
@@ -317,7 +317,7 @@ export default function MenuPanel() {
                     onClick={() => setProdForm(p => ({ ...p, category_id: cat.id }))}
                     className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors
                       ${prodForm.category_id === cat.id
-                        ? 'bg-orange-500 text-white'
+                        ? 'bg-[#820AD1] text-white'
                         : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
                       }`}
                   >
@@ -330,7 +330,7 @@ export default function MenuPanel() {
             <button
               onClick={saveProd}
               disabled={saving}
-              className="bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-2xl py-4 transition-colors disabled:opacity-50"
+              className="bg-[#820AD1] hover:bg-[#820AD1] text-white font-bold rounded-2xl py-4 transition-colors disabled:opacity-50"
             >
               {saving ? 'Guardando...' : 'Guardar'}
             </button>
