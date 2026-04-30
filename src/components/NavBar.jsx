@@ -3,11 +3,11 @@ import { useAuthStore } from '../store/authStore'
 import { supabase } from '../supabaseClient'
 
 const NAV_ITEMS = {
-  mesero: { path: '/mesero', label: 'Mesas', icon: '🍽️' },
-  caja: { path: '/caja', label: 'Caja', icon: '💰' },
+  mesero: { path: '/mesero', label: 'Mesas ', icon: '🍽️' },
+  caja: { path: '/caja', label: 'Cajero', icon: '💰' },
   cocina: { path: '/cocina', label: 'Cocina', icon: '👨‍🍳' },
-  domiciliario: { path: '/domiciliario', label: 'Domis', icon: '🛵' },
-  admin: { path: '/admin', label: 'Admin', icon: '⚙️' },
+  domiciliario: { path: '/domiciliario', label: 'Domis ', icon: '🛵' },
+  admin: { path: '/admin', label: 'Admin ', icon: '⚙️' },
 }
 
 const ROLE_TABS = {
@@ -42,7 +42,7 @@ export default function NavBar() {
   if (orderedTabs.length <= 1) return null
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 h-[80px] lg:h-full lg:w-20 lg:top-0 lg:left-0 lg:right-auto bg-gray-900 border-t lg:border-t-0 lg:border-r border-gray-800 z-50 flex lg:flex-col items-center justify-around lg:justify-start lg:py-8 lg:gap-8">
+    <nav className="fixed bottom-0 left-0 right-0 h-[80px] lg:h-full lg:w-20 lg:top-0 lg:left-0 lg:right-auto bg-[#820AD1] border-t lg:border-t-0 lg:border-r border-[#A855F7] z-50 flex lg:flex-col items-center justify-around lg:justify-start lg:py-8 lg:gap-8">
       <div className="flex lg:flex-col items-center justify-around lg:justify-start w-full px-2 py-2 lg:gap-8">
         {orderedTabs.map(tab => {
           const item = NAV_ITEMS[tab]
@@ -53,8 +53,8 @@ export default function NavBar() {
               onClick={() => navigate(item.path)}
               className={`flex flex-col cursor-pointer items-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors
                 ${isActive
-                  ? 'text-orange-500 bg-orange-500/10 lg:bg-transparent'
-                  : 'text-gray-500 hover:text-gray-300'
+                  ? 'text-[#1A1A2E] bg-[#A855F7]'
+                  : 'text-[#FFFFFF] hover:text-gray-300'
                 }`}
             >
               <span className="text-xl lg:text-2xl">{item.icon}</span>
@@ -66,7 +66,7 @@ export default function NavBar() {
       <div className="lg:mt-auto lg:pb-4">
         <button
           onClick={handleLogout}
-          className="flex flex-col cursor-pointer items-center gap-0.5 px-3 py-1.5 rounded-xl text-gray-500 hover:text-red-400 transition-colors"
+          className="flex flex-col cursor-pointer items-center gap-0.5 px-3 py-1.5 rounded-xl text-[#FFFFFF] hover:text-red-400 transition-colors"
         >
           <span className="text-xl lg:text-2xl">🚪</span>
           <span className="text-[10px] lg:text-xs font-medium">Salir</span>
