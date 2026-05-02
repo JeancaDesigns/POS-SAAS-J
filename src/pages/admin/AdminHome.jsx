@@ -283,7 +283,7 @@ export default function AdminHome() {
           }
 
           {section === 'reportes' &&
-            <CajaPanel />
+            <ReportesPanel />
           }
 
           {/* NEGOCIO */}
