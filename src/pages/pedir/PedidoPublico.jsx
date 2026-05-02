@@ -32,6 +32,9 @@ function LocationPicker({ selectedLocation, setSelectedLocation }) {
 
 export default function PedidoPublico() {
   const [restaurant, setRestaurant] = useState(null)
+  const [deliveryUser, setDeliveryUser] = useState(null)
+  const [orderSuccess, setOrderSuccess] = useState(false)
+  const [createdOrder, setCreatedOrder] = useState(null)
 
   const [categories, setCategories] = useState([])
   const [products, setProducts] = useState([])
@@ -69,6 +72,17 @@ export default function PedidoPublico() {
       .single()
 
     setRestaurant(restaurantData)
+
+    const { data: deliveryUsers } = await supabase
+      .from('users')
+      .select('*')
+      .eq('restaurant_id', restaurantId)
+      .eq('role', 'delivery')
+      .limit(1)
+
+    if (deliveryUsers?.length > 0) {
+      setDeliveryUser(deliveryUsers[0])
+    }
 
     const { data: categoriesData } = await supabase
       .from('categories')
@@ -242,7 +256,8 @@ export default function PedidoPublico() {
       }))
     )
 
-    alert('Pedido enviado correctamente 🎉')
+    setCreatedOrder(order)
+    setOrderSuccess(true)
 
     setItems([])
 
@@ -285,6 +300,112 @@ export default function PedidoPublico() {
     )
   }
 
+  function formatHour(hour) {
+    if (!hour) return ''
+
+    const [h, m] = hour.split(':')
+
+    let hourNum = parseInt(h)
+
+    const period = hourNum >= 12 ? 'PM' : 'AM'
+
+    hourNum = hourNum % 12 || 12
+
+    return `${hourNum}:${m} ${period}`
+  }
+
+  if (orderSuccess) {
+
+    return (
+
+      <div
+        className="min-h-[100dvh] flex items-center justify-center p-6 text-white"
+        style={{
+          background:
+            'linear-gradient(160deg, #1A1A2E 0%, #2D1B4E 100%)'
+        }}
+      >
+
+        <div className="w-full max-w-md rounded-[32px] border border-white/10 bg-black/20 backdrop-blur-xl p-8 text-center">
+
+          <div
+            className="w-24 h-24 rounded-full mx-auto flex items-center justify-center text-5xl mb-6"
+            style={{
+              background:
+                'linear-gradient(135deg, #820AD1, #A855F7)',
+            }}
+          >
+            ✅
+          </div>
+
+          <h1 className="text-3xl font-black mb-3">
+            Pedido confirmado
+          </h1>
+
+          <p className="text-purple-200/70 mb-6">
+            Tu pedido ya fue enviado al restaurante y está siendo preparado.
+          </p>
+
+          <div className="space-y-3 text-left mb-6">
+
+            <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+
+              <p className="text-sm text-purple-200/60 mb-1">
+                Tiempo estimado
+              </p>
+
+              <p className="font-bold text-lg">
+                35 - 50 minutos
+              </p>
+
+            </div>
+
+            {deliveryUser && (
+              <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+
+                <p className="text-sm text-purple-200/60 mb-1">
+                  Domiciliario asignado
+                </p>
+
+                <p className="font-bold text-lg">
+                  🛵 {deliveryUser.name}
+                </p>
+
+              </div>
+            )}
+
+            <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+
+              <p className="text-sm text-purple-200/60 mb-1">
+                Pedido #
+              </p>
+
+              <p className="font-bold text-lg">
+                #{createdOrder?.order_number}
+              </p>
+
+            </div>
+
+          </div>
+
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full rounded-3xl py-4 font-black text-lg"
+            style={{
+              background:
+                'linear-gradient(135deg, #820AD1, #A855F7)',
+            }}
+          >
+            Hacer otro pedido
+          </button>
+
+        </div>
+
+      </div>
+
+    )
+  }
+
   return (
     <div
       className="min-h-[100dvh] text-white pb-[env(safe-area-inset-bottom)]"
@@ -295,37 +416,40 @@ export default function PedidoPublico() {
     >
 
       {/* Header */}
-      <div className="sticky top-0 z-20 backdrop-blur-xl border-b border-white/10 bg-black/20">
+      <div className="flex justify-center items-center gap-4 pt-4">
 
-        <div className="max-w-6xl mx-auto px-4 py-5">
+        <div
+          className="w-16 h-16 rounded-3xl flex items-center justify-center text-2xl font-black"
+          style={{
+            background:
+              'linear-gradient(135deg, #820AD1, #A855F7)',
+          }}
+        >
+          🍟
+        </div>
 
-          <div className="flex items-center justify-between gap-4">
+        <div>
 
-            <div>
-              <h1 className="text-2xl font-black">
-                {restaurant?.name || 'Pedidos Online'}
-              </h1>
+          <h1 className="text-2xl font-black">
+            {restaurant?.name || 'Pedidos Online'}
+          </h1>
 
-              <p className="text-sm text-purple-200/70 mt-1">
-                Haz tu pedido fácilmente
-              </p>
-            </div>
+          <div className="flex flex-wrap gap-2 mt-1">
 
-            <div className="bg-white/5 border border-white/10 rounded-2xl px-4 py-2">
+            <span className="text-xs px-3 py-1 rounded-full bg-white/5 border border-white/10">
+              🕒 {formatHour(restaurant?.opening_time)} - {formatHour(restaurant?.closing_time)}
+            </span>
 
-              <p className="text-xs text-purple-200/60">
-                Total
-              </p>
-
-              <p className="font-black text-lg text-purple-300">
-                ${total.toLocaleString('es-CO')}
-              </p>
-
-            </div>
+            <span className="text-xs px-3 py-1 rounded-full bg-white/5 border border-white/10">
+              🛵 Domicilio $
+              {(restaurant?.delivery_fee || 0)
+                .toLocaleString('es-CO')}
+            </span>
 
           </div>
 
         </div>
+
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-6">
