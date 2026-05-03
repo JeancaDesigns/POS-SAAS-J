@@ -13,12 +13,14 @@ export function useProducts() {
       .from('categories')
       .select('*')
       .eq('restaurant_id', user.restaurant_id)
+      .eq('active', true)
       .order('name')
 
     const { data: prodsData } = await supabase
       .from('products')
       .select('*')
       .eq('restaurant_id', user.restaurant_id)
+      .eq('active', true)
       .order('price')
 
     setCategories(catsData || [])

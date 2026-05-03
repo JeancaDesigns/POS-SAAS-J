@@ -16,6 +16,14 @@ export default function ReportesPanel() {
   const [loading, setLoading] =
     useState(true)
 
+  // HOY
+  const [todayOrders, setTodayOrders] =
+    useState([])
+
+  const [todayItems, setTodayItems] =
+    useState([])
+
+  // HISTÓRICO
   const [orders, setOrders] =
     useState([])
 
@@ -59,41 +67,124 @@ export default function ReportesPanel() {
     const todayISO =
       today.toISOString()
 
-    const { data: ordersData } =
-      await supabase
-        .from('orders')
-        .select('*')
-        .gte(
-          'created_at',
-          todayISO
-        )
-        .order(
-          'created_at',
-          { ascending: false }
-        )
+    // PEDIDOS HOY
+    const {
+      data: todayOrdersData,
+      error: todayOrdersError
+    } = await supabase
+      .from('orders')
+      .select('*')
+      .gte(
+        'created_at',
+        todayISO
+      )
+      .order(
+        'created_at',
+        { ascending: false }
+      )
 
-    const { data: itemsData, error: itemsError } =
-      await supabase
-        .from('order_items')
-        .select(`
-          *,
-          product:products(*)
-        `)
-    console.log(itemsData)
-    console.log(itemsError)
+    if (todayOrdersError) {
+      console.error(todayOrdersError)
+    }
 
+    // PEDIDOS HISTÓRICOS
+    const {
+      data: allOrdersData,
+      error: allOrdersError
+    } = await supabase
+      .from('orders')
+      .select('*')
+      .order(
+        'created_at',
+        { ascending: false }
+      )
+
+    if (allOrdersError) {
+      console.error(allOrdersError)
+    }
+
+    // ITEMS HOY
+    const todayOrderIds =
+      (todayOrdersData || []).map(
+        o => o.id
+      )
+
+    const {
+      data: todayItemsData,
+      error: todayItemsError
+    } = await supabase
+      .from('order_items')
+      .select(`
+        *,
+        product:products(*)
+      `)
+      .in(
+        'order_id',
+        todayOrderIds.length
+          ? todayOrderIds
+          : ['00000000-0000-0000-0000-000000000000']
+      )
+
+    if (todayItemsError) {
+      console.error(todayItemsError)
+    }
+
+    // ITEMS HISTÓRICOS
+    const allOrderIds =
+      (allOrdersData || []).map(
+        o => o.id
+      )
+
+    const {
+      data: allItemsData,
+      error: allItemsError
+    } = await supabase
+      .from('order_items')
+      .select(`
+        *,
+        product:products(*)
+      `)
+      .in(
+        'order_id',
+        allOrderIds.length
+          ? allOrderIds
+          : ['00000000-0000-0000-0000-000000000000']
+      )
+
+    if (allItemsError) {
+      console.error(allItemsError)
+    }
+
+    // PRODUCTOS
     const { data: productsData } =
       await supabase
         .from('products')
         .select('*')
 
-    setOrders(ordersData || [])
-    setOrderItems(itemsData || [])
-    setProducts(productsData || [])
+    // STATES
+    setTodayOrders(
+      todayOrdersData || []
+    )
+
+    setTodayItems(
+      todayItemsData || []
+    )
+
+    setOrders(
+      allOrdersData || []
+    )
+
+    setOrderItems(
+      allItemsData || []
+    )
+
+    setProducts(
+      productsData || []
+    )
 
     calculateStats(
-      ordersData || [],
-      itemsData || []
+      todayOrdersData || [],
+      todayItemsData || []
     )
 
     setLoading(false)
@@ -106,44 +197,63 @@ export default function ReportesPanel() {
 
     const validOrders =
       ordersData.filter(
-        o => o.status !== 'cancelled'
+        o =>
+          o.status !== 'cancelled'
       )
 
-    const totalSales =
-      itemsData.reduce((sum, item) => {
-
-        if (
-          !item.product || !item.product.price
-        ) return sum
-
-        return (
-          sum +
-          Number(item.product.price) *
-          Number(item.quantity)
-        )
-
-      }, 0)
-
-    const deliveryOrders =
-      validOrders.filter(
-        o => o.delivery_type === 'delivery'
-      ).length
+    const activeStatuses = [
+      'pending',
+      'confirmed',
+      'preparing',
+      'ready',
+    ]
 
     const activeOrders =
-      validOrders.filter(
+      ordersData.filter(
         o =>
-          o.status !== 'delivered'
+          activeStatuses.includes(
+            o.status
+          )
       ).length
 
     const cancelledOrders =
       ordersData.filter(
-        o => o.status === 'cancelled'
+        o =>
+          o.status === 'cancelled'
       ).length
+
+    const deliveryOrders =
+      validOrders.filter(
+        o =>
+          o.delivery_type === 'delivery'
+      ).length
+
+    const totalSales =
+      itemsData.reduce(
+        (sum, item) => {
+
+          if (
+            !item.product ||
+            !item.product.price
+          ) return sum
+
+          return (
+            sum +
+            (
+              Number(item.product.price) *
+              Number(item.quantity)
+            )
+          )
+
+        },
+        0
+      )
 
     const productsSold =
       itemsData.reduce(
-        (sum, i) =>
-          sum + i.quantity,
+        (sum, item) =>
+          sum +
+          Number(item.quantity),
         0
       )
 
@@ -170,6 +280,7 @@ export default function ReportesPanel() {
     })
   }
 
+  // HISTÓRICO
   const topProducts =
     useMemo(() => {
 
@@ -195,7 +306,7 @@ export default function ReportesPanel() {
         }
 
         map[id].quantity +=
-          item.quantity
+          Number(item.quantity)
       })
 
       return Object.values(map)
@@ -208,6 +319,7 @@ export default function ReportesPanel() {
 
     }, [orderItems])
 
+  // HISTÓRICO
   const topClients =
     useMemo(() => {
 
@@ -742,21 +854,21 @@ export default function ReportesPanel() {
                   p.available === false
               ).length > 0 && (
 
-                  <div
-                    className="
+                <div
+                  className="
                     rounded-2xl
                     bg-white/5
                     px-4
                     py-3
                   "
-                  >
+                >
 
-                    <p className="text-sm text-white">
-                      📦 Hay productos marcados como no disponibles
-                    </p>
+                  <p className="text-sm text-white">
+                    📦 Hay productos marcados como no disponibles
+                  </p>
 
-                  </div>
-                )}
+                </div>
+              )}
 
               {stats.cancelledOrders === 0 &&
                 products.filter(
@@ -766,11 +878,11 @@ export default function ReportesPanel() {
 
                   <div
                     className="
-                    rounded-2xl
-                    bg-white/5
-                    px-4
-                    py-3
-                  "
+                      rounded-2xl
+                      bg-white/5
+                      px-4
+                      py-3
+                    "
                   >
 
                     <p className="text-sm text-green-300">

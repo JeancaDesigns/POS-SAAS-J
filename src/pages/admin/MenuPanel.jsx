@@ -21,12 +21,14 @@ export default function MenuPanel() {
       .from('categories')
       .select('*')
       .eq('restaurant_id', user.restaurant_id)
+      .eq('active', true)
       .order('name')
 
-    const { data: prods } = await supabase
+    const { data: prods, error } = await supabase
       .from('products')
       .select('*, category:categories(name)')
       .eq('restaurant_id', user.restaurant_id)
+      .eq('active', true)
       .order('price')
 
     setCategories(cats || [])
@@ -67,7 +69,7 @@ export default function MenuPanel() {
     if (!catForm.name) { setError('El nombre es obligatorio'); return }
     setSaving(true)
     if (editItem) {
-      await supabase.from('categories').update({ name: catForm.name, icon: catForm.icon }).eq('id', editItem.id)
+      await supabase.from('categories').update({ name: catForm.name, icon: catForm.icon }).eq('id', editItem.id).eq('active', true)
     } else {
       await supabase.from('categories').insert({ restaurant_id: user.restaurant_id, name: catForm.name, icon: catForm.icon })
     }
@@ -89,6 +91,7 @@ export default function MenuPanel() {
         category_id: prodForm.category_id,
         available: prodForm.available,
       }).eq('id', editItem.id)
+        .eq('active', true)
     } else {
       await supabase.from('products').insert({
         restaurant_id: user.restaurant_id,
@@ -109,17 +112,44 @@ export default function MenuPanel() {
       alert('No puedes eliminar una categoría con productos. Elimina o mueve los productos primero.')
       return
     }
-    await supabase.from('categories').delete().eq('id', cat.id)
+    await supabase.from('categories').update({active: false}).eq('id', cat.id).eq('active', true)
     fetchData()
   }
 
-  async function deleteProd(prod) {
-    await supabase.from('products').delete().eq('id', prod.id)
-    fetchData()
+  async function deleteProd(productId) {
+
+    const confirmed =
+      confirm(
+        '¿Desactivar este producto?'
+      )
+
+    if (!confirmed) return
+
+    const { error } =
+      await supabase
+        .from('products')
+        .update({
+          active: false
+        })
+        .eq('id', productId)
+        .eq('active', true)
+
+    if (error) {
+
+      console.error(error)
+
+      alert(
+        'Error desactivando producto'
+      )
+
+      return
+    }
+
+    saveProd()
   }
 
   async function toggleAvailable(prod) {
-    await supabase.from('products').update({ available: !prod.available }).eq('id', prod.id)
+    await supabase.from('products').update({ available: !prod.available }).eq('id', prod.id).eq('active', true)
     fetchData()
   }
 
@@ -272,7 +302,7 @@ export default function MenuPanel() {
                     Editar
                   </button>
                   <button
-                    onClick={() => deleteProd(prod)}
+                    onClick={() => deleteProd(prod.id)}
                     className="bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-xl px-3 py-2 text-sm transition-colors"
                   >
                     Eliminar

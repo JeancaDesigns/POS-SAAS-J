@@ -135,6 +135,7 @@ export default function PedidoPublico() {
         .from('categories')
         .select('*')
         .eq('restaurant_id', restaurantId)
+        .eq('active', true)
         .order('name')
 
     const { data: productsData } =
@@ -142,6 +143,7 @@ export default function PedidoPublico() {
         .from('products')
         .select('*')
         .eq('restaurant_id', restaurantId)
+        .eq('active', true)
         .eq('available', true)
         .order('name')
 

@@ -1,295 +1,185 @@
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from 'react'
-
-import { supabase }
-  from '../../supabaseClient'
-
-import {
-  Wallet,
-  Plus,
-  Minus,
-  ArrowUpRight,
-  ArrowDownRight,
-  CircleDollarSign,
-  Lock,
-} from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { supabase } from '../../supabaseClient'
+import { useAuthStore } from '../../store/authStore'
 
 export default function CajaPanel() {
 
-  const [register, setRegister] =
-    useState(null)
+  const user = useAuthStore((s) => s.user)
 
-  const [movements, setMovements] =
-    useState([])
+  const [loading, setLoading] = useState(true)
 
-  const [loading, setLoading] =
-    useState(true)
+  const [cashRegister, setCashRegister] = useState(null)
 
-  const [openingAmount, setOpeningAmount] =
-    useState('')
+  const [openingAmount, setOpeningAmount] = useState('0')
 
-  const [showMovementModal, setShowMovementModal] =
-    useState(false)
+  const [movementAmount, setMovementAmount] = useState('')
+  const [movementDescription, setMovementDescription] = useState('')
+  const [movementType, setMovementType] = useState('income')
 
-  const [movement, setMovement] =
-    useState({
-
-      type: 'income',
-
-      amount: '',
-
-      description: '',
-    })
-
-  const [closingAmount, setClosingAmount] =
-    useState('')
+  const [movements, setMovements] = useState([])
 
   useEffect(() => {
-    loadData()
-  }, [])
 
-  async function loadData() {
+    if (user) {
+      loadCashRegister()
+    }
+
+  }, [user])
+
+  async function loadCashRegister() {
 
     setLoading(true)
 
-    const {
-      data: openRegister,
-    } = await supabase
+    const { data, error } = await supabase
       .from('cash_registers')
       .select('*')
+      .eq('restaurant_id', user.restaurant_id)
       .eq('status', 'open')
-      .order(
-        'opened_at',
-        { ascending: false }
-      )
+      .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
 
-    setRegister(openRegister)
+    if (error) {
+      console.error(error)
+      setLoading(false)
+      return
+    }
 
-    if (openRegister) {
+    setCashRegister(data)
 
-      const {
-        data: movementData,
-      } = await supabase
-        .from('cash_movements')
-        .select('*')
-        .eq(
-          'register_id',
-          openRegister.id
-        )
-        .order(
-          'created_at',
-          { ascending: false }
-        )
-
-      setMovements(
-        movementData || []
-      )
+    if (data) {
+      loadMovements(data.id)
     }
 
     setLoading(false)
   }
 
+  async function loadMovements(registerId) {
+
+    const { data, error } = await supabase
+      .from('cash_movements')
+      .select('*')
+      .eq('register_id', registerId)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error(error)
+      return
+    }
+
+    setMovements(data || [])
+  }
+
   async function openCash() {
 
-    if (!openingAmount)
-      return
+    const amount = Number(openingAmount)
 
-    const {
-      data,
-    } = await supabase
+    if (isNaN(amount) || amount < 0) {
+      alert('Monto inválido')
+      return
+    }
+
+    const { data, error } = await supabase
       .from('cash_registers')
       .insert({
-
-        opening_amount:
-          Number(openingAmount),
-
-        expected_amount:
-          Number(openingAmount),
-
+        restaurant_id: user.restaurant_id,
+        opening_amount: amount,
+        expected_amount: amount,
         status: 'open',
       })
       .select()
       .single()
 
-    setRegister(data)
-
-    setOpeningAmount('')
-  }
-
-  async function registerMovement() {
-
-    if (
-      !movement.amount ||
-      !register
-    ) return
-
-    const amount =
-      Number(movement.amount)
-
-    await supabase
-      .from('cash_movements')
-      .insert({
-
-        register_id:
-          register.id,
-
-        type: movement.type,
-
-        amount,
-
-        description:
-          movement.description ||
-          null,
-      })
-
-    let expected =
-      Number(
-        register.expected_amount
-      )
-
-    if (
-      movement.type ===
-      'income'
-    ) {
-      expected += amount
+    if (error) {
+      console.error(error)
+      alert(error.message)
+      return
     }
 
-    if (
-      movement.type ===
-        'expense' ||
-      movement.type ===
-        'withdrawal'
-    ) {
-      expected -= amount
-    }
+    setCashRegister(data)
+    setOpeningAmount('0')
 
-    await supabase
-      .from('cash_registers')
-      .update({
-
-        expected_amount:
-          expected,
-      })
-      .eq('id', register.id)
-
-    setShowMovementModal(false)
-
-    setMovement({
-
-      type: 'income',
-
-      amount: '',
-
-      description: '',
-    })
-
-    loadData()
+    await loadMovements(data.id)
   }
 
   async function closeCash() {
 
-    if (
-      !closingAmount ||
-      !register
-    ) return
+    if (!cashRegister) return
 
-    const real =
-      Number(closingAmount)
+    const confirmed =
+      confirm('¿Cerrar caja?')
 
-    const expected =
-      Number(
-        register.expected_amount
-      )
+    if (!confirmed) return
 
-    const difference =
-      real - expected
+    const { error } = await supabase
+      .from('cash_registers')
+      .update({
+        status: 'closed',
+        closed_at: new Date().toISOString(),
+      })
+      .eq('id', cashRegister.id)
+
+    if (error) {
+      console.error(error)
+      alert(error.message)
+      return
+    }
+
+    setCashRegister(null)
+    setMovements([])
+  }
+
+  async function addMovement() {
+
+    if (!movementAmount || !movementDescription.trim()) {
+      alert('Completa todos los campos')
+      return
+    }
+
+    const amount = Number(movementAmount)
+
+    if (isNaN(amount) || amount <= 0) {
+      alert('Monto inválido')
+      return
+    }
+
+    const { error } = await supabase
+      .from('cash_movements')
+      .insert({
+        register_id: cashRegister.id,
+        type: movementType,
+        amount,
+        description: movementDescription.trim(),
+      })
+
+    if (error) {
+      console.error(error)
+      alert(error.message)
+      return
+    }
+
+    const newExpected =
+      movementType === 'income'
+        ? Number(cashRegister.expected_amount) + amount
+        : Number(cashRegister.expected_amount) - amount
 
     await supabase
       .from('cash_registers')
       .update({
-
-        closing_amount:
-          real,
-
-        difference_amount:
-          difference,
-
-        status: 'closed',
-
-        closed_at:
-          new Date()
-            .toISOString(),
+        expected_amount: newExpected,
       })
-      .eq('id', register.id)
+      .eq('id', cashRegister.id)
 
-    setRegister(null)
+    setMovementAmount('')
+    setMovementDescription('')
 
-    setMovements([])
-
-    setClosingAmount('')
+    await loadCashRegister()
   }
 
-  const totals =
-    useMemo(() => {
-
-      let incomes = 0
-      let expenses = 0
-
-      movements.forEach(m => {
-
-        if (
-          m.type ===
-          'income'
-        ) {
-          incomes +=
-            Number(m.amount)
-        }
-
-        if (
-          m.type ===
-            'expense' ||
-          m.type ===
-            'withdrawal'
-        ) {
-          expenses +=
-            Number(m.amount)
-        }
-      })
-
-      return {
-        incomes,
-        expenses,
-      }
-
-    }, [movements])
-
   if (loading) {
-
     return (
-
-      <div className="space-y-4">
-
-        {[...Array(4)].map(
-          (_, i) => (
-
-            <div
-              key={i}
-
-              className="
-                h-32
-                rounded-3xl
-                bg-white/5
-                animate-pulse
-              "
-            />
-          )
-        )}
-
+      <div className="text-white">
+        Cargando caja...
       </div>
     )
   }
@@ -299,140 +189,93 @@ export default function CajaPanel() {
     <div className="space-y-6">
 
       {/* HEADER */}
-      <div className="flex items-center justify-between">
+      <div>
 
-        <div>
+        <h1 className="text-3xl font-black text-white">
+          Caja
+        </h1>
 
-          <h1 className="text-3xl font-black">
-            Caja
-          </h1>
-
-          <p className="text-sm text-white/40 mt-1">
-            Apertura, movimientos y cierre
-          </p>
-
-        </div>
-
-        <div
-          className={`
-            px-4
-            py-2
-
-            rounded-2xl
-
-            text-sm
-            font-bold
-
-            ${
-              register
-
-                ? 'bg-green-500/15 text-green-300'
-
-                : 'bg-red-500/15 text-red-300'
-            }
-          `}
-        >
-
-          {register
-            ? 'Caja abierta'
-            : 'Caja cerrada'}
-
-        </div>
+        <p className="text-sm text-gray-400 mt-1">
+          Control de apertura, movimientos y cierre
+        </p>
 
       </div>
 
-      {/* SIN CAJA */}
-      {!register && (
+      {/* CAJA CERRADA */}
+      {!cashRegister && (
 
         <div
           className="
             rounded-3xl
-
             border
-            border-white/10
-
-            bg-white/[0.04]
-
+            border-[#2A2A40]
+            bg-[#151521]
             p-6
+            max-w-md
           "
         >
 
-          <div className="flex items-center gap-3 mb-4">
+          <h2 className="text-xl font-bold text-white mb-4">
+            Abrir caja
+          </h2>
 
-            <Wallet
-              size={26}
-              className="text-purple-300"
-            />
+          <div className="space-y-4">
 
-            <h2 className="text-xl font-bold">
+            <div>
+
+              <p className="text-sm text-gray-400 mb-2">
+                Monto inicial
+              </p>
+
+              <input
+                type="number"
+                value={openingAmount}
+                onChange={(e) =>
+                  setOpeningAmount(e.target.value)
+                }
+                className="
+                  w-full
+                  rounded-2xl
+                  bg-[#1C1C2E]
+                  border
+                  border-[#2A2A40]
+                  px-4
+                  py-3
+                  text-white
+                  outline-none
+                "
+              />
+
+            </div>
+
+            <button
+              onClick={openCash}
+              className="
+                w-full
+                rounded-2xl
+                py-4
+                font-bold
+                text-white
+              "
+              style={{
+                background:
+                  'linear-gradient(135deg, #820AD1, #A855F7)'
+              }}
+            >
               Abrir caja
-            </h2>
+            </button>
 
           </div>
-
-          <input
-            type="number"
-
-            placeholder="Monto inicial"
-
-            value={openingAmount}
-
-            onChange={e =>
-              setOpeningAmount(
-                e.target.value
-              )
-            }
-
-            className="
-              w-full
-
-              rounded-2xl
-
-              px-4
-              py-3
-
-              bg-white/5
-
-              border
-              border-white/10
-
-              outline-none
-            "
-          />
-
-          <button
-            onClick={openCash}
-
-            className="
-              w-full
-
-              mt-4
-
-              py-3
-
-              rounded-2xl
-
-              font-bold
-
-              bg-gradient-to-br
-              from-[#820AD1]
-              to-[#A855F7]
-            "
-          >
-
-            Abrir caja
-
-          </button>
 
         </div>
       )}
 
       {/* CAJA ABIERTA */}
-      {register && (
+      {cashRegister && (
 
         <>
 
-          {/* STATS */}
+          {/* RESUMEN */}
           <div
             className="
               grid
@@ -442,316 +285,83 @@ export default function CajaPanel() {
             "
           >
 
-            <StatCard
-              title="Monto esperado"
+            <div className="rounded-3xl bg-[#151521] border border-[#2A2A40] p-5">
 
-              value={
-                register.expected_amount
-              }
+              <p className="text-sm text-gray-400">
+                Apertura
+              </p>
 
-              icon={
-                <CircleDollarSign
-                  size={22}
-                />
-              }
-            />
-
-            <StatCard
-              title="Ingresos"
-
-              value={totals.incomes}
-
-              icon={
-                <ArrowUpRight
-                  size={22}
-                />
-              }
-            />
-
-            <StatCard
-              title="Egresos"
-
-              value={totals.expenses}
-
-              icon={
-                <ArrowDownRight
-                  size={22}
-                />
-              }
-            />
-
-          </div>
-
-          {/* BOTONES */}
-          <div className="flex flex-wrap gap-3">
-
-            <button
-              onClick={() =>
-                setShowMovementModal(
-                  true
-                )
-              }
-
-              className="
-                flex-1
-
-                min-w-[180px]
-
-                py-3
-
-                rounded-2xl
-
-                flex
-                items-center
-                justify-center
-                gap-2
-
-                font-bold
-
-                bg-gradient-to-br
-                from-[#820AD1]
-                to-[#A855F7]
-              "
-            >
-
-              <Plus size={18} />
-
-              Movimiento
-
-            </button>
-
-          </div>
-
-          {/* MOVIMIENTOS */}
-          <div className="space-y-3">
-
-            {movements.map(m => (
-
-              <div
-                key={m.id}
-
-                className="
-                  rounded-3xl
-
-                  border
-                  border-white/10
-
-                  bg-white/[0.04]
-
-                  p-4
-                "
-              >
-
-                <div className="flex items-start justify-between gap-3">
-
-                  <div>
-
-                    <p className="font-bold text-white capitalize">
-                      {m.type}
-                    </p>
-
-                    <p className="text-sm text-white/40 mt-1">
-                      {m.description ||
-                        'Sin descripción'}
-                    </p>
-
-                  </div>
-
-                  <div
-                    className={`
-                      text-lg
-                      font-black
-
-                      ${
-                        m.type ===
-                        'income'
-
-                          ? 'text-green-300'
-
-                          : 'text-red-300'
-                      }
-                    `}
-                  >
-
-                    {m.type ===
-                    'income'
-                      ? '+'
-                      : '-'}
-
-                    $
-
-                    {Number(
-                      m.amount
-                    ).toLocaleString(
-                      'es-CO'
-                    )}
-
-                  </div>
-
-                </div>
-
-              </div>
-            ))}
-
-          </div>
-
-          {/* CIERRE */}
-          <div
-            className="
-              rounded-3xl
-
-              border
-              border-red-500/20
-
-              bg-red-500/5
-
-              p-6
-            "
-          >
-
-            <div className="flex items-center gap-3 mb-4">
-
-              <Lock
-                size={24}
-                className="text-red-300"
-              />
-
-              <h2 className="text-xl font-bold">
-                Cerrar caja
+              <h2 className="text-2xl font-black text-white mt-2">
+                $
+                {Number(
+                  cashRegister.opening_amount
+                ).toLocaleString('es-CO')}
               </h2>
 
             </div>
 
-            <input
-              type="number"
+            <div className="rounded-3xl bg-[#151521] border border-[#2A2A40] p-5">
 
-              placeholder="Monto real"
+              <p className="text-sm text-gray-400">
+                Esperado
+              </p>
 
-              value={closingAmount}
+              <h2 className="text-2xl font-black text-[#A855F7] mt-2">
+                $
+                {Number(
+                  cashRegister.expected_amount
+                ).toLocaleString('es-CO')}
+              </h2>
 
-              onChange={e =>
-                setClosingAmount(
-                  e.target.value
-                )
-              }
+            </div>
 
-              className="
-                w-full
+            <div className="rounded-3xl bg-[#151521] border border-[#2A2A40] p-5">
 
-                rounded-2xl
+              <p className="text-sm text-gray-400">
+                Estado
+              </p>
 
-                px-4
-                py-3
+              <h2 className="text-2xl font-black text-green-400 mt-2">
+                ABIERTA
+              </h2>
 
-                bg-white/5
-
-                border
-                border-white/10
-
-                outline-none
-              "
-            />
-
-            <button
-              onClick={closeCash}
-
-              className="
-                w-full
-
-                mt-4
-
-                py-3
-
-                rounded-2xl
-
-                font-bold
-
-                bg-red-500/20
-
-                text-red-300
-              "
-            >
-
-              Cerrar caja
-
-            </button>
+            </div>
 
           </div>
 
-        </>
-      )}
-
-      {/* MODAL MOVIMIENTO */}
-      {showMovementModal && (
-
-        <div
-          className="
-            fixed
-            inset-0
-            z-50
-
-            bg-black/70
-
-            backdrop-blur-sm
-
-            flex
-            items-center
-            justify-center
-
-            p-4
-          "
-        >
-
+          {/* MOVIMIENTO */}
           <div
             className="
-              w-full
-              max-w-lg
-
               rounded-3xl
-
-              bg-[#161616]
-
+              bg-[#151521]
               border
-              border-white/10
-
+              border-[#2A2A40]
               p-6
             "
           >
 
-            <h2 className="text-2xl font-bold mb-5">
-              Nuevo movimiento
+            <h2 className="text-xl font-bold text-white mb-5">
+              Registrar movimiento
             </h2>
 
-            <div className="space-y-4">
+            <div className="grid md:grid-cols-4 gap-3">
 
               <select
-                value={movement.type}
-
-                onChange={e =>
-                  setMovement({
-
-                    ...movement,
-
-                    type:
-                      e.target.value,
-                  })
+                value={movementType}
+                onChange={(e) =>
+                  setMovementType(e.target.value)
                 }
-
                 className="
-                  w-full
-
                   rounded-2xl
-
+                  bg-[#1C1C2E]
+                  border
+                  border-[#2A2A40]
                   px-4
                   py-3
-
-                  bg-white/5
-
-                  border
-                  border-white/10
+                  text-white
+                  outline-none
                 "
               >
-
                 <option value="income">
                   Ingreso
                 </option>
@@ -760,198 +370,186 @@ export default function CajaPanel() {
                   Gasto
                 </option>
 
-                <option value="withdrawal">
-                  Retiro
-                </option>
-
               </select>
 
               <input
                 type="number"
-
                 placeholder="Monto"
 
-                value={movement.amount}
+                value={movementAmount}
 
-                onChange={e =>
-                  setMovement({
-
-                    ...movement,
-
-                    amount:
-                      e.target.value,
-                  })
+                onChange={(e) =>
+                  setMovementAmount(e.target.value)
                 }
 
                 className="
-                  w-full
-
                   rounded-2xl
-
+                  bg-[#1C1C2E]
+                  border
+                  border-[#2A2A40]
                   px-4
                   py-3
-
-                  bg-white/5
-
-                  border
-                  border-white/10
-
+                  text-white
                   outline-none
                 "
               />
 
               <input
+                type="text"
                 placeholder="Descripción"
 
-                value={
-                  movement.description
-                }
+                value={movementDescription}
 
-                onChange={e =>
-                  setMovement({
-
-                    ...movement,
-
-                    description:
-                      e.target.value,
-                  })
+                onChange={(e) =>
+                  setMovementDescription(e.target.value)
                 }
 
                 className="
-                  w-full
-
                   rounded-2xl
-
+                  bg-[#1C1C2E]
+                  border
+                  border-[#2A2A40]
                   px-4
                   py-3
-
-                  bg-white/5
-
-                  border
-                  border-white/10
-
+                  text-white
                   outline-none
                 "
               />
 
-            </div>
-
-            <div className="flex gap-3 mt-6">
-
               <button
-                onClick={() =>
-                  setShowMovementModal(
-                    false
-                  )
-                }
-
+                onClick={addMovement}
                 className="
-                  flex-1
-                  py-3
-
                   rounded-2xl
-
-                  bg-white/5
-                "
-              >
-                Cancelar
-              </button>
-
-              <button
-                onClick={
-                  registerMovement
-                }
-
-                className="
-                  flex-1
                   py-3
-
-                  rounded-2xl
-
                   font-bold
-
-                  bg-gradient-to-br
-                  from-[#820AD1]
-                  to-[#A855F7]
+                  text-white
                 "
+                style={{
+                  background:
+                    'linear-gradient(135deg, #820AD1, #A855F7)'
+                }}
               >
-
-                Guardar
-
+                Agregar
               </button>
 
             </div>
 
           </div>
 
-        </div>
+          {/* HISTORIAL */}
+          <div
+            className="
+              rounded-3xl
+              bg-[#151521]
+              border
+              border-[#2A2A40]
+              p-6
+            "
+          >
+
+            <div className="flex items-center justify-between mb-5">
+
+              <h2 className="text-xl font-bold text-white">
+                Movimientos
+              </h2>
+
+              <button
+                onClick={closeCash}
+                className="
+                  px-5
+                  py-2
+                  rounded-xl
+                  text-sm
+                  font-bold
+                  text-white
+                  bg-red-500
+                "
+              >
+                Cerrar caja
+              </button>
+
+            </div>
+
+            <div className="space-y-3">
+
+              {movements.length === 0 && (
+
+                <div className="text-sm text-gray-500">
+                  No hay movimientos registrados
+                </div>
+
+              )}
+
+              {movements.map((movement) => (
+
+                <div
+                  key={movement.id}
+
+                  className="
+                    flex
+                    items-center
+                    justify-between
+
+                    rounded-2xl
+                    bg-[#1C1C2E]
+
+                    border
+                    border-[#2A2A40]
+
+                    px-4
+                    py-4
+                  "
+                >
+
+                  <div>
+
+                    <p className="text-white font-semibold">
+                      {movement.description}
+                    </p>
+
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(
+                        movement.created_at
+                      ).toLocaleString('es-CO')}
+                    </p>
+
+                  </div>
+
+                  <div
+                    className={`
+                      font-black
+                      text-lg
+
+                      ${
+                        movement.type === 'income'
+                          ? 'text-green-400'
+                          : 'text-red-400'
+                      }
+                    `}
+                  >
+                    {movement.type === 'income'
+                      ? '+'
+                      : '-'
+                    }
+
+                    $
+
+                    {Number(
+                      movement.amount
+                    ).toLocaleString('es-CO')}
+
+                  </div>
+
+                </div>
+
+              ))}
+
+            </div>
+
+          </div>
+
+        </>
       )}
-
-    </div>
-  )
-}
-
-function StatCard({
-  title,
-  value,
-  icon,
-}) {
-
-  return (
-
-    <div
-      className="
-        rounded-3xl
-
-        border
-        border-white/10
-
-        bg-white/[0.04]
-
-        p-5
-      "
-    >
-
-      <div className="flex items-center justify-between">
-
-        <div>
-
-          <p className="text-sm text-white/40">
-            {title}
-          </p>
-
-          <h2 className="text-3xl font-black mt-2">
-            $
-
-            {Number(
-              value || 0
-            ).toLocaleString(
-              'es-CO'
-            )}
-          </h2>
-
-        </div>
-
-        <div
-          className="
-            w-14
-            h-14
-
-            rounded-2xl
-
-            flex
-            items-center
-            justify-center
-
-            bg-purple-500/20
-
-            text-purple-300
-          "
-        >
-          {icon}
-        </div>
-
-      </div>
 
     </div>
   )

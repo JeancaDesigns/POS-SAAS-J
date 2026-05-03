@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useAuthStore } from '../../store/authStore'
 
-const ROLES = ['admin', 'cajero', 'mesero', 'cocina']
+const ROLES = ['admin', 'cajero', 'mesero', 'cocina', 'domiciliario']
 
 export default function UsuariosPanel() {
   const { user } = useAuthStore()

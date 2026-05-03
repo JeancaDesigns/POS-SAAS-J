@@ -9,7 +9,7 @@ export function useDeliveryCount(restaurantId) {
     const now = new Date()
     const day = now.getDay() // 0 domingo, 2 martes
     const daysFromWednesday = (day + 4) % 7 // días desde el último martes
-    const lastTuesday = new Date(now)
+    const lastWednesday = new Date(now)
     lastWednesday.setDate(now.getDate() - daysFromWednesday)
     lastWednesday.setHours(0, 0, 0, 0)
 
