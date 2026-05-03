@@ -98,7 +98,7 @@ export default function NavBar() {
     navigate('/login')
   }
 
-  if (orderedTabs.length <= 1) return null
+  if (orderedTabs.length < 1) return null
 
   return (
     <nav

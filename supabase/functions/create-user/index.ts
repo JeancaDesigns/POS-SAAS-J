@@ -26,21 +26,36 @@ serve(async (req) => {
       email_confirm: true,
     })
 
-    if (authError) throw new Error(authError.message)
+    if (authError) {
+
+      console.error(authError)
+
+      throw new Error(authError.message)
+    }
+
+    const safeRoles =
+      Array.isArray(roles)
+        ? roles
+        : [roles]
 
     const { error: dbError } = await supabaseAdmin
       .from('users')
       .insert({
-        id: authData.user.id,
+        auth_user_id: authData.user.id,
         restaurant_id,
         name,
         username,
         email,
-        roles,
+        roles: safeRoles,
         active: true,
       })
 
-    if (dbError) throw new Error(dbError.message)
+      if (dbError) {
+
+        console.error(dbError)
+
+        throw new Error(dbError.message)
+      }
 
     return new Response(
       JSON.stringify({ success: true }),

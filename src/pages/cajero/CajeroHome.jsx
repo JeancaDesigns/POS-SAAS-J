@@ -236,6 +236,12 @@ export default function CajeroHome() {
 
   async function handleCobrar() {
     if (!cobrarOrder) return
+    if (
+      cobrarOrder.status !== 'dispatched'
+    ) {
+      alert('Este pedido aún no salió de cocina')
+      return
+    }
     setProcesando(true)
     await supabase.from('payments').insert({
       restaurant_id: user.restaurant_id,
