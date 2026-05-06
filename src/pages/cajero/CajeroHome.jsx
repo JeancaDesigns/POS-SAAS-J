@@ -237,7 +237,7 @@ export default function CajeroHome() {
   async function handleCobrar() {
     if (!cobrarOrder) return
     if (
-      cobrarOrder.status !== 'dispatched'
+      cobrarOrder.status !== 'delivered'
     ) {
       alert('Este pedido aún no salió de cocina')
       return

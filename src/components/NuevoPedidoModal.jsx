@@ -19,7 +19,7 @@ export default function NuevoPedidoModal({ zones, tables, onClose, onTableSelect
   }
 
   return (
-    <div className="fixed inset-0 z-50 pb-[80px] flex items-end justify-center"
+    <div className="fixed inset-0 z-50 pb-[80px] sm:pb-0 flex items-end justify-center"
       style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
       <div className="w-full max-w-lg rounded-t-3xl p-6 pb-10"
         style={{ background: 'linear-gradient(160deg, #1A1A2E 0%, #2D1B4E 100%)', border: '1px solid rgba(168,85,247,0.2)', borderBottom: 'none' }}>

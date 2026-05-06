@@ -220,10 +220,9 @@ export default function Login() {
           transition-all
           duration-700
 
-          ${
-            visible
-              ? 'opacity-100 translate-y-0'
-              : 'opacity-0 translate-y-10'
+          ${visible
+            ? 'opacity-100 translate-y-0'
+            : 'opacity-0 translate-y-10'
           }
         `}
       >
@@ -231,38 +230,25 @@ export default function Login() {
         {/* BRANDING */}
         <div className="text-center lg:text-left">
 
-          <div
-            className="
-              w-24
-              h-24
-              lg:w-32
-              lg:h-32
+          <div className="fade-slide">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              {/* Logo restaurante */}
+              <div className="w-35 h-35 sm:w-50 sm:h-50 rounded-2xl flex items-center justify-center overflow-hidden"
+                style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(168,85,247,0.3)' }}>
+                <img src="/BP-Logo.png" alt="Restaurante" className="w-full h-full object-contain scale-125" />
+              </div>
 
-              rounded-3xl
+              {/* Separador x */}
+              <span className="font-black text-xl" style={{ color: 'rgba(168,85,247,0.6)' }}>×</span>
 
-              mx-auto
-              lg:mx-0
-
-              mb-6
-
-              flex
-              items-center
-              justify-center
-
-              text-5xl
-              lg:text-6xl
-
-              shadow-2xl
-            "
-
-            style={{
-              background:
-                'linear-gradient(135deg, #820AD1, #A855F7)'
-            }}
-          >
-            🍟
+              {/* Tu logo */}
+              <div className="w-35 h-35 sm:w-50 sm:h-50 rounded-2xl flex items-center justify-center overflow-hidden"
+                style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(168,85,247,0.3)' }}>
+                <img src="/logotipo.svg" alt="Jeanca Dev" className="w-full h-full object-contain scale-95" style={{ objectFit: 'contain', objectPosition: 'center' }} />
+              </div>
+            </div>
           </div>
-
+{/*
           <h1 className="
             text-white
             font-black
@@ -302,9 +288,9 @@ export default function Login() {
             opacity-70
           ">
             Desde 1612
-          </p>
+          </p>     */}
 
-        </div>
+        </div> 
 
         {/* CARD */}
         <div
@@ -550,7 +536,7 @@ export default function Login() {
 
         font-bold
       ">
-        Powered by Jeanca Dev — POS System v2.0
+        Designed by Jeanca
       </p>
 
     </div>
