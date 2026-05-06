@@ -231,24 +231,19 @@ export default function Login() {
         <div className="text-center lg:text-left">
 
           <div className="fade-slide">
-            <div className="flex items-center justify-center gap-3 mb-4">
-              {/* Logo restaurante */}
-              <div className="w-35 h-35 sm:w-50 sm:h-50 rounded-2xl flex items-center justify-center overflow-hidden"
-                style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(168,85,247,0.3)' }}>
-                <img src="/BP-Logo.png" alt="Restaurante" className="w-full h-full object-contain scale-125" />
-              </div>
-
-              {/* Separador x */}
-              <span className="font-black text-xl" style={{ color: 'rgba(168,85,247,0.6)' }}>×</span>
-
-              {/* Tu logo */}
-              <div className="w-35 h-35 sm:w-50 sm:h-50 rounded-2xl flex items-center justify-center overflow-hidden"
-                style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(168,85,247,0.3)' }}>
-                <img src="/logotipo.svg" alt="Jeanca Dev" className="w-full h-full object-contain scale-95" style={{ objectFit: 'contain', objectPosition: 'center' }} />
+            <div className="flex flex-col items-center gap-2 mb-4">
+              <div className="flex flex-col items-center justify-between sm:w-120 w-80 rounded-2xl overflow-hidden py-3 px-4"
+                style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(168,85,247,0.3)', minHeight: '120px' }}>
+                <img src="/BP-Logo-R.png" alt="Restaurante"
+                  className="w-full object-contain flex-1 scale-250" style={{ maxHeight: '140px' }} />
+                <div className="flex flex-col items-center gap-1.5 -mt-9">
+                  <span className="text-xs" style={{ color: 'rgba(168,85,247,0.4)' }}>×</span>
+                  <img src="/logotipo.svg" alt="Jeanca Dev" className="h-3 w-auto opacity-50 scale-500 mb-6" />
+                </div>
               </div>
             </div>
           </div>
-{/*
+          {/*
           <h1 className="
             text-white
             font-black
@@ -290,7 +285,7 @@ export default function Login() {
             Desde 1612
           </p>     */}
 
-        </div> 
+        </div>
 
         {/* CARD */}
         <div
@@ -304,6 +299,7 @@ export default function Login() {
             lg:p-10
 
             shadow-2xl
+            pb-2
           "
 
           style={{
@@ -524,6 +520,7 @@ export default function Login() {
 
       <p className="
         absolute
+
         bottom-8
 
         text-purple-300/20
