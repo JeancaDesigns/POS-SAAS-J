@@ -274,7 +274,7 @@ export default function InventarioPanel() {
           items.filter(
             i =>
               i.stock <=
-                i.min_stock &&
+              i.min_stock &&
               i.stock > 0
           ).length,
 
@@ -438,7 +438,7 @@ export default function InventarioPanel() {
 
             const isLow =
               item.stock <=
-                item.min_stock &&
+              item.min_stock &&
               item.stock > 0
 
             const isEmpty =
@@ -714,19 +714,24 @@ export default function InventarioPanel() {
 
               <div className="grid grid-cols-2 gap-3">
 
-                <Input
-                  placeholder="Unidad"
-
+                <select
                   value={form.unit}
-
-                  onChange={e =>
-                    setForm({
-                      ...form,
-                      unit:
-                        e.target.value,
-                    })
-                  }
-                />
+                  onChange={e => setForm({ ...form, unit: e.target.value })}
+                  className="w-full rounded-xl px-4 py-3 outline-none transition-all"
+                  style={{
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(168,85,247,0.2)',
+                    color: 'white',
+                  }}
+                  onFocus={e => e.target.style.border = '1px solid #820AD1'}
+                  onBlur={e => e.target.style.border = '1px solid rgba(168,85,247,0.2)'}
+                >
+                  {['und', 'gr', 'kg', 'ml', 'lt', 'porciones', 'tazas', 'cucharadas'].map(u => (
+                    <option key={u} value={u} style={{ background: '#1A1A2E' }}>
+                      {u}
+                    </option>
+                  ))}
+                </select>
 
                 <Input
                   type="number"
