@@ -21,6 +21,7 @@ export default function PedidoActivo({ table, onClose }) {
   const [todasMesas, setTodasMesas] = useState([])
   const [zonaSeleccionada, setZonaSeleccionada] = useState(null)
   const [moviendoMesa, setMoviendoMesa] = useState(false)
+  const [variantModal, setVariantModal] = useState(null)
 
   const displayCategory = activeCategory || categories[0]?.id
   const categoryProducts = products.filter(p => p.category_id === displayCategory && p.available)
@@ -28,11 +29,19 @@ export default function PedidoActivo({ table, onClose }) {
   const total = activeItems.reduce((sum, i) => sum + i.product.price * i.quantity, 0)
   const newTotal = newItems.reduce((sum, i) => sum + i.product.price * i.quantity, 0)
 
-  function addProduct(product) {
+  function addProduct(product, variant = null) {
+    if (product.variants?.length > 0 && !variant) {
+      setVariantModal(product)
+      return
+    }
     setNewItems(prev => {
-      const existing = prev.find(i => i.product.id === product.id)
-      if (existing) return prev.map(i => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i)
-      return [...prev, { product, quantity: 1, note: '' }]
+      const existing = prev.find(i => i.product.id === product.id && i.variant === variant)
+      if (existing) return prev.map(i =>
+        i.product.id === product.id && i.variant === variant
+          ? { ...i, quantity: i.quantity + 1 }
+          : i
+      )
+      return [...prev, { product, quantity: 1, note: '', variant }]
     })
   }
 
@@ -88,7 +97,7 @@ export default function PedidoActivo({ table, onClose }) {
       .order('number')
 
     const zonasConMesas = (zonasData || []).filter(zona =>
-    (mesasData || []).some(m => m.zone_id === zona.id)
+      (mesasData || []).some(m => m.zone_id === zona.id)
     )
 
     setZonas(zonasConMesas)
@@ -148,6 +157,7 @@ export default function PedidoActivo({ table, onClose }) {
         product_id: i.product.id,
         quantity: i.quantity,
         note: i.note || null,
+        variant: i.variant || null,
         status: 'pending',
         kitchen_only: false,
       }))
@@ -239,6 +249,9 @@ export default function PedidoActivo({ table, onClose }) {
                     style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(168,85,247,0.1)' }}>
                     <div className="flex items-center justify-between">
                       <p className="text-white font-semibold">{item.product.name}</p>
+                      {item.variant && (
+                        <p className="text-xs font-semibold" style={{ color: '#A855F7' }}>→ {item.variant}</p>
+                      )}
                       <div className="flex items-center gap-3">
                         <button
                           onClick={() => decreaseConfirmedItem(item)}
@@ -492,6 +505,40 @@ export default function PedidoActivo({ table, onClose }) {
                   ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {variantModal && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
+          <div className="w-full max-w-lg rounded-t-3xl p-6 pb-20"
+            style={{ background: 'linear-gradient(160deg, #1A1A2E 0%, #2D1B4E 100%)', border: '1px solid rgba(168,85,247,0.2)', borderBottom: 'none' }}>
+            <div className="flex items-center justify-between mb-6">
+              <button onClick={() => setVariantModal(null)} style={{ color: 'rgba(168,85,247,0.8)' }} className="text-sm font-semibold">
+                ✕ Cancelar
+              </button>
+              <h2 className="text-white font-bold text-lg">{variantModal.name}</h2>
+              <div className="w-16" />
+            </div>
+            <p className="text-center text-sm mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              Elige una opción
+            </p>
+            <div className="flex flex-col gap-3">
+              {variantModal.variants.map(v => (
+                <button
+                  key={v}
+                  onClick={() => {
+                    addProduct(variantModal, v)
+                    setVariantModal(null)
+                  }}
+                  className="w-full py-4 rounded-2xl font-bold text-white transition-all active:scale-95"
+                  style={{ background: 'rgba(130,10,209,0.2)', border: '1px solid rgba(130,10,209,0.4)' }}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}

@@ -34,7 +34,7 @@ function playPing() {
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6)
     osc.start(ctx.currentTime)
     osc.stop(ctx.currentTime + 0.6)
-  } catch (e) {}
+  } catch (e) { }
 }
 
 function timeAgo(dateStr) {
@@ -112,7 +112,7 @@ function NotaPin({ order, onClick }) {
   const rotation = (order.id.charCodeAt(1) % 7) - 3
 
   const kitchenItems = order.items.filter(i =>
-    i.product?.category?.icon !== '🥤' && i.status !== 'cancelled'
+    i.product?.category?.icon !== '🥤' && i.status !== 'cancelled' || (i.product?.variants?.length > 0)
   )
   const pending = kitchenItems.filter(i => i.status !== 'done').length
 
@@ -204,7 +204,7 @@ export default function CocinaHome() {
   async function fetchOrders() {
     const { data } = await supabase
       .from('orders')
-      .select('*, table:tables(number, is_delivery, zone:zones(name)), items:order_items(*, product:products(name, category_id, category:categories(name, icon)))')
+      .select('*, table:tables(number, is_delivery, zone:zones(name)), items:order_items(*, product:products(name, category_id, variants, category:categories(name, icon)))')
       .eq('restaurant_id', user.restaurant_id)
       .in('status', ['confirmed', 'delivered', 'cancelled'])
       .order('started_at', { ascending: true })
@@ -273,7 +273,10 @@ export default function CocinaHome() {
   }
 
   function kitchenItems(order) {
-    return order.items.filter(i => i.product?.category?.icon !== '🥤')
+    return order.items.filter(i =>
+      i.product?.category?.icon !== '🥤' ||
+      (i.product?.variants?.length > 0)
+    )
   }
 
   function tableName(order) {
@@ -301,7 +304,7 @@ export default function CocinaHome() {
           Cocina
         </h1>
         <span className="text-sm font-semibold px-3 py-1 rounded-full"
-          style={{ background: 'rgba(130,10,209,0.3)', color: '#D1A7F7'}}>
+          style={{ background: 'rgba(130,10,209,0.3)', color: '#D1A7F7' }}>
           {activeOrders.length} pedidos
         </span>
       </div>
@@ -324,7 +327,7 @@ export default function CocinaHome() {
         >
           {activeOrders.length === 0 && deliveredOrders.length === 0 && (
             <p className="text-center py-16 text-xl"
-              style={{ color: 'rgba(255,255,255,0.4)'}}>
+              style={{ color: 'rgba(255,255,255,0.4)' }}>
               Sin pedidos activos
             </p>
           )}
@@ -343,7 +346,7 @@ export default function CocinaHome() {
             <div className="mt-10">
               <div className="flex items-center gap-3 mb-4">
                 <div className="flex-1 border-t border-dashed" style={{ borderColor: 'rgba(255,255,255,0.2)' }} />
-                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)'}}>
+                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
                   Entregados
                 </p>
                 <div className="flex-1 border-t border-dashed" style={{ borderColor: 'rgba(255,255,255,0.2)' }} />
@@ -452,6 +455,9 @@ export default function CocinaHome() {
                               }}>
                               {item.quantity}x {item.product.name}
                             </p>
+                            {item.variant && (
+                              <p className="text-lg font-bold" style={{ color: '#1565C0' }}>→ {item.variant}</p>
+                            )}
                             {item.note && (
                               <p className="text-lg" style={{ color: '#795548' }}>📝 {item.note}</p>
                             )}

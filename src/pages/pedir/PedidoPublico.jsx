@@ -52,6 +52,9 @@ function LocationPicker({
 
 export default function PedidoPublico() {
 
+  const [variantModal, setVariantModal] =
+    useState(null) // producto seleccionado para elegir variante
+
   const [restaurant, setRestaurant] =
     useState(null)
 
@@ -156,45 +159,26 @@ export default function PedidoPublico() {
   }
 
   const categoryProducts = useMemo(() => {
-
     return products.filter(
-      p => p.category_id === activeCategory
+      p => p.category_id === activeCategory && p.available && !p.local_only
     )
-
   }, [products, activeCategory])
 
-  function addProduct(product) {
-
+  function addProduct(product, variant = null) {
+    if (product.variants?.length > 0 && !variant) {
+      setVariantModal(product)
+      return
+    }
     setItems(prev => {
-
-      const existing =
-        prev.find(
-          i => i.product.id === product.id
-        )
-
+      const existing = prev.find(i => i.product.id === product.id && i.variant === variant)
       if (existing) {
-
         return prev.map(i =>
-
-          i.product.id === product.id
-
-            ? {
-                ...i,
-                quantity: i.quantity + 1,
-              }
-
+          i.product.id === product.id && i.variant === variant
+            ? { ...i, quantity: i.quantity + 1 }
             : i
         )
       }
-
-      return [
-        ...prev,
-        {
-          product,
-          quantity: 1,
-          note: '',
-        },
-      ]
+      return [...prev, { product, quantity: 1, note: '', variant }]
     })
   }
 
@@ -222,9 +206,9 @@ export default function PedidoPublico() {
         i.product.id === productId
 
           ? {
-              ...i,
-              quantity: i.quantity - 1,
-            }
+            ...i,
+            quantity: i.quantity - 1,
+          }
 
           : i
       )
@@ -374,6 +358,7 @@ export default function PedidoPublico() {
           product_id: i.product.id,
           quantity: i.quantity,
           note: i.note || null,
+          variant: i.variant || null,
           status: 'pending',
           kitchen_only: false,
         }))
@@ -586,6 +571,7 @@ export default function PedidoPublico() {
         </div>
 
       </div>
+
     )
   }
 
@@ -741,20 +727,20 @@ export default function PedidoPublico() {
 
                   style={
                     activeSection ===
-                    section.key
+                      section.key
 
                       ? {
-                          background:
-                            'linear-gradient(135deg, #820AD1, #A855F7)',
-                        }
+                        background:
+                          'linear-gradient(135deg, #820AD1, #A855F7)',
+                      }
 
                       : {
-                          background:
-                            'transparent',
+                        background:
+                          'transparent',
 
-                          color:
-                            'rgba(255,255,255,0.5)',
-                        }
+                        color:
+                          'rgba(255,255,255,0.5)',
+                      }
                   }
                 >
                   {section.label}
@@ -812,23 +798,23 @@ export default function PedidoPublico() {
 
                     style={
                       activeCategory ===
-                      cat.id
+                        cat.id
 
                         ? {
-                            background:
-                              'linear-gradient(135deg, #820AD1, #A855F7)',
+                          background:
+                            'linear-gradient(135deg, #820AD1, #A855F7)',
 
-                            color:
-                              'white',
-                          }
+                          color:
+                            'white',
+                        }
 
                         : {
-                            background:
-                              'rgba(255,255,255,0.06)',
+                          background:
+                            'rgba(255,255,255,0.06)',
 
-                            color:
-                              'rgba(255,255,255,0.6)',
-                          }
+                          color:
+                            'rgba(255,255,255,0.6)',
+                        }
                     }
                   >
                     {cat.name}
@@ -1062,17 +1048,17 @@ export default function PedidoPublico() {
 
                       style={
                         deliveryType ===
-                        opt.key
+                          opt.key
 
                           ? {
-                              background:
-                                'linear-gradient(135deg, #820AD1, #A855F7)',
-                            }
+                            background:
+                              'linear-gradient(135deg, #820AD1, #A855F7)',
+                          }
 
                           : {
-                              background:
-                                'rgba(255,255,255,0.06)',
-                            }
+                            background:
+                              'rgba(255,255,255,0.06)',
+                          }
                       }
                     >
                       {opt.label}
@@ -1086,22 +1072,22 @@ export default function PedidoPublico() {
                 {deliveryType ===
                   'delivery' && (
 
-                  <div className="space-y-3 mb-5">
+                    <div className="space-y-3 mb-5">
 
-                    <input
-                      type="text"
+                      <input
+                        type="text"
 
-                      placeholder="Dirección *"
+                        placeholder="Dirección *"
 
-                      value={deliveryAddress}
+                        value={deliveryAddress}
 
-                      onChange={e =>
-                        setDeliveryAddress(
-                          e.target.value
-                        )
-                      }
+                        onChange={e =>
+                          setDeliveryAddress(
+                            e.target.value
+                          )
+                        }
 
-                      className="
+                        className="
                         w-full
 
                         rounded-2xl
@@ -1116,22 +1102,22 @@ export default function PedidoPublico() {
 
                         outline-none
                       "
-                    />
+                      />
 
-                    <input
-                      type="text"
+                      <input
+                        type="text"
 
-                      placeholder="Referencia"
+                        placeholder="Referencia"
 
-                      value={deliveryReference}
+                        value={deliveryReference}
 
-                      onChange={e =>
-                        setDeliveryReference(
-                          e.target.value
-                        )
-                      }
+                        onChange={e =>
+                          setDeliveryReference(
+                            e.target.value
+                          )
+                        }
 
-                      className="
+                        className="
                         w-full
 
                         rounded-2xl
@@ -1146,14 +1132,14 @@ export default function PedidoPublico() {
 
                         outline-none
                       "
-                    />
+                      />
 
-                    <button
-                      onClick={
-                        getCurrentLocation
-                      }
+                      <button
+                        onClick={
+                          getCurrentLocation
+                        }
 
-                      className="
+                        className="
                         w-full
 
                         rounded-2xl
@@ -1167,13 +1153,13 @@ export default function PedidoPublico() {
 
                         transition-colors
                       "
-                    >
-                      📍 Usar mi ubicación actual
-                    </button>
+                      >
+                        📍 Usar mi ubicación actual
+                      </button>
 
-                    {/* MAPA */}
-                    <div
-                      className="
+                      {/* MAPA */}
+                      <div
+                        className="
                         relative
 
                         overflow-hidden
@@ -1183,12 +1169,12 @@ export default function PedidoPublico() {
                         border
                         border-white/10
                       "
-                    >
+                      >
 
-                      <div className="absolute top-3 left-3 z-[1000]">
+                        <div className="absolute top-3 left-3 z-[1000]">
 
-                        <div
-                          className="
+                          <div
+                            className="
                             bg-black/60
                             backdrop-blur
 
@@ -1200,62 +1186,62 @@ export default function PedidoPublico() {
                             border
                             border-white/10
                           "
-                        >
+                          >
 
-                          <p className="text-[11px] text-white/80 font-semibold">
-                            Toca el mapa para elegir ubicación
-                          </p>
+                            <p className="text-[11px] text-white/80 font-semibold">
+                              Toca el mapa para elegir ubicación
+                            </p>
 
+                          </div>
                         </div>
-                      </div>
 
-                      <MapContainer
-                        center={
-                          selectedLocation
+                        <MapContainer
+                          center={
+                            selectedLocation
 
-                            ? [
+                              ? [
                                 selectedLocation.lat,
                                 selectedLocation.lng,
                               ]
 
-                            : [
+                              : [
                                 4.6097,
                                 -74.0817,
                               ]
-                        }
+                          }
 
-                        zoom={13}
+                          zoom={13}
 
-                        scrollWheelZoom={false}
+                          scrollWheelZoom={false}
 
-                        style={{
-                          height:
-                            window.innerWidth < 768
-                              ? '240px'
-                              : '360px',
+                          style={{
+                            height:
+                              window.innerWidth < 768
+                                ? '240px'
+                                : '360px',
 
-                          width: '100%',
-                        }}
-                      >
+                            width: '100%',
+                          }}
+                        >
 
-                        <TileLayer
-                          attribution='&copy; OpenStreetMap contributors'
+                          <TileLayer
+                            attribution='&copy; OpenStreetMap contributors'
 
-                          url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-                        />
+                            url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+                          />
 
-                        <LocationPicker
-                          selectedLocation={selectedLocation}
+                          <LocationPicker
+                            selectedLocation={selectedLocation}
 
-                          setSelectedLocation={setSelectedLocation}
-                        />
+                            setSelectedLocation={setSelectedLocation}
+                          />
 
-                      </MapContainer>
+                        </MapContainer>
+
+                      </div>
 
                     </div>
-
-                  </div>
-                )}
+                  )}
 
                 {/* RESUMEN */}
                 <div className="space-y-2 mb-5">
@@ -1374,8 +1360,8 @@ export default function PedidoPublico() {
       {items.length > 0 &&
         activeSection === 'menu' && (
 
-        <div
-          className="
+          <div
+            className="
             fixed
 
             bottom-0
@@ -1391,18 +1377,18 @@ export default function PedidoPublico() {
             via-[#1A1A2E]
             to-transparent
           "
-        >
+          >
 
-          <div className="max-w-3xl mx-auto">
+            <div className="max-w-3xl mx-auto">
 
-            <button
-              onClick={() =>
-                setActiveSection(
-                  'delivery'
-                )
-              }
+              <button
+                onClick={() =>
+                  setActiveSection(
+                    'delivery'
+                  )
+                }
 
-              className="
+                className="
                 w-full
 
                 rounded-3xl
@@ -1413,26 +1399,65 @@ export default function PedidoPublico() {
                 text-lg
               "
 
-              style={{
-                background:
-                  'linear-gradient(135deg, #820AD1, #A855F7)',
+                style={{
+                  background:
+                    'linear-gradient(135deg, #820AD1, #A855F7)',
 
-                boxShadow:
-                  '0 10px 30px rgba(130,10,209,0.35)',
-              }}
-            >
+                  boxShadow:
+                    '0 10px 30px rgba(130,10,209,0.35)',
+                }}
+              >
 
-              Continuar pedido · $
+                Continuar pedido · $
 
-              {total.toLocaleString('es-CO')}
+                {total.toLocaleString('es-CO')}
 
-            </button>
+              </button>
+
+            </div>
 
           </div>
-
+        )}
+      {variantModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
+          <div className="w-full max-w-lg rounded-t-3xl p-6 pb-10"
+            style={{ background: 'linear-gradient(160deg, #1A1A2E 0%, #2D1B4E 100%)', border: '1px solid rgba(168,85,247,0.2)', borderBottom: 'none' }}>
+            <div className="flex items-center justify-between mb-6">
+              <button
+                onClick={() => setVariantModal(null)}
+                style={{ color: 'rgba(168,85,247,0.8)' }}
+                className="text-sm font-semibold"
+              >
+                ✕ Cancelar
+              </button>
+              <h2 className="text-white font-bold text-lg">{variantModal.name}</h2>
+              <div className="w-16" />
+            </div>
+            <p className="text-center text-sm mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              Elige una opción
+            </p>
+            <div className="flex flex-col gap-3">
+              {variantModal.variants.map(v => (
+                <button
+                  key={v}
+                  onClick={() => {
+                    addProduct(variantModal, v)
+                    setVariantModal(null)
+                  }}
+                  className="w-full py-4 rounded-2xl font-bold text-white transition-all active:scale-95"
+                  style={{
+                    background: 'rgba(130,10,209,0.2)',
+                    border: '1px solid rgba(130,10,209,0.4)',
+                  }}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
-
     </div>
   )
 }

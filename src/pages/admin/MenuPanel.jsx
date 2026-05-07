@@ -12,7 +12,15 @@ export default function MenuPanel() {
   const [showForm, setShowForm] = useState(false)
   const [editItem, setEditItem] = useState(null)
   const [catForm, setCatForm] = useState({ name: '', icon: '🍽️' })
-  const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', available: true })
+  const [prodForm, setProdForm] = useState({
+    name: '',
+    price: '',
+    category_id: '',
+    available: true,
+    local_only: false,
+    variants: [],
+    newVariant: '',
+  })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -53,14 +61,22 @@ export default function MenuPanel() {
 
   function openNewProd() {
     setEditItem(null)
-    setProdForm({ name: '', price: '', category_id: categories[0]?.id || '', available: true })
+    setProdForm({ name: '', price: '', category_id: categories[0]?.id || '', available: true, local_only: false, variants: [], newVariant: '' })
     setError('')
     setShowForm(true)
   }
 
   function openEditProd(prod) {
     setEditItem(prod)
-    setProdForm({ name: prod.name, price: String(prod.price), category_id: prod.category_id, available: prod.available })
+    setProdForm({
+      name: prod.name,
+      price: String(prod.price),
+      category_id: prod.category_id,
+      available: prod.available,
+      local_only: prod.local_only || false,
+      variants: prod.variants || [],
+      newVariant: '',
+    })
     setError('')
     setShowForm(true)
   }
@@ -84,22 +100,18 @@ export default function MenuPanel() {
       return
     }
     setSaving(true)
+    const payload = {
+      name: prodForm.name,
+      price: parseInt(prodForm.price),
+      category_id: prodForm.category_id,
+      available: prodForm.available,
+      local_only: prodForm.local_only,
+      variants: prodForm.variants,
+    }
     if (editItem) {
-      await supabase.from('products').update({
-        name: prodForm.name,
-        price: parseInt(prodForm.price),
-        category_id: prodForm.category_id,
-        available: prodForm.available,
-      }).eq('id', editItem.id)
-        .eq('active', true)
+      await supabase.from('products').update(payload).eq('id', editItem.id)
     } else {
-      await supabase.from('products').insert({
-        restaurant_id: user.restaurant_id,
-        name: prodForm.name,
-        price: parseInt(prodForm.price),
-        category_id: prodForm.category_id,
-        available: prodForm.available,
-      })
+      await supabase.from('products').insert({ ...payload, restaurant_id: user.restaurant_id })
     }
     setSaving(false)
     setShowForm(false)
@@ -112,7 +124,7 @@ export default function MenuPanel() {
       alert('No puedes eliminar una categoría con productos. Elimina o mueve los productos primero.')
       return
     }
-    await supabase.from('categories').update({active: false}).eq('id', cat.id).eq('active', true)
+    await supabase.from('categories').update({ active: false }).eq('id', cat.id).eq('active', true)
     fetchData()
   }
 
@@ -279,6 +291,18 @@ export default function MenuPanel() {
                       {prod.name}
                     </p>
                     <p className="text-gray-500 text-xs">{prod.category?.name}</p>
+                    <div className="flex gap-1 mt-1 flex-wrap">
+                      {prod.local_only && (
+                        <span className="text-xs bg-blue-500/20 text-blue-400 rounded-full px-2 py-0.5">
+                          Solo local
+                        </span>
+                      )}
+                      {prod.variants?.length > 0 && (
+                        <span className="text-xs bg-[#820AD1]/20 text-purple-400 rounded-full px-2 py-0.5">
+                          {prod.variants.length} variante{prod.variants.length !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <span className="text-[#FFFFFF] font-bold">
                     ${prod.price.toLocaleString('es-CO')}
@@ -338,6 +362,8 @@ export default function MenuPanel() {
               onChange={e => setProdForm(p => ({ ...p, price: e.target.value }))}
               className="bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#820AD1]"
             />
+
+            {/* Categoría */}
             <div>
               <p className="text-gray-400 text-sm mb-2">Categoría</p>
               <div className="flex flex-wrap gap-2">
@@ -346,7 +372,7 @@ export default function MenuPanel() {
                     key={cat.id}
                     onClick={() => setProdForm(p => ({ ...p, category_id: cat.id }))}
                     className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors
-                      ${prodForm.category_id === cat.id
+                ${prodForm.category_id === cat.id
                         ? 'bg-[#820AD1] text-white'
                         : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
                       }`}
@@ -356,11 +382,86 @@ export default function MenuPanel() {
                 ))}
               </div>
             </div>
+
+            {/* Solo local */}
+            <div className="flex items-center justify-between bg-gray-800 rounded-xl px-4 py-3">
+              <div>
+                <p className="text-white text-sm font-semibold">Solo en local</p>
+                <p className="text-gray-500 text-xs">No aparece en pedidos públicos</p>
+              </div>
+              <button
+                onClick={() => setProdForm(p => ({ ...p, local_only: !p.local_only }))}
+                className="w-12 h-6 rounded-full transition-colors relative"
+                style={{ background: prodForm.local_only ? '#820AD1' : '#374151' }}
+              >
+                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${prodForm.local_only ? 'translate-x-6' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+
+            {/* Variantes */}
+            <div>
+              <p className="text-gray-400 text-sm mb-2">Variantes</p>
+              <p className="text-gray-500 text-xs mb-3">
+                Si el producto tiene opciones (ej: dulce/picante), agrégalas aquí. El cliente deberá elegir una al pedirlo.
+              </p>
+
+              {/* Variantes agregadas */}
+              {prodForm.variants.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {prodForm.variants.map((v, i) => (
+                    <div key={i} className="flex items-center gap-1 bg-[#820AD1]/20 border border-[#820AD1]/40 rounded-full px-3 py-1">
+                      <span className="text-white text-sm">{v}</span>
+                      <button
+                        onClick={() => setProdForm(p => ({ ...p, variants: p.variants.filter((_, idx) => idx !== i) }))}
+                        className="text-red-400 hover:text-red-300 ml-1 text-xs font-bold"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Input nueva variante */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Ej: Picante"
+                  value={prodForm.newVariant}
+                  onChange={e => setProdForm(p => ({ ...p, newVariant: e.target.value }))}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && prodForm.newVariant.trim()) {
+                      setProdForm(p => ({
+                        ...p,
+                        variants: [...p.variants, p.newVariant.trim()],
+                        newVariant: ''
+                      }))
+                    }
+                  }}
+                  className="flex-1 bg-gray-800 text-white rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#820AD1] text-sm"
+                />
+                <button
+                  onClick={() => {
+                    if (prodForm.newVariant.trim()) {
+                      setProdForm(p => ({
+                        ...p,
+                        variants: [...p.variants, p.newVariant.trim()],
+                        newVariant: ''
+                      }))
+                    }
+                  }}
+                  className="bg-[#820AD1] text-white rounded-xl px-4 py-2.5 text-sm font-semibold"
+                >
+                  + Agregar
+                </button>
+              </div>
+            </div>
+
             {error && <p className="text-red-400 text-sm">{error}</p>}
             <button
               onClick={saveProd}
               disabled={saving}
-              className="bg-[#820AD1] hover:bg-[#820AD1] text-white font-bold rounded-2xl py-4 transition-colors disabled:opacity-50"
+              className="bg-[#820AD1] text-white font-bold rounded-2xl py-4 transition-colors disabled:opacity-50"
             >
               {saving ? 'Guardando...' : 'Guardar'}
             </button>
