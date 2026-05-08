@@ -56,6 +56,55 @@ export default function DomiciliarioHome() {
     }
   })
 
+  const [turnoActivo, setTurnoActivo] = useState(false)
+  const [turnoId, setTurnoId] = useState(null)
+
+  useEffect(() => {
+    checkTurno()
+  }, [])
+
+  async function checkTurno() {
+    const { data } = await supabase
+      .from('active_shifts')
+      .select('*')
+      .eq('restaurant_id', user.restaurant_id)
+      .eq('user_id', user.id)
+      .eq('active', true)
+      .limit(1)
+
+    if (data && data.length > 0) {
+      setTurnoActivo(true)
+      setTurnoId(data[0].id)
+    }
+  }
+
+  async function iniciarTurno() {
+    const { data } = await supabase
+      .from('active_shifts')
+      .insert({
+        restaurant_id: user.restaurant_id,
+        user_id: user.id,
+        active: true,
+      })
+      .select()
+      .single()
+
+    if (data) {
+      setTurnoActivo(true)
+      setTurnoId(data.id)
+    }
+  }
+
+  async function terminarTurno() {
+    await supabase
+      .from('active_shifts')
+      .update({ active: false })
+      .eq('id', turnoId)
+
+    setTurnoActivo(false)
+    setTurnoId(null)
+  }
+
   const tandaRef = useRef(tanda)
 
   const [enRuta, setEnRuta] = useState(() => {
@@ -223,8 +272,8 @@ export default function DomiciliarioHome() {
       const next =
         prev.includes(orderId)
           ? prev.filter(
-              id => id !== orderId
-            )
+            id => id !== orderId
+          )
           : [...prev, orderId]
 
       tandaRef.current = next
@@ -306,7 +355,7 @@ export default function DomiciliarioHome() {
           return (
             sum +
             i.product.price *
-              i.quantity
+            i.quantity
           )
         }, 0)
 
@@ -396,23 +445,22 @@ export default function DomiciliarioHome() {
           transition-all
           duration-200
 
-          ${
-            orange
+          ${orange
 
-              ? `
+            ? `
                 bg-orange-500/10
                 border-orange-500/40
               `
 
-              : delivered
+            : delivered
 
-                ? `
+              ? `
                   bg-green-950/20
                   border-green-800/30
                   opacity-60
                 `
 
-                : `
+              : `
                   bg-gray-900
                   border-gray-800
                   hover:border-orange-500/30
@@ -462,114 +510,114 @@ export default function DomiciliarioHome() {
         {(order.delivery_address ||
           order.delivery_reference) && (
 
-          <div className="bg-gray-950/60 rounded-2xl p-3 border border-gray-800 mb-4">
+            <div className="bg-gray-950/60 rounded-2xl p-3 border border-gray-800 mb-4">
 
-            {order.delivery_address && (
+              {order.delivery_address && (
 
-              <div className="mb-2">
+                <div className="mb-2">
 
-                <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-1">
-                  Dirección
-                </p>
+                  <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-1">
+                    Dirección
+                  </p>
 
-                <p className="text-sm text-white leading-relaxed">
-                  {order.delivery_address}
-                </p>
+                  <p className="text-sm text-white leading-relaxed">
+                    {order.delivery_address}
+                  </p>
 
-              </div>
-            )}
+                </div>
+              )}
 
-            {order.delivery_reference && (
+              {order.delivery_reference && (
 
-              <div>
+                <div>
 
-                <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-1">
-                  Referencia
-                </p>
+                  <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-1">
+                    Referencia
+                  </p>
 
-                <p className="text-sm text-gray-300 leading-relaxed">
-                  {order.delivery_reference}
-                </p>
+                  <p className="text-sm text-gray-300 leading-relaxed">
+                    {order.delivery_reference}
+                  </p>
 
-              </div>
-            )}
-          </div>
-        )}
+                </div>
+              )}
+            </div>
+          )}
 
         {order.delivery_lat &&
           order.delivery_lng && (
 
-          <div className="relative overflow-hidden rounded-2xl border border-gray-800 mb-4">
+            <div className="relative overflow-hidden rounded-2xl border border-gray-800 mb-4">
 
-            <div className="absolute top-3 left-3 z-[1000]">
+              <div className="absolute top-3 left-3 z-[1000]">
 
-              <div className="bg-black/70 backdrop-blur px-3 py-1 rounded-full border border-white/10">
+                <div className="bg-black/70 backdrop-blur px-3 py-1 rounded-full border border-white/10">
 
-                <p className="text-[11px] text-white/80 font-semibold">
-                  Mantén presionado para mover mapa
-                </p>
+                  <p className="text-[11px] text-white/80 font-semibold">
+                    Mantén presionado para mover mapa
+                  </p>
 
+                </div>
               </div>
-            </div>
 
-            <MapContainer
-              center={[
-                order.delivery_lat,
-                order.delivery_lng,
-              ]}
-
-              zoom={16}
-
-              scrollWheelZoom={false}
-
-              dragging={false}
-
-              touchZoom={false}
-
-              doubleClickZoom={false}
-
-              zoomControl={false}
-
-              attributionControl={false}
-
-              style={{
-                height: '180px',
-                width: '100%',
-                zIndex: 1,
-              }}
-
-              className="select-none"
-            >
-
-              <TileLayer
-                attribution='&copy; OpenStreetMap contributors'
-
-                url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-              />
-
-              <Marker
-                position={[
+              <MapContainer
+                center={[
                   order.delivery_lat,
                   order.delivery_lng,
                 ]}
 
-                icon={deliveryIcon}
+                zoom={16}
+
+                scrollWheelZoom={false}
+
+                dragging={false}
+
+                touchZoom={false}
+
+                doubleClickZoom={false}
+
+                zoomControl={false}
+
+                attributionControl={false}
+
+                style={{
+                  height: '180px',
+                  width: '100%',
+                  zIndex: 1,
+                }}
+
+                className="select-none"
               >
 
-                <Popup>
-                  {order.customer_name}
-                </Popup>
+                <TileLayer
+                  attribution='&copy; OpenStreetMap contributors'
 
-              </Marker>
+                  url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+                />
 
-            </MapContainer>
+                <Marker
+                  position={[
+                    order.delivery_lat,
+                    order.delivery_lng,
+                  ]}
 
-            <button
-              onClick={() =>
-                openMaps(order)
-              }
+                  icon={deliveryIcon}
+                >
 
-              className="
+                  <Popup>
+                    {order.customer_name}
+                  </Popup>
+
+                </Marker>
+
+              </MapContainer>
+
+              <button
+                onClick={() =>
+                  openMaps(order)
+                }
+
+                className="
                 absolute
                 bottom-3
                 right-3
@@ -590,12 +638,12 @@ export default function DomiciliarioHome() {
 
                 shadow-lg
               "
-            >
-              Abrir ruta
-            </button>
+              >
+                Abrir ruta
+              </button>
 
-          </div>
-        )}
+            </div>
+          )}
 
         <div className="mb-4">
 
@@ -654,7 +702,7 @@ export default function DomiciliarioHome() {
           )}
 
           {order.delivery_lat &&
-          order.delivery_lng ? (
+            order.delivery_lng ? (
 
             <button
               onClick={() =>
@@ -698,20 +746,19 @@ export default function DomiciliarioHome() {
         {!enRuta &&
           !delivered && (
 
-          <button
-            onClick={() =>
-              toggleTanda(order.id)
-            }
+            <button
+              onClick={() =>
+                toggleTanda(order.id)
+              }
 
-            className={`
+              className={`
               w-full
               rounded-2xl
               py-3
               font-bold
               transition-colors
 
-              ${
-                orange
+              ${orange
 
                   ? `
                     bg-orange-500
@@ -724,14 +771,14 @@ export default function DomiciliarioHome() {
                     hover:bg-gray-700
                     text-white
                   `
-              }
+                }
             `}
-          >
-            {orange
-              ? '✓ En esta tanda — quitar'
-              : 'Agregar a tanda'}
-          </button>
-        )}
+            >
+              {orange
+                ? '✓ En esta tanda — quitar'
+                : 'Agregar a tanda'}
+            </button>
+          )}
 
         {showDeliverButton && (
 
@@ -768,52 +815,29 @@ export default function DomiciliarioHome() {
     <div className="h-screen bg-gray-950 text-white flex flex-col overflow-hidden">
 
       <div className="sticky top-0 z-30 bg-gray-950/95 backdrop-blur border-b border-gray-800 px-4 pt-6 pb-4">
-
-        <div className="flex items-center justify-between gap-3">
-
+        <div className="flex items-start justify-between">
           <div>
-
-            <h1 className="text-2xl font-black tracking-tight">
-              Domicilios
-            </h1>
-
-            <p className="text-sm text-gray-400 mt-1">
-              Gestión de entregas y rutas
-            </p>
-
+            <h1 className="text-2xl font-black tracking-tight">Domicilios</h1>
+            <p className="text-sm text-gray-400 mt-1">Gestión de entregas y rutas</p>
           </div>
 
-          <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl px-4 py-2">
-
-            <p className="text-xs text-gray-400">
-              Esta semana
-            </p>
-
-            <p className="font-black text-orange-400 text-lg">
-              {deliveryCount}
-            </p>
-
+          <div className="flex flex-col items-end gap-2">
+            <div className="bg-orange-500/10 border border-orange-500/20 rounded-full px-3 py-1.5 flex items-center gap-1.5">
+              <p className="text-xs text-gray-400">Esta semana</p>
+              <p className="font-black text-orange-400">{deliveryCount}</p>
+            </div>
+            <button
+              onClick={turnoActivo ? terminarTurno : iniciarTurno}
+              className="text-xs font-semibold px-3 py-1.5 rounded-full transition-all"
+              style={turnoActivo
+                ? { background: 'rgba(220,38,38,0.2)', color: '#F87171', border: '1px solid rgba(220,38,38,0.3)' }
+                : { background: 'linear-gradient(135deg, #820AD1, #A855F7)', color: 'white' }
+              }
+            >
+              {turnoActivo ? '⏹ Terminar' : '▶ Iniciar turno'}
+            </button>
           </div>
         </div>
-
-        {enRuta && (
-
-          <div className="mt-4 bg-orange-500/10 border border-orange-500/30 rounded-2xl p-3 flex items-center justify-between">
-
-            <div>
-
-              <p className="text-orange-400 font-bold">
-                🛵 En ruta
-              </p>
-
-              <p className="text-xs text-gray-400 mt-1">
-                {tandaOrders.length}{' '}
-                pedidos pendientes
-              </p>
-
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 flex justify-center">
@@ -823,18 +847,18 @@ export default function DomiciliarioHome() {
           {pendingOrders.length === 0 &&
             dispatchedOrders.length === 0 && (
 
-            <div className="text-center py-24">
+              <div className="text-center py-24">
 
-              <p className="text-5xl mb-4">
-                🛵
-              </p>
+                <p className="text-5xl mb-4">
+                  🛵
+                </p>
 
-              <p className="text-gray-500">
-                No hay domicilios pendientes
-              </p>
+                <p className="text-gray-500">
+                  No hay domicilios pendientes
+                </p>
 
-            </div>
-          )}
+              </div>
+            )}
 
           {noTandaOrders.length > 0 && (
 
@@ -937,14 +961,14 @@ export default function DomiciliarioHome() {
       {!enRuta &&
         tanda.length > 0 && (
 
-        <div className="fixed bottom-[92px] lg:bottom-4 left-0 right-0 p-4 z-40">
+          <div className="fixed bottom-[92px] lg:bottom-4 left-0 right-0 p-4 z-40">
 
-          <div className="max-w-2xl mx-auto">
+            <div className="max-w-2xl mx-auto">
 
-            <button
-              onClick={salir}
+              <button
+                onClick={salir}
 
-              className="
+                className="
                 w-full
 
                 bg-orange-500
@@ -963,19 +987,19 @@ export default function DomiciliarioHome() {
                 shadow-lg
                 shadow-orange-500/20
               "
-            >
-              🛵 Salir con{' '}
-              {tanda.length}{' '}
-              domicilio{
-                tanda.length !== 1
-                  ? 's'
-                  : ''
-              }
-            </button>
+              >
+                🛵 Salir con{' '}
+                {tanda.length}{' '}
+                domicilio{
+                  tanda.length !== 1
+                    ? 's'
+                    : ''
+                }
+              </button>
 
+            </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   )
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useAuthStore } from '../../store/authStore'
 
-const ICONS = ['🍽️', '🍟', '🥤', '🍨', '🍔', '🌮', '🍕', '🥗', '🍜', '🥩', '🍗', '🥐', '☕', '🧃', '🍺', '🧁']
+const ICONS = ['🌭', '🍟', '🥤', '🍨', '🍔', '🌮', '🍕', '🍗', '🎮']
 
 export default function MenuPanel() {
   const { user } = useAuthStore()
@@ -11,7 +11,7 @@ export default function MenuPanel() {
   const [view, setView] = useState('categorias') // categorias | productos
   const [showForm, setShowForm] = useState(false)
   const [editItem, setEditItem] = useState(null)
-  const [catForm, setCatForm] = useState({ name: '', icon: '🍽️' })
+  const [catForm, setCatForm] = useState({ name: '', icon: '🌭' })
   const [prodForm, setProdForm] = useState({
     name: '',
     price: '',
@@ -47,14 +47,14 @@ export default function MenuPanel() {
 
   function openNewCat() {
     setEditItem(null)
-    setCatForm({ name: '', icon: '🍽️' })
+    setCatForm({ name: '', icon: '🌭' })
     setError('')
     setShowForm(true)
   }
 
   function openEditCat(cat) {
     setEditItem(cat)
-    setCatForm({ name: cat.name, icon: cat.icon || '🍽️' })
+    setCatForm({ name: cat.name, icon: cat.icon || '🌭' })
     setError('')
     setShowForm(true)
   }

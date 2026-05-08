@@ -79,6 +79,9 @@ export default function PedidoPublico() {
   const [items, setItems] =
     useState([])
 
+  const [domiciliarioActivo, setDomiciliarioActivo] =
+    useState(null)
+
   const [customerName, setCustomerName] =
     useState('')
 
@@ -94,6 +97,9 @@ export default function PedidoPublico() {
   const [deliveryReference, setDeliveryReference] =
     useState('')
 
+  const [pedidosAnteriores, setPedidosAnteriores] =
+    useState(0)
+
   const [selectedLocation, setSelectedLocation] =
     useState(null)
 
@@ -105,6 +111,7 @@ export default function PedidoPublico() {
 
   useEffect(() => {
     fetchData()
+    fetchDomiciliario()
   }, [])
 
   async function fetchData() {
@@ -121,17 +128,6 @@ export default function PedidoPublico() {
 
     setRestaurant(restaurantData)
 
-    const { data: deliveryUsers } =
-      await supabase
-        .from('users')
-        .select('*')
-        .eq('restaurant_id', restaurantId)
-        .eq('role', 'delivery')
-        .limit(1)
-
-    if (deliveryUsers?.length > 0) {
-      setDeliveryUser(deliveryUsers[0])
-    }
 
     const { data: categoriesData } =
       await supabase
@@ -155,6 +151,37 @@ export default function PedidoPublico() {
 
     if (categoriesData?.length > 0) {
       setActiveCategory(categoriesData[0].id)
+    }
+  }
+
+  async function fetchPedidosAnteriores(orderId, startedAt) {
+    const { data } = await supabase
+      .from('orders')
+      .select('id')
+      .eq('restaurant_id', '94393adb-b409-42f5-bf8d-6650e0e2d6d6')
+      .in('status', ['confirmed', 'delivered'])
+      .lt('started_at', startedAt)
+
+    return data?.length || 0
+  }
+
+  async function fetchDomiciliario() {
+    const { data } = await supabase
+      .from('active_shifts')
+      .select('user_id')
+      .eq('restaurant_id', '94393adb-b409-42f5-bf8d-6650e0e2d6d6')
+      .eq('active', true)
+      .order('started_at', { ascending: false })
+      .limit(1)
+
+    if (data && data.length > 0) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('name')
+        .eq('id', data[0].user_id)
+        .single()
+
+      if (userData) setDomiciliarioActivo(userData.name)
     }
   }
 
@@ -336,6 +363,9 @@ export default function PedidoPublico() {
         .select()
         .single()
 
+    const count = await fetchPedidosAnteriores(order.id, order.started_at)
+    setPedidosAnteriores(count)
+
     if (error) {
 
       console.error(error)
@@ -506,43 +536,24 @@ export default function PedidoPublico() {
             ✅
           </div>
 
-          <h1 className="text-3xl font-black mb-3">
-            Pedido confirmado
-          </h1>
+          <div className="text-center py-4">
+            <p className="text-2xl font-bold text-white mb-2">✓ Pedido enviado</p>
 
-          <p className="text-purple-200/70 mb-6">
-            Tu pedido ya fue enviado al restaurante.
-          </p>
-
-          <div className="space-y-3 mb-6 text-left">
-
-            <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
-
-              <p className="text-sm text-purple-200/60 mb-1">
-                Tiempo estimado
+            {pedidosAnteriores > 0 ? (
+              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                Hay {pedidosAnteriores} pedido{pedidosAnteriores !== 1 ? 's' : ''} antes que el tuyo
               </p>
-
-              <p className="font-bold text-lg">
-                35 - 50 minutos
+            ) : (
+              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                Tu pedido es el siguiente en prepararse
               </p>
-
-            </div>
-
-            {deliveryUser && (
-
-              <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
-
-                <p className="text-sm text-purple-200/60 mb-1">
-                  Domiciliario asignado
-                </p>
-
-                <p className="font-bold text-lg">
-                  🛵 {deliveryUser.name}
-                </p>
-
-              </div>
             )}
 
+            {domiciliarioActivo && (
+              <p className="text-sm mt-2" style={{ color: '#A855F7' }}>
+                🛵 Será entregado por: <span className="font-bold">{domiciliarioActivo}</span>
+              </p>
+            )}
           </div>
 
           <button
