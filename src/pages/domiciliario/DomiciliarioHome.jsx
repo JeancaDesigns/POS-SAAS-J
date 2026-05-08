@@ -161,7 +161,7 @@ export default function DomiciliarioHome() {
         'delivery'
       )
       .in('status', [
-        'delivered',
+        'inDelivery',
         'dispatched',
       ])
       .order(
@@ -408,7 +408,7 @@ export default function DomiciliarioHome() {
 
   const pendingOrders =
     orders.filter(
-      o => o.status === 'delivered'
+      o => o.status === 'inDelivery'
     )
 
   const dispatchedOrders =
@@ -420,13 +420,55 @@ export default function DomiciliarioHome() {
     orders.filter(
       o =>
         tanda.includes(o.id) &&
-        o.status === 'delivered'
+        o.status === 'inDelivery'
     )
 
   const noTandaOrders =
     pendingOrders.filter(
       o => !tanda.includes(o.id)
     )
+
+  {
+    tandaOrders.length > 0 && (
+
+      <div className="space-y-4 mt-8">
+
+        <div className="flex items-center justify-between">
+
+          <h2 className="text-xl font-black text-orange-400">
+            🚚 En ruta
+          </h2>
+
+          <button
+            onClick={salir}
+            className="
+          px-4
+          py-2
+          rounded-2xl
+          bg-orange-500
+          text-black
+          font-bold
+        "
+          >
+            Salir
+          </button>
+
+        </div>
+
+        {tandaOrders.map(order => (
+
+          <DeliveryCard
+            key={order.id}
+            order={order}
+            orange
+            showDeliverButton
+          />
+
+        ))}
+
+      </div>
+    )
+  }
 
   function DeliveryCard({
     order,

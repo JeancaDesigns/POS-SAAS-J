@@ -12,7 +12,7 @@ function useCajaOrders(restaurantId) {
       .from('orders')
       .select('*, table:tables(number, is_delivery, zone:zones(name)), items:order_items(*, product:products(name, price))')
       .eq('restaurant_id', restaurantId)
-      .in('status', ['draft', 'confirmed', 'delivered', 'dispatched'])
+      .in('status', ['draft', 'confirmed', 'delivered', 'dispatched', 'inDelivery'])
       .order('started_at', { ascending: true })
     setOrders(data || [])
   }
@@ -59,7 +59,7 @@ function TicketActivo({ order, deliveryFee, onVerPedido, onCobrar }) {
   const isDelivery = order.delivery_type === 'delivery' && order.table?.is_delivery
   const total = itemsTotal + (isDelivery ? deliveryFee : 0)
   const hasDraft = order.status === 'draft'
-  const isReady = order.status === 'delivered' || order.status === 'dispatched'
+  const isReady = order.status === 'delivered' || order.status === 'inDelivery' || order.status === 'dispatched'
   const canPay = !order.table?.is_delivery || order.status === 'dispatched'
 
   const now = new Date()

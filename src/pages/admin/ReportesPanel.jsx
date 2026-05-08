@@ -202,10 +202,7 @@ export default function ReportesPanel() {
       )
 
     const activeStatuses = [
-      'pending',
       'confirmed',
-      'preparing',
-      'ready',
     ]
 
     const activeOrders =

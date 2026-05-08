@@ -155,16 +155,23 @@ export default function PedidoPublico() {
   }
 
   async function fetchPedidosAnteriores(orderId, startedAt) {
-    const { data } = await supabase
+
+    const { count, error } = await supabase
       .from('orders')
-      .select('id')
-      .eq('restaurant_id', '94393adb-b409-42f5-bf8d-6650e0e2d6d6')
-      .in('status', ['confirmed', 'delivered'])
+      .select('*', {
+        count: 'exact',
+        head: true,
+      })
+      .eq('status', 'confirmed')
       .lt('started_at', startedAt)
 
-    return data?.length || 0
-  }
+    if (error) {
+      console.error(error)
+      return 0
+    }
 
+    return count || 0
+  }
   async function fetchDomiciliario() {
     const { data } = await supabase
       .from('active_shifts')

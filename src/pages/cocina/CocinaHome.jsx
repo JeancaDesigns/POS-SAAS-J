@@ -258,8 +258,18 @@ export default function CocinaHome() {
 
   async function markOrderDone(order) {
     await supabase.from('order_items').update({ status: 'done' }).eq('order_id', order.id)
-    await supabase.from('orders').update({ status: 'delivered', delivered_at: new Date().toISOString() }).eq('id', order.id)
-    await supabase.from('tables').update({ status: 'waiting_payment' }).eq('id', order.table_id)
+
+    const newStatus = order.table?.is_delivery ? 'inDelivery' : 'delivered'
+
+    await supabase.from('orders').update({
+      status: newStatus,
+      delivered_at: new Date().toISOString()
+    }).eq('id', order.id)
+
+    await supabase.from('tables').update({
+      status: order.table?.is_delivery ? 'occupied' : 'waiting_payment'
+    }).eq('id', order.table_id)
+
     setActiveOrderId(null)
     fetchOrders()
   }
