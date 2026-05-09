@@ -512,7 +512,7 @@ export default function PedidoActivo({ table, onClose }) {
       {variantModal && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
-          <div className="w-full max-w-lg rounded-t-3xl p-6 pb-20"
+          <div className="w-full max-w-lg rounded-t-3xl p-6 pb-20 sm:pb-0"
             style={{ background: 'linear-gradient(160deg, #1A1A2E 0%, #2D1B4E 100%)', border: '1px solid rgba(168,85,247,0.2)', borderBottom: 'none' }}>
             <div className="flex items-center justify-between mb-6">
               <button onClick={() => setVariantModal(null)} style={{ color: 'rgba(168,85,247,0.8)' }} className="text-sm font-semibold">

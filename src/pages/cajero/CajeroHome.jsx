@@ -60,7 +60,9 @@ function TicketActivo({ order, deliveryFee, onVerPedido, onCobrar }) {
   const total = itemsTotal + (isDelivery ? deliveryFee : 0)
   const hasDraft = order.status === 'draft'
   const isReady = order.status === 'delivered' || order.status === 'inDelivery' || order.status === 'dispatched'
-  const canPay = !order.table?.is_delivery || order.status === 'dispatched'
+  const canPay = !order.table?.is_delivery ||
+    order.delivery_type === 'pickup' ||
+    ['dispatched', 'inDelivery'].includes(order.status)
 
   const now = new Date()
   const timeStr = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
@@ -261,12 +263,11 @@ export default function CajeroHome() {
   }
 
   async function handleVoid(payment) {
-    const keepItems = window.confirm('¿Mantener los productos?\n\nAceptar = mesa queda ocupada\nCancelar = mesa queda libre')
-    await supabase.from('payments').update({ voided: true, voided_at: new Date().toISOString() }).eq('id', payment.id)
-    await supabase.from('orders').update({ status: keepItems ? 'confirmed' : 'cancelled' }).eq('id', payment.order_id)
-    await supabase.from('tables').update({ status: keepItems ? 'occupied' : 'free' }).eq('id', payment.table_id)
+    const confirm = window.confirm('¿Eliminar este registro de pago? Esta acción no se puede deshacer.')
+    if (!confirm) return
+
+    await supabase.from('payments').delete().eq('id', payment.id)
     fetchHistorial()
-    refetch()
   }
 
   // Filtrar historial
@@ -285,7 +286,7 @@ export default function CajeroHome() {
   const totalHistorial = filteredHistorial.reduce((s, p) => s + p.total, 0)
 
   return (
-    <div className="min-h-screen flex flex-col pb-20"
+    <div className="min-h-screen flex flex-col pb-20 sm:pb-0"
       style={{ background: 'linear-gradient(160deg, #1A1A2E 0%, #2D1B4E 100%)' }}>
 
       {/* Header */}
@@ -560,7 +561,7 @@ export default function CajeroHome() {
                     onMouseEnter={e => e.target.style.color = '#F87171'}
                     onMouseLeave={e => e.target.style.color = 'rgba(220,38,38,0.7)'}
                   >
-                    Anular
+                    Eliminar
                   </button>
                 </div>
               </div>

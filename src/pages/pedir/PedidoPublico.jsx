@@ -144,7 +144,7 @@ export default function PedidoPublico() {
         .eq('restaurant_id', restaurantId)
         .eq('active', true)
         .eq('available', true)
-        .order('name')
+        .order('price', { ascending: true })
 
     setCategories(categoriesData || [])
     setProducts(productsData || [])
@@ -492,6 +492,7 @@ export default function PedidoPublico() {
           justify-center
           p-6
           text-white
+          pb-20 sm:pb-0
         "
         style={{
           background:
@@ -879,13 +880,12 @@ export default function PedidoPublico() {
 
                         <div className="min-w-0">
 
-                          <h2 className="font-bold text-lg truncate">
-                            {product.name}
-                          </h2>
-
+                          <h2 className="font-bold text-lg truncate">{product.name}</h2>
+                          {product.description && (
+                            <p className="text-white/50 text-sm mt-0.5 leading-snug">{product.description}</p>
+                          )}
                           <p className="text-purple-300 font-bold mt-1">
-                            $
-                            {product.price.toLocaleString('es-CO')}
+                            ${product.price.toLocaleString('es-CO')}
                           </p>
 
                         </div>
@@ -1439,7 +1439,7 @@ export default function PedidoPublico() {
       {variantModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
-          <div className="w-full max-w-lg rounded-t-3xl p-6 pb-10"
+          <div className="w-full max-w-lg rounded-t-3xl p-6 pb-20 sm:pb-0"
             style={{ background: 'linear-gradient(160deg, #1A1A2E 0%, #2D1B4E 100%)', border: '1px solid rgba(168,85,247,0.2)', borderBottom: 'none' }}>
             <div className="flex items-center justify-between mb-6">
               <button

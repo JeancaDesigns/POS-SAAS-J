@@ -18,10 +18,15 @@ export default function CajaPanel() {
 
   const [movements, setMovements] = useState([])
 
+  const [closingAmount, setClosingAmount] = useState('')
+
+  const [history, setHistory] = useState([])
+
   useEffect(() => {
 
     if (user) {
       loadCashRegister()
+      loadHistory()
     }
 
   }, [user])
@@ -70,6 +75,25 @@ export default function CajaPanel() {
     setMovements(data || [])
   }
 
+  async function loadHistory() {
+
+    const { data, error } = await supabase
+      .from('cash_registers')
+      .select('*')
+      .eq('restaurant_id', user.restaurant_id)
+      .order('created_at', {
+        ascending: false
+      })
+      .limit(10)
+
+    if (error) {
+      console.error(error)
+      return
+    }
+
+    setHistory(data || [])
+  }
+
   async function openCash() {
 
     const amount = Number(openingAmount)
@@ -100,14 +124,34 @@ export default function CajaPanel() {
     setOpeningAmount('0')
 
     await loadMovements(data.id)
+    await loadHistory()
   }
 
   async function closeCash() {
 
     if (!cashRegister) return
 
+    const counted =
+      Number(closingAmount)
+
+    if (
+      isNaN(counted) ||
+      counted < 0
+    ) {
+      alert('Monto inválido')
+      return
+    }
+
+    const difference =
+      counted -
+      Number(cashRegister.expected_amount)
+
     const confirmed =
-      confirm('¿Cerrar caja?')
+      confirm(
+        `Cerrar caja con diferencia de ${
+          difference >= 0 ? '+' : ''
+        }$${difference.toLocaleString('es-CO')} ?`
+      )
 
     if (!confirmed) return
 
@@ -116,6 +160,8 @@ export default function CajaPanel() {
       .update({
         status: 'closed',
         closed_at: new Date().toISOString(),
+        closing_amount: counted,
+        difference_amount: difference,
       })
       .eq('id', cashRegister.id)
 
@@ -127,6 +173,9 @@ export default function CajaPanel() {
 
     setCashRegister(null)
     setMovements([])
+    setClosingAmount('')
+
+    await loadHistory()
   }
 
   async function addMovement() {
@@ -453,21 +502,6 @@ export default function CajaPanel() {
                 Movimientos
               </h2>
 
-              <button
-                onClick={closeCash}
-                className="
-                  px-5
-                  py-2
-                  rounded-xl
-                  text-sm
-                  font-bold
-                  text-white
-                  bg-red-500
-                "
-              >
-                Cerrar caja
-              </button>
-
             </div>
 
             <div className="space-y-3">
@@ -546,10 +580,158 @@ export default function CajaPanel() {
 
             </div>
 
+            <div className="mt-6">
+
+              <p className="text-sm text-gray-400 mb-2">
+                Dinero contado físicamente
+              </p>
+
+              <input
+                type="number"
+                value={closingAmount}
+                onChange={(e) =>
+                  setClosingAmount(e.target.value)
+                }
+                className="
+                  w-full
+                  rounded-2xl
+                  bg-[#1C1C2E]
+                  border
+                  border-[#2A2A40]
+                  px-4
+                  py-3
+                  text-white
+                  outline-none
+                "
+              />
+
+              <button
+                onClick={closeCash}
+                className="
+                  mt-4
+                  w-full
+                  rounded-2xl
+                  py-4
+                  font-bold
+                  text-white
+                  bg-red-500
+                "
+              >
+                Cerrar caja
+              </button>
+
+            </div>
+
           </div>
 
         </>
       )}
+
+      {/* HISTORIAL DE CAJAS */}
+      <div
+        className="
+          rounded-3xl
+          bg-[#151521]
+          border
+          border-[#2A2A40]
+          p-6
+        "
+      >
+
+        <h2 className="text-xl font-bold text-white mb-5">
+          Historial de cajas
+        </h2>
+
+        <div className="space-y-3">
+
+          {history.map((item) => (
+
+            <div
+              key={item.id}
+              className="
+                rounded-2xl
+                bg-[#1C1C2E]
+                border
+                border-[#2A2A40]
+                p-4
+              "
+            >
+
+              <div className="flex justify-between">
+
+                <div>
+
+                  <p className="text-white font-bold">
+                    {new Date(
+                      item.created_at
+                    ).toLocaleDateString('es-CO')}
+                  </p>
+
+                  <p className="text-sm text-gray-400 mt-1">
+                    Apertura:
+                    {' '}
+                    $
+                    {Number(
+                      item.opening_amount || 0
+                    ).toLocaleString('es-CO')}
+                  </p>
+
+                  <p className="text-sm text-gray-400">
+                    Esperado:
+                    {' '}
+                    $
+                    {Number(
+                      item.expected_amount || 0
+                    ).toLocaleString('es-CO')}
+                  </p>
+
+                  <p className="text-sm text-gray-400">
+                    Real:
+                    {' '}
+                    $
+                    {Number(
+                      item.closing_amount || 0
+                    ).toLocaleString('es-CO')}
+                  </p>
+
+                </div>
+
+                <div
+                  className={`
+                    text-lg
+                    font-black
+
+                    ${
+                      Number(item.difference_amount) >= 0
+                        ? 'text-green-400'
+                        : 'text-red-400'
+                    }
+                  `}
+                >
+
+                  {
+                    Number(item.difference_amount) >= 0
+                      ? '+'
+                      : ''
+                  }
+
+                  $
+
+                  {Number(
+                    item.difference_amount || 0
+                  ).toLocaleString('es-CO')}
+
+                </div>
+
+              </div>
+
+            </div>
+
+          ))}
+
+        </div>
+
+      </div>
 
     </div>
   )

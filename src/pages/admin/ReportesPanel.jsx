@@ -13,6 +13,15 @@ import {
 
 export default function ReportesPanel() {
 
+  const [monthlyReports, setMonthlyReports] =
+    useState([])
+
+  const [selectedMonth, setSelectedMonth] =
+    useState(null)
+
+  const [monthlyDetail, setMonthlyDetail] =
+    useState(null)
+
   const [loading, setLoading] =
     useState(true)
 
@@ -53,7 +62,64 @@ export default function ReportesPanel() {
 
   useEffect(() => {
     fetchData()
+    fetchMonthlyReports()
   }, [])
+
+  async function loadMonthDetail(report) {
+    setSelectedMonth(report)
+
+    const start = new Date(report.year, report.month, 1).toISOString()
+    const end = new Date(report.year, report.month + 1, 1).toISOString()
+
+    const { data: ordersData } = await supabase
+      .from('orders')
+      .select('id, status')
+      .gte('created_at', start)
+      .lt('created_at', end)
+
+    const orderIds = (ordersData || []).map(o => o.id)
+    const cancelledCount = (ordersData || []).filter(o => o.status === 'cancelled').length
+
+    const { data: itemsData } = await supabase
+      .from('order_items')
+      .select('*, product:products(name, price, category:categories(name))')
+      .in('order_id', orderIds.length ? orderIds : ['00000000-0000-0000-0000-000000000000'])
+      .neq('status', 'cancelled')
+
+    // Agrupar por producto
+    const productMap = {}
+    itemsData?.forEach(item => {
+      if (!item.product) return
+      const id = item.product_id
+      if (!productMap[id]) {
+        productMap[id] = {
+          name: item.product.name,
+          category: item.product.category?.name || 'Sin categoría',
+          quantity: 0,
+          total: 0,
+        }
+      }
+      productMap[id].quantity += item.quantity
+      productMap[id].total += item.product.price * item.quantity
+    })
+
+    // Agrupar por categoría
+    const categoryMap = {}
+    itemsData?.forEach(item => {
+      if (!item.product) return
+      const cat = item.product.category?.name || 'Sin categoría'
+      if (!categoryMap[cat]) categoryMap[cat] = { name: cat, total: 0, quantity: 0 }
+      categoryMap[cat].total += item.product.price * item.quantity
+      categoryMap[cat].quantity += item.quantity
+    })
+
+    setMonthlyDetail({
+      products: Object.values(productMap).sort((a, b) => b.quantity - a.quantity),
+      categories: Object.values(categoryMap).sort((a, b) => b.total - a.total),
+      cancelledCount,
+      totalOrders: (ordersData || []).length,
+    })
+  }
 
   async function fetchData() {
 
@@ -188,6 +254,48 @@ export default function ReportesPanel() {
     )
 
     setLoading(false)
+  }
+
+  async function fetchMonthlyReports() {
+    // Traer todos los pagos agrupados por mes
+    const { data: paymentsData } = await supabase
+      .from('payments')
+      .select('*, table:tables(number, is_delivery)')
+      .eq('voided', false)
+      .order('created_at', { ascending: false })
+
+    if (!paymentsData) return
+
+    // Agrupar por mes (corte el día 1)
+    const monthMap = {}
+
+    paymentsData.forEach(payment => {
+      const date = new Date(payment.created_at)
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+
+      if (!monthMap[key]) {
+        monthMap[key] = {
+          key,
+          year: date.getFullYear(),
+          month: date.getMonth(),
+          payments: [],
+          total: 0,
+          cash: 0,
+          transfer: 0,
+          deliveries: 0,
+        }
+      }
+
+      monthMap[key].payments.push(payment)
+      monthMap[key].total += payment.total
+
+      const realCash = payment.total - (payment.transfer || 0)
+      monthMap[key].cash += realCash > 0 ? realCash : 0
+      monthMap[key].transfer += payment.transfer || 0
+      if (payment.is_delivery) monthMap[key].deliveries++
+    })
+
+    setMonthlyReports(Object.values(monthMap).sort((a, b) => b.key.localeCompare(a.key)))
   }
 
   function calculateStats(
@@ -851,21 +959,21 @@ export default function ReportesPanel() {
                   p.available === false
               ).length > 0 && (
 
-                <div
-                  className="
+                  <div
+                    className="
                     rounded-2xl
                     bg-white/5
                     px-4
                     py-3
                   "
-                >
+                  >
 
-                  <p className="text-sm text-white">
-                    📦 Hay productos marcados como no disponibles
-                  </p>
+                    <p className="text-sm text-white">
+                      📦 Hay productos marcados como no disponibles
+                    </p>
 
-                </div>
-              )}
+                  </div>
+                )}
 
               {stats.cancelledOrders === 0 &&
                 products.filter(
@@ -893,6 +1001,138 @@ export default function ReportesPanel() {
 
           </div>
         </>
+      )}
+      {/* REPORTES MENSUALES */}
+      <div className="rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-xl p-5">
+        <div className="flex items-center gap-2 mb-5">
+          <TrendingUp size={20} className="text-purple-400" />
+          <h2 className="text-xl font-bold text-white">Reportes mensuales</h2>
+        </div>
+
+        {monthlyReports.length === 0 ? (
+          <p className="text-white/40 text-sm">Sin registros de pagos aún</p>
+        ) : (
+          <div className="space-y-3">
+            {monthlyReports.map(report => (
+              <button
+                key={report.key}
+                onClick={() => loadMonthDetail(report)}
+                className="w-full flex items-center justify-between rounded-2xl bg-white/5 hover:bg-white/10 px-4 py-3 transition-all"
+              >
+                <div className="text-left">
+                  <p className="font-bold text-white capitalize">
+                    {new Date(report.year, report.month).toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })}
+                  </p>
+                  <p className="text-xs text-white/40 mt-0.5">
+                    {report.payments.length} pagos · {report.deliveries} domicilios
+                  </p>
+                </div>
+                <span className="font-black text-purple-300 text-lg">
+                  ${report.total.toLocaleString('es-CO')}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* MODAL DETALLE MENSUAL */}
+      {selectedMonth && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}>
+          <div className="w-full max-w-2xl rounded-3xl border border-white/10 bg-[#111111] overflow-hidden max-h-[90vh] flex flex-col">
+
+            {/* Header modal */}
+            <div className="flex items-center justify-between p-5 border-b border-white/10">
+              <div>
+                <h2 className="text-xl font-bold text-white capitalize">
+                  {new Date(selectedMonth.year, selectedMonth.month).toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })}
+                </h2>
+                <p className="text-white/40 text-sm mt-0.5">Reporte mensual</p>
+              </div>
+              <button
+                onClick={() => { setSelectedMonth(null); setMonthlyDetail(null) }}
+                className="px-4 py-2 rounded-2xl bg-white/5 text-white/60 hover:bg-white/10 transition-all"
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className="overflow-y-auto p-5 space-y-5">
+
+              {/* Resumen */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { label: 'Total ingresos', value: `$${selectedMonth.total.toLocaleString('es-CO')}`, color: 'text-purple-300' },
+                  { label: 'Efectivo', value: `$${selectedMonth.cash.toLocaleString('es-CO')}`, color: 'text-green-300' },
+                  { label: 'Transferencia', value: `$${selectedMonth.transfer.toLocaleString('es-CO')}`, color: 'text-blue-300' },
+                  { label: 'Domicilios', value: selectedMonth.deliveries, color: 'text-orange-300' },
+                ].map(item => (
+                  <div key={item.label} className="rounded-2xl bg-white/5 p-3 text-center">
+                    <p className="text-white/40 text-xs">{item.label}</p>
+                    <p className={`font-black text-lg mt-1 ${item.color}`}>{item.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {!monthlyDetail ? (
+                <p className="text-white/40 text-sm text-center py-4">Cargando detalle...</p>
+              ) : (
+                <>
+                  {/* Stats pedidos */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-2xl bg-white/5 p-3 text-center">
+                      <p className="text-white/40 text-xs">Total pedidos</p>
+                      <p className="font-black text-lg text-white mt-1">{monthlyDetail.totalOrders}</p>
+                    </div>
+                    <div className="rounded-2xl bg-red-500/10 border border-red-500/20 p-3 text-center">
+                      <p className="text-white/40 text-xs">Cancelados</p>
+                      <p className="font-black text-lg text-red-300 mt-1">{monthlyDetail.cancelledCount}</p>
+                    </div>
+                  </div>
+
+                  {/* Por categoría */}
+                  <div>
+                    <p className="text-white/60 text-sm font-semibold mb-3">Por categoría</p>
+                    <div className="space-y-2">
+                      {monthlyDetail.categories.map(cat => (
+                        <div key={cat.name} className="flex justify-between items-center rounded-2xl bg-white/5 px-4 py-2.5">
+                          <span className="text-white text-sm">{cat.name}</span>
+                          <div className="text-right">
+                            <span className="text-purple-300 font-bold text-sm">${cat.total.toLocaleString('es-CO')}</span>
+                            <span className="text-white/40 text-xs ml-2">x{cat.quantity}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Productos más vendidos */}
+                  <div>
+                    <p className="text-white/60 text-sm font-semibold mb-3">Productos más vendidos</p>
+                    <div className="space-y-2">
+                      {monthlyDetail.products.slice(0, 10).map((prod, i) => (
+                        <div key={prod.name} className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-2.5">
+                          <div className="flex items-center gap-3">
+                            <span className="text-white/30 text-xs font-bold w-5">#{i + 1}</span>
+                            <div>
+                              <p className="text-white text-sm font-semibold">{prod.name}</p>
+                              <p className="text-white/40 text-xs">{prod.category}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-purple-300 font-bold text-sm">${prod.total.toLocaleString('es-CO')}</p>
+                            <p className="text-white/40 text-xs">x{prod.quantity}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

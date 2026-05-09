@@ -82,7 +82,7 @@ export default function MeseroHome() {
   const [selectedTable, setSelectedTable] = useState(null)
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center"
+    <div className="min-h-screen flex items-center justify-center pb-20 sm:pb-0"
       style={{ background: '#1A1A2E' }}>
       <p style={{ color: '#A855F7' }}>Cargando...</p>
     </div>
@@ -99,7 +99,7 @@ export default function MeseroHome() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col pb-20 relative overflow-hidden"
+    <div className="min-h-screen flex flex-col pb-20 sm:pb-0 relative overflow-hidden"
       style={{ background: 'linear-gradient(160deg, #1A1A2E 0%, #2D1B4E 100%)' }}
     >
 

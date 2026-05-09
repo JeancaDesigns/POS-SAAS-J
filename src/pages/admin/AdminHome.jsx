@@ -94,7 +94,7 @@ export default function AdminHome() {
 
   return (
 
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col">
+    <div className="min-h-screen bg-gray-950 text-white flex flex-col pb-20 sm:pb-0">
 
       {/* HEADER */}
       <div

@@ -222,7 +222,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
         </div>
 
         {/* Productos */}
-        <div className="flex-1 overflow-y-auto px-4 py-3">
+        <div className="flex-1 overflow-y-auto px-4 py-3 pb-22 sm:pb-2">
           {categoryProducts.length === 0 ? (
             <p className="text-center py-12" style={{ color: 'rgba(255,255,255,0.3)' }}>
               Sin productos disponibles

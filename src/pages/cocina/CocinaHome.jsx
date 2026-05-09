@@ -259,7 +259,9 @@ export default function CocinaHome() {
   async function markOrderDone(order) {
     await supabase.from('order_items').update({ status: 'done' }).eq('order_id', order.id)
 
-    const newStatus = order.table?.is_delivery ? 'inDelivery' : 'delivered'
+    const isDelivery = order.table?.is_delivery && order.delivery_type === 'delivery'
+    const newStatus = isDelivery ? 'inDelivery' : 'delivered'
+    const newTableStatus = isDelivery ? 'occupied' : 'waiting_payment'
 
     await supabase.from('orders').update({
       status: newStatus,
@@ -267,7 +269,7 @@ export default function CocinaHome() {
     }).eq('id', order.id)
 
     await supabase.from('tables').update({
-      status: order.table?.is_delivery ? 'occupied' : 'waiting_payment'
+      status: newTableStatus
     }).eq('id', order.table_id)
 
     setActiveOrderId(null)
@@ -298,7 +300,7 @@ export default function CocinaHome() {
   const deliveredOrders = orders.filter(o => o.status === 'delivered')
 
   return (
-    <div className="min-h-screen flex flex-col pb-20"
+    <div className="min-h-screen flex flex-col pb-20 sm:pb-0"
       style={{
         background: '#2D1B4E',
         backgroundImage: `

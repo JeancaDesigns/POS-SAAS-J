@@ -20,6 +20,7 @@ export default function MenuPanel() {
     local_only: false,
     variants: [],
     newVariant: '',
+    description: '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -61,7 +62,7 @@ export default function MenuPanel() {
 
   function openNewProd() {
     setEditItem(null)
-    setProdForm({ name: '', price: '', category_id: categories[0]?.id || '', available: true, local_only: false, variants: [], newVariant: '' })
+    setProdForm({ name: '', price: '', category_id: categories[0]?.id || '', available: true, local_only: false, variants: [], newVariant: '', description: '' })
     setError('')
     setShowForm(true)
   }
@@ -76,6 +77,7 @@ export default function MenuPanel() {
       local_only: prod.local_only || false,
       variants: prod.variants || [],
       newVariant: '',
+      description: prod.description || '',
     })
     setError('')
     setShowForm(true)
@@ -107,6 +109,7 @@ export default function MenuPanel() {
       available: prodForm.available,
       local_only: prodForm.local_only,
       variants: prodForm.variants,
+      description: prodForm.description || null
     }
     if (editItem) {
       await supabase.from('products').update(payload).eq('id', editItem.id)
@@ -354,6 +357,13 @@ export default function MenuPanel() {
               value={prodForm.name}
               onChange={e => setProdForm(p => ({ ...p, name: e.target.value }))}
               className="bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#820AD1]"
+            />
+            <textarea
+              placeholder="Descripción del producto (opcional)"
+              value={prodForm.description}
+              onChange={e => setProdForm(p => ({ ...p, description: e.target.value }))}
+              rows={2}
+              className="bg-gray-800 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#820AD1] resize-none text-sm"
             />
             <input
               type="number"
