@@ -55,10 +55,7 @@ export default function Login() {
     } = await supabase
       .from('users')
       .select('*')
-      .eq(
-        'auth_user_id',
-        authData.user.id
-      )
+      .eq('email', authData.user.email)
       .single()
 
     if (profileError || !profile) {

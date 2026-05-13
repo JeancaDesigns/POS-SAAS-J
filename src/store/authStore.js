@@ -12,7 +12,7 @@ export const useAuthStore = create((set) => ({
       const { data: userData } = await supabase
         .from('users')
         .select('*')
-        .eq('id', session.user.id)
+        .eq('auth_user_id', session.user.id)
         .single()
       set({ user: userData, loading: false })
     } else {
