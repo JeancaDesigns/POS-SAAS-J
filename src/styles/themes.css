@@ -1,0 +1,87 @@
+:root {
+
+  --success: #16A34A;
+  --warning: #F97316;
+  --danger: #DC2626;
+
+  --text-main: #FFFFFF;
+  --text-muted: rgba(255,255,255,0.6);
+}
+
+/* ========================= */
+/* PURPLE */
+/* ========================= */
+
+[data-theme="purple"] {
+
+  --primary: #820AD1;
+  --primary-light: #A855F7;
+  --primary-dark: #6B21A8;
+
+  --bg-main: #1A1A2E;
+  --bg-secondary: #2D1B4E;
+
+  --card-bg: rgba(45, 27, 78, 0.35);
+
+  --input-bg: rgba(255,255,255,0.08);
+
+  --border-color: rgba(168,85,247,0.25);
+
+  --primary-soft: rgba(130,10,209,0.35);
+
+  --table-free-bg: #2D1B4E;
+  --table-free-border: #820AD1;
+  --table-free-chair: #A855F7;
+}
+
+/* ========================= */
+/* RED / RESTAURANT */
+/* ========================= */
+
+[data-theme="orange"] {
+
+  --primary: #DC2626;
+  --primary-light: #EF4444;
+  --primary-dark: #991B1B;
+
+  --bg-main: #1A1212;
+  --bg-secondary: #2A1818;
+
+  --card-bg: rgba(42, 24, 24, 0.35);
+
+  --input-bg: rgba(255,255,255,0.08);
+
+  --border-color: rgba(220,38,38,0.25);
+
+  --primary-soft: rgba(220,38,38,0.22);
+
+  --table-free-bg: rgba(220,38,38,0.18);
+  --table-free-border: #DC2626;
+  --table-free-chair: #EF4444;
+}
+
+/* ========================= */
+/* BLUE */
+/* ========================= */
+
+[data-theme="blue"] {
+
+  --primary: #007FFF;
+  --primary-light: #4DA6FF;
+  --primary-dark: #005FCC;
+
+  --bg-main: #0D1726;
+  --bg-secondary: #132238;
+
+  --card-bg: rgba(19, 34, 56, 0.35);
+
+  --input-bg: rgba(255,255,255,0.08);
+
+  --border-color: rgba(0,127,255,0.25);
+
+  --primary-soft: rgba(0,127,255,0.35);
+
+  --table-free-bg: #132238;
+  --table-free-border: #007FFF;
+  --table-free-chair: #4DA6FF;
+}

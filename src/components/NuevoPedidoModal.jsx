@@ -1,11 +1,19 @@
 import { useState } from 'react'
 
-export default function NuevoPedidoModal({ zones, tables, onClose, onTableSelected }) {
+export default function NuevoPedidoModal({
+  zones,
+  tables,
+  onClose,
+  onTableSelected
+}) {
+
   const [step, setStep] = useState('zona')
   const [selectedZone, setSelectedZone] = useState(null)
 
   const freeTables = tables.filter(
-    t => t.zone_id === selectedZone && t.status === 'free'
+    t =>
+      t.zone_id === selectedZone &&
+      t.status === 'free'
   )
 
   function handleZoneSelect(zone) {
@@ -19,40 +27,62 @@ export default function NuevoPedidoModal({ zones, tables, onClose, onTableSelect
   }
 
   return (
-    <div className="fixed inset-0 z-50 pb-[80px] sm:pb-0 flex items-end justify-center"
-      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
-      <div className="w-full max-w-lg rounded-t-3xl p-6 pb-20 sm:pb-0"
-        style={{ background: 'linear-gradient(160deg, #1A1A2E 0%, #2D1B4E 100%)', border: '1px solid rgba(168,85,247,0.2)', borderBottom: 'none' }}>
+    <div
+      className="fixed inset-0 z-50 pb-[80px] sm:pb-0 flex items-end justify-center"
+      style={{
+        background: 'rgba(0,0,0,0.45)',
+        backdropFilter: 'blur(6px)'
+      }}
+    >
+
+      {/* Sheet */}
+      <div className="
+        w-full max-w-lg
+        bg-white
+        rounded-t-3xl
+        border border-b-0 border-zinc-200
+        shadow-[0_-8px_40px_rgba(0,0,0,0.10)]
+        p-6 pb-20 sm:pb-8
+      ">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
+
           <button
             onClick={step === 'mesa' ? () => setStep('zona') : onClose}
-            className="text-sm font-semibold transition-colors"
-            style={{ color: 'rgba(168,85,247,0.8)' }}
+            className="text-sm font-semibold text-violet-600 hover:text-violet-700 transition-colors"
           >
             {step === 'mesa' ? '← Volver' : '✕ Cerrar'}
           </button>
-          <h2 className="text-white font-bold text-lg">
-            {step === 'zona' ? 'Nuevo pedido' : zones.find(z => z.id === selectedZone)?.name}
+
+          <h2 className="text-zinc-900 font-bold text-lg tracking-tight">
+            {step === 'zona'
+              ? 'Nuevo pedido'
+              : zones.find(z => z.id === selectedZone)?.name
+            }
           </h2>
+
           <div className="w-16" />
+
         </div>
 
-        {/* Paso 1: zona */}
+        {/* Paso 1 — Zona */}
         {step === 'zona' && (
           <div className="flex flex-col gap-3">
             {zones.map(zone => (
               <button
                 key={zone.id}
                 onClick={() => handleZoneSelect(zone)}
-                className="w-full py-4 rounded-2xl text-left px-5 font-semibold text-white transition-all duration-200 active:scale-98"
-                style={{
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(168,85,247,0.2)',
-                }}
-                onMouseEnter={e => e.currentTarget.style.border = '1px solid rgba(168,85,247,0.6)'}
-                onMouseLeave={e => e.currentTarget.style.border = '1px solid rgba(168,85,247,0.2)'}
+                className="
+                  w-full py-4 px-5
+                  rounded-2xl
+                  text-left font-semibold text-zinc-800
+                  bg-zinc-50
+                  border border-zinc-200
+                  hover:border-violet-400 hover:bg-violet-50/50
+                  transition-all duration-200
+                  active:scale-[0.98]
+                "
               >
                 {zone.name}
               </button>
@@ -60,32 +90,43 @@ export default function NuevoPedidoModal({ zones, tables, onClose, onTableSelect
           </div>
         )}
 
-        {/* Paso 2: mesa */}
+        {/* Paso 2 — Mesa */}
         {step === 'mesa' && (
           freeTables.length === 0 ? (
-            <p className="text-center py-8" style={{ color: 'rgba(255,255,255,0.4)' }}>
+
+            <p className="text-center py-8 text-zinc-400 text-sm">
               No hay mesas disponibles en esta zona
             </p>
+
           ) : (
+
             <div className="grid grid-cols-3 gap-3">
               {freeTables.map(table => (
                 <button
                   key={table.id}
                   onClick={() => handleTableSelect(table)}
-                  className="py-4 rounded-2xl font-bold text-white transition-all duration-200 active:scale-95"
-                  style={{
-                    background: 'rgba(130,10,209,0.2)',
-                    border: '1px solid rgba(130,10,209,0.4)',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(130,10,209,0.4)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(130,10,209,0.2)'}
+                  className="
+                    py-4
+                    rounded-2xl
+                    font-bold text-violet-700
+                    bg-violet-50
+                    border border-violet-200
+                    hover:bg-violet-100 hover:border-violet-400
+                    transition-all duration-200
+                    active:scale-95
+                  "
                 >
-                  {table.is_delivery ? `D-${table.number}` : `Mesa ${table.number}`}
+                  {table.is_delivery
+                    ? `D-${table.number}`
+                    : `Mesa ${table.number}`
+                  }
                 </button>
               ))}
             </div>
+
           )
         )}
+
       </div>
     </div>
   )

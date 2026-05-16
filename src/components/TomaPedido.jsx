@@ -73,7 +73,9 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
         status: 'confirmed',
         confirmed_at: new Date().toISOString(),
         started_at: new Date().toISOString(),
-        scheduled_for: scheduled ? new Date(`${new Date().toDateString()} ${scheduled}`).toISOString() : null,
+        scheduled_for: scheduled
+          ? new Date(`${new Date().toDateString()} ${scheduled}`).toISOString()
+          : null,
         customer_name: customerName.trim() || null,
         customer_phone: customerPhone.trim() || null,
         delivery_type: table.is_delivery ? deliveryType : null,
@@ -100,42 +102,56 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
     onConfirmed(order)
   }
 
+  // ─── Loading ────────────────────────────────────────────────────────────────
   if (loading) return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: '#1A1A2E' }}>
-      <p style={{ color: '#A855F7' }}>Cargando menú...</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#F6F6F8]">
+      <p className="text-zinc-400 text-sm font-medium">Cargando menú...</p>
     </div>
   )
 
+  // ─── UI ─────────────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-6"
-      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-6"
+      style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
+    >
 
-      <div className="w-full h-full md:max-w-4xl md:h-[90vh] md:rounded-3xl flex flex-col relative overflow-hidden shadow-2xl"
-        style={{ background: 'linear-gradient(160deg, #1A1A2E 0%, #2D1B4E 100%)' }}>
+      <div className="
+        w-full h-full
+        md:max-w-4xl md:h-[90vh] md:rounded-3xl
+        flex flex-col relative overflow-hidden
+        bg-white shadow-2xl
+      ">
 
-        {/* Header fijo */}
-        <div style={{ borderBottom: '1px solid rgba(168,85,247,0.15)' }}>
+        {/* ── Header ── */}
+        <div className="bg-[#820AD1] border-b border-violet-800/20">
 
-          {/* Barra superior siempre visible */}
+          {/* Barra top */}
           <div className="flex items-center justify-between px-4 pt-6 pb-3">
-            <button onClick={onClose} style={{ color: 'rgba(168,85,247,0.8)' }} className="text-sm cursor-pointer font-semibold">
+            <button
+              onClick={onClose}
+              className="text-sm cursor-pointer font-semibold text-violet-200 hover:text-white transition-colors"
+            >
               ← Volver
             </button>
-            <h2 className="text-white font-bold text-lg">
+
+            <h2 className="text-white font-bold text-lg tracking-tight">
               {table.is_delivery ? `Domicilio ${table.number}` : `Mesa ${table.number}`}
             </h2>
+
             {table.is_delivery ? (
               <button
                 onClick={() => setHeaderCollapsed(prev => !prev)}
-                className="text-sm font-semibold cursor-pointer px-3 py-1 rounded-full transition-all"
-                style={{
-                  background: headerCollapsed
-                    ? 'rgba(130,10,209,0.3)'
-                    : 'rgba(255,255,255,0.08)',
-                  color: headerCollapsed ? '#D1A7F7' : 'rgba(255,255,255,0.5)',
-                  border: '1px solid rgba(168,85,247,0.2)',
-                }}
+                className={`
+                  text-sm font-semibold cursor-pointer
+                  px-3 py-1 rounded-full
+                  border border-violet-400/30
+                  transition-all duration-200
+                  ${headerCollapsed
+                    ? 'bg-violet-700/50 text-violet-200'
+                    : 'bg-white/10 text-white/60 hover:text-white/80'
+                  }
+                `}
               >
                 {headerCollapsed ? '+ Datos' : '− Ocultar'}
               </button>
@@ -144,57 +160,64 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
             )}
           </div>
 
-          {/* Datos domicilio — colapsable */}
+          {/* Datos domicilio — expandido */}
           {table.is_delivery && !headerCollapsed && (
-            <div className="px-4 pb-3">
-              {/* Resumen colapsado si hay nombre */}
-              <div className="flex flex-col gap-2">
-                <input
-                  type="text"
-                  placeholder="Nombre del cliente *"
-                  value={customerName}
-                  onChange={e => setCustomerName(e.target.value)}
-                  className="w-full rounded-xl px-4 py-2.5 text-white text-sm outline-none"
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(168,85,247,0.2)' }}
-                  onFocus={e => e.target.style.border = '1px solid #820AD1'}
-                  onBlur={e => e.target.style.border = '1px solid rgba(168,85,247,0.2)'}
-                />
-                <input
-                  type="tel"
-                  placeholder="Teléfono (opcional)"
-                  value={customerPhone}
-                  onChange={e => setCustomerPhone(e.target.value)}
-                  className="w-full rounded-xl px-4 py-2.5 text-white text-sm outline-none"
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(168,85,247,0.2)' }}
-                  onFocus={e => e.target.style.border = '1px solid #820AD1'}
-                  onBlur={e => e.target.style.border = '1px solid rgba(168,85,247,0.2)'}
-                />
-                <div className="flex gap-2">
-                  {[
-                    { key: 'delivery', label: '🛵 A domicilio' },
-                    { key: 'pickup', label: '🏠 Recoger' },
-                  ].map(opt => (
-                    <button
-                      key={opt.key}
-                      onClick={() => setDeliveryType(opt.key)}
-                      className="flex-1 py-2 cursor-pointer rounded-xl text-sm font-semibold transition-all"
-                      style={deliveryType === opt.key
-                        ? { background: 'linear-gradient(135deg, #820AD1, #A855F7)', color: 'white' }
-                        : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(168,85,247,0.2)' }
+            <div className="px-4 pb-3 flex flex-col gap-2">
+              <input
+                type="text"
+                placeholder="Nombre del cliente *"
+                value={customerName}
+                onChange={e => setCustomerName(e.target.value)}
+                className="
+                  w-full rounded-xl px-4 py-2.5
+                  text-zinc-800 text-sm outline-none
+                  bg-white border border-violet-200
+                  focus:border-white transition-colors
+                  placeholder:text-zinc-400
+                "
+              />
+              <input
+                type="tel"
+                placeholder="Teléfono (opcional)"
+                value={customerPhone}
+                onChange={e => setCustomerPhone(e.target.value)}
+                className="
+                  w-full rounded-xl px-4 py-2.5
+                  text-zinc-800 text-sm outline-none
+                  bg-white border border-violet-200
+                  focus:border-white transition-colors
+                  placeholder:text-zinc-400
+                "
+              />
+              <div className="flex gap-2">
+                {[
+                  { key: 'delivery', label: '🛵 A domicilio' },
+                  { key: 'pickup',   label: '🏠 Recoger' },
+                ].map(opt => (
+                  <button
+                    key={opt.key}
+                    onClick={() => setDeliveryType(opt.key)}
+                    className={`
+                      flex-1 py-2 cursor-pointer rounded-xl
+                      text-sm font-semibold
+                      border transition-all duration-200
+                      ${deliveryType === opt.key
+                        ? 'bg-white text-[#820AD1] border-white'
+                        : 'bg-white/10 text-white/50 border-violet-400/20 hover:bg-white/20 hover:text-white/70'
                       }
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
+                    `}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Resumen cuando está colapsado */}
+          {/* Datos domicilio — colapsado */}
           {table.is_delivery && headerCollapsed && customerName && (
-            <div className="px-4 pb-3 flex items-center gap-2">
-              <span className="text-sm" style={{ color: '#D1A7F7' }}>
+            <div className="px-4 pb-3">
+              <span className="text-sm text-violet-200">
                 {deliveryType === 'delivery' ? '🛵' : '🏠'} {customerName}
                 {customerPhone && ` · ${customerPhone}`}
               </span>
@@ -202,17 +225,20 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
           )}
 
           {/* Tabs categorías */}
-          <div className="flex gap-2 px-4 py-3 overflow-x-auto"
-            style={{ borderTop: '1px solid rgba(168,85,247,0.1)' }}>
+          <div className="flex gap-2 px-4 py-3 overflow-x-auto border-t border-violet-800/20">
             {categories.map(cat => (
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
-                className="px-4 py-1.5 cursor-pointer rounded-full text-sm font-semibold whitespace-nowrap transition-all"
-                style={displayCategory === cat.id
-                  ? { background: 'linear-gradient(135deg, #820AD1, #A855F7)', color: 'white' }
-                  : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' }
-                }
+                className={`
+                  px-4 py-1.5 cursor-pointer rounded-full
+                  text-sm font-semibold whitespace-nowrap
+                  border transition-all duration-200
+                  ${displayCategory === cat.id
+                    ? 'bg-white text-[#820AD1] border-white'
+                    : 'bg-white/10 text-white/60 border-transparent hover:bg-white/20 hover:text-white/80'
+                  }
+                `}
               >
                 {cat.icon && <span className="mr-1">{cat.icon}</span>}
                 {cat.name}
@@ -221,10 +247,10 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
           </div>
         </div>
 
-        {/* Productos */}
-        <div className="flex-1 overflow-y-auto px-4 py-3 pb-22 sm:pb-2">
+        {/* ── Productos ── */}
+        <div className="flex-1 overflow-y-auto px-4 py-3">
           {categoryProducts.length === 0 ? (
-            <p className="text-center py-12" style={{ color: 'rgba(255,255,255,0.3)' }}>
+            <p className="text-center py-12 text-zinc-300 text-sm">
               Sin productos disponibles
             </p>
           ) : (
@@ -233,12 +259,14 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                 const qty = getQuantity(product.id)
                 const item = items.find(i => i.product.id === product.id)
                 return (
-                  <div key={product.id} className="rounded-2xl p-4"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(168,85,247,0.1)' }}>
+                  <div
+                    key={product.id}
+                    className="rounded-2xl p-4 bg-zinc-50 border border-zinc-100"
+                  >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-white font-semibold">{product.name}</p>
-                        <p className="text-sm font-bold mt-0.5" style={{ color: '#A855F7' }}>
+                        <p className="text-zinc-900 font-semibold">{product.name}</p>
+                        <p className="text-sm font-bold mt-0.5 text-violet-600">
                           ${product.price.toLocaleString('es-CO')}
                         </p>
                       </div>
@@ -247,23 +275,36 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                           <>
                             <button
                               onClick={() => removeProduct(product.id)}
-                              className="w-8 h-8 cursor-pointer rounded-full flex items-center justify-center font-bold text-white"
-                              style={{ background: 'rgba(220,38,38,0.3)', border: '1px solid rgba(220,38,38,0.4)' }}
+                              className="
+                                w-8 h-8 cursor-pointer rounded-full
+                                flex items-center justify-center
+                                font-bold text-red-500
+                                bg-red-50 border border-red-200
+                                hover:bg-red-100 transition-colors
+                              "
                             >
                               −
                             </button>
-                            <span className="text-white font-bold w-4 text-center">{qty}</span>
+                            <span className="text-zinc-900 font-bold w-4 text-center">
+                              {qty}
+                            </span>
                           </>
                         )}
                         <button
                           onClick={() => addProduct(product)}
-                          className="w-8 h-8 rounded-full flex cursor-pointer items-center justify-center font-bold text-white"
-                          style={{ background: 'linear-gradient(135deg, #820AD1, #A855F7)' }}
+                          className="
+                            w-8 h-8 rounded-full cursor-pointer
+                            flex items-center justify-center
+                            font-bold text-white
+                            bg-[#820AD1] hover:bg-violet-700
+                            transition-colors
+                          "
                         >
                           +
                         </button>
                       </div>
                     </div>
+
                     {qty > 0 && (
                       <div className="mt-2">
                         {noteTarget === product.id ? (
@@ -274,14 +315,21 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                             value={item?.note || ''}
                             onChange={e => updateNote(product.id, e.target.value)}
                             onBlur={() => setNoteTarget(null)}
-                            className="w-full rounded-xl px-3 py-1.5 text-white text-sm outline-none"
-                            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(168,85,247,0.3)' }}
+                            className="
+                              w-full rounded-xl px-3 py-1.5
+                              text-zinc-800 text-sm outline-none
+                              bg-white border border-violet-300
+                              focus:border-violet-500 transition-colors
+                            "
                           />
                         ) : (
                           <button
                             onClick={() => setNoteTarget(product.id)}
-                            className="text-xs cursor-pointer"
-                            style={{ color: item?.note ? '#A855F7' : 'rgba(255,255,255,0.3)' }}
+                            className={`text-xs cursor-pointer transition-colors ${
+                              item?.note
+                                ? 'text-violet-500'
+                                : 'text-zinc-300 hover:text-zinc-400'
+                            }`}
                           >
                             {item?.note ? `📝 ${item.note}` : '+ Agregar nota'}
                           </button>
@@ -295,35 +343,43 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
           )}
         </div>
 
-        {/* Footer */}
+        {/* ── Footer ── */}
         {items.length > 0 && (
-          <div className="px-4 pb-22 pt-3 md:pb-4"
-            style={{ borderTop: '1px solid rgba(168,85,247,0.15)', background: 'rgba(26,26,46,0.95)' }}>
+          <div className="px-4 pb-24 pt-3 md:pb-4 border-t border-zinc-100 bg-white">
 
             <div className="mb-3">
-              <p className="text-xs mb-1" style={{ color: 'rgba(168,85,247,0.6)' }}>
+              <p className="text-xs mb-1 text-violet-400 font-medium">
                 ¿Pedido programado? (opcional)
               </p>
               <input
                 type="time"
                 value={scheduled}
                 onChange={e => setScheduled(e.target.value)}
-                className="w-full rounded-xl px-4 py-2 text-white text-sm outline-none"
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(168,85,247,0.2)' }}
+                className="
+                  w-full rounded-xl px-4 py-2
+                  text-zinc-800 text-sm outline-none
+                  bg-zinc-50 border border-zinc-200
+                  focus:border-violet-400 transition-colors
+                "
               />
             </div>
 
             {showResumen && (
-              <div className="mb-3 rounded-2xl p-3 max-h-40 overflow-y-auto"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(168,85,247,0.15)' }}>
+              <div className="mb-3 rounded-2xl p-3 max-h-40 overflow-y-auto bg-zinc-50 border border-zinc-100">
                 {items.map(i => (
                   <div key={i.product.id} className="flex justify-between items-start py-1">
                     <div>
-                      <span className="text-white text-sm">{i.quantity}x {i.product.name}</span>
-                      {i.variant && <p className="text-xs" style={{ color: '#A855F7' }}>→ {i.variant}</p>}
-                      {i.note && <p className="text-xs" style={{ color: 'rgba(168,85,247,0.7)' }}>📝 {i.note}</p>}
+                      <span className="text-zinc-800 text-sm">
+                        {i.quantity}x {i.product.name}
+                      </span>
+                      {i.variant && (
+                        <p className="text-xs text-violet-500">→ {i.variant}</p>
+                      )}
+                      {i.note && (
+                        <p className="text-xs text-zinc-400">📝 {i.note}</p>
+                      )}
                     </div>
-                    <span className="text-sm font-semibold" style={{ color: '#A855F7' }}>
+                    <span className="text-sm font-semibold text-violet-600">
                       ${(i.product.price * i.quantity).toLocaleString('es-CO')}
                     </span>
                   </div>
@@ -334,12 +390,11 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
             <div className="flex items-center justify-between mb-3">
               <button
                 onClick={() => setShowResumen(prev => !prev)}
-                className="text-sm font-semibold cursor-pointer"
-                style={{ color: '#A855F7' }}
+                className="text-sm font-semibold cursor-pointer text-violet-600 hover:text-violet-700 transition-colors"
               >
                 {items.reduce((s, i) => s + i.quantity, 0)} ítems {showResumen ? '▲' : '▼'}
               </button>
-              <span className="text-white font-bold text-lg">
+              <span className="text-zinc-900 font-bold text-lg">
                 ${total.toLocaleString('es-CO')}
               </span>
             </div>
@@ -347,32 +402,52 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
             <button
               onClick={handleConfirm}
               disabled={confirming}
-              className="w-full text-white font-bold cursor-pointer rounded-2xl py-4 transition-all disabled:opacity-50"
-              style={{
-                background: 'linear-gradient(135deg, #820AD1, #A855F7)',
-                boxShadow: '0 4px 20px rgba(130,10,209,0.4)',
-              }}
+              className="
+                w-full text-white font-bold cursor-pointer
+                rounded-2xl py-4
+                bg-[#820AD1] hover:bg-violet-700
+                shadow-[0_4px_20px_rgba(130,10,209,0.25)]
+                transition-all duration-200
+                active:scale-[0.98] disabled:opacity-50
+              "
             >
               {confirming ? 'Confirmando...' : 'Confirmar pedido'}
             </button>
           </div>
         )}
       </div>
+
+      {/* ── Modal variantes ── */}
       {variantModal && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
-          <div className="w-full max-w-lg rounded-t-3xl p-6 pb-[90px]"
-            style={{ background: 'linear-gradient(160deg, #1A1A2E 0%, #2D1B4E 100%)', border: '1px solid rgba(168,85,247,0.2)', borderBottom: 'none' }}>
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center"
+          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
+        >
+          <div className="
+            w-full max-w-lg
+            bg-white
+            rounded-t-3xl
+            border border-b-0 border-zinc-200
+            shadow-[0_-8px_40px_rgba(0,0,0,0.10)]
+            p-6 pb-[90px] sm:pb-8
+          ">
             <div className="flex items-center justify-between mb-6">
-              <button onClick={() => setVariantModal(null)} style={{ color: 'rgba(168,85,247,0.8)' }} className="text-sm font-semibold">
+              <button
+                onClick={() => setVariantModal(null)}
+                className="text-sm font-semibold text-violet-600 hover:text-violet-700 transition-colors"
+              >
                 ✕ Cancelar
               </button>
-              <h2 className="text-white font-bold text-lg">{variantModal.name}</h2>
+              <h2 className="text-zinc-900 font-bold text-lg tracking-tight">
+                {variantModal.name}
+              </h2>
               <div className="w-16" />
             </div>
-            <p className="text-center text-sm mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>
+
+            <p className="text-center text-sm mb-4 text-zinc-400">
               Elige una opción
             </p>
+
             <div className="flex flex-col gap-3">
               {variantModal.variants.map(v => (
                 <button
@@ -381,8 +456,14 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                     addProduct(variantModal, v)
                     setVariantModal(null)
                   }}
-                  className="w-full py-4 rounded-2xl font-bold text-white transition-all active:scale-95"
-                  style={{ background: 'rgba(130,10,209,0.2)', border: '1px solid rgba(130,10,209,0.4)' }}
+                  className="
+                    w-full py-4 rounded-2xl
+                    font-bold text-violet-700
+                    bg-violet-50 border border-violet-200
+                    hover:bg-violet-100 hover:border-violet-400
+                    transition-all duration-200
+                    active:scale-95
+                  "
                 >
                   {v}
                 </button>
@@ -391,6 +472,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
           </div>
         </div>
       )}
+
     </div>
   )
 }

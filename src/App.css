@@ -184,3 +184,39 @@
   }
 }
 
+@keyframes tabshine {
+  0% {
+    left: -40%;
+    opacity: 0;
+  }
+
+  8% {
+    opacity: 1;
+  }
+
+  16% {
+    left: 140%;
+    opacity: 0;
+  }
+
+  100% {
+    left: 140%;
+    opacity: 0;
+  }
+}
+
+@keyframes fabshine {
+  0% {
+    left: -40%;
+    opacity: 0;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    left: 140%;
+    opacity: 0;
+  }
+}

@@ -74,23 +74,15 @@ function useCountdown(targetStr) {
   return display
 }
 
-// Pin SVG realista
 function Pin({ color = '#C62828' }) {
   return (
     <svg width="24" height="36" viewBox="0 0 24 36" xmlns="http://www.w3.org/2000/svg">
-      {/* Sombra del pin */}
       <ellipse cx="12" cy="35" rx="4" ry="1.5" fill="rgba(0,0,0,0.2)" />
-      {/* Varilla */}
       <line x1="12" y1="16" x2="12" y2="34" stroke={color} strokeWidth="2" strokeLinecap="round" opacity="0.7" />
-      {/* Cabeza — aro exterior */}
       <circle cx="12" cy="10" r="10" fill={color} />
-      {/* Cabeza — brillo superior izquierdo */}
       <circle cx="8" cy="6" r="3.5" fill="rgba(255,255,255,0.25)" />
-      {/* Cabeza — reflejo pequeño */}
       <circle cx="7" cy="5" r="1.5" fill="rgba(255,255,255,0.5)" />
-      {/* Cabeza — aro interior oscuro */}
       <circle cx="12" cy="10" r="4" fill="rgba(0,0,0,0.2)" />
-      {/* Punta metálica */}
       <ellipse cx="12" cy="34" rx="1.5" ry="1" fill="#B0BEC5" />
     </svg>
   )
@@ -112,7 +104,8 @@ function NotaPin({ order, onClick }) {
   const rotation = (order.id.charCodeAt(1) % 7) - 3
 
   const kitchenItems = order.items.filter(i =>
-    i.product?.category?.icon !== '🥤' && i.status !== 'cancelled' || (i.product?.variants?.length > 0)
+    i.product?.category?.icon !== '🥤' && i.status !== 'cancelled' ||
+    (i.product?.variants?.length > 0)
   )
   const pending = kitchenItems.filter(i => i.status !== 'done').length
 
@@ -122,12 +115,10 @@ function NotaPin({ order, onClick }) {
       className="relative cursor-pointer transition-all duration-200 hover:-translate-y-2"
       style={{ marginTop: '20px' }}
     >
-      {/* Pin */}
       <div className="absolute -top-5 left-1/2 -translate-x-1/2 z-10 drop-shadow-md">
         <Pin color={isCancelled ? '#B71C1C' : pinColor} />
       </div>
 
-      {/* Papel */}
       <div
         className="rounded-sm pt-5 px-4 pb-4 min-w-36 max-w-44"
         style={{
@@ -138,22 +129,22 @@ function NotaPin({ order, onClick }) {
           boxShadow: `3px 5px 15px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(255,255,255,0.8)`,
         }}
       >
-        <p className="font-bold text-lg leading-tight mb-1"
-          style={{ color: '#2D1B0E' }}>
+        <p className="font-bold text-lg leading-tight mb-1" style={{ color: '#2D1B0E' }}>
           {order.table?.is_delivery ? `🛵 D-${order.table.number}` : `Mesa ${order.table?.number}`}
           {order.table?.is_delivery && order.customer_name && (
             <span className="block text-sm font-normal">{order.customer_name}</span>
           )}
         </p>
 
-        <p className="text-sm mb-2"
-          style={{ color: delayed ? '#C62828' : '#795548' }}>
+        <p className="text-sm mb-2" style={{ color: delayed ? '#C62828' : '#795548' }}>
           {delayed ? `⚠️ ${timeAgo(order.started_at)}` : timeAgo(order.started_at)}
         </p>
 
         {isScheduled && (
           <p className="text-sm mb-2" style={{ color: '#1565C0' }}>
-            🕐 {new Date(order.scheduled_for).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })} ({countdown})
+            🕐 {new Date(order.scheduled_for).toLocaleTimeString('es-CO', {
+              hour: '2-digit', minute: '2-digit'
+            })} ({countdown})
           </p>
         )}
 
@@ -192,6 +183,7 @@ function NotaPin({ order, onClick }) {
   )
 }
 
+// ─── Page ────────────────────────────────────────────────────────────────────
 export default function CocinaHome() {
   const { user } = useAuthStore()
   const [orders, setOrders] = useState([])
@@ -252,26 +244,72 @@ export default function CocinaHome() {
   }, [])
 
   async function markItemDone(itemId) {
+    // 1. Obtener el order_item
+    const { data: orderItem } = await supabase
+      .from('order_items')
+      .select('product_id, quantity')
+      .eq('id', itemId)
+      .single()
+
+    if (orderItem) {
+      // 2. Buscar receta del producto
+      const { data: recipe } = await supabase
+        .from('recipes')
+        .select('id')
+        .eq('product_id', orderItem.product_id)
+        .maybeSingle() // no falla si no hay receta
+
+      // 3. Si tiene receta, descontar ingredientes
+      if (recipe) {
+        const { data: recipeItems } = await supabase
+          .from('recipe_items')
+          .select('inventory_item_id, quantity')
+          .eq('recipe_id', recipe.id)
+
+        for (const ingredient of (recipeItems || [])) {
+          const toDiscount = ingredient.quantity * orderItem.quantity
+
+          const { data: invItem } = await supabase
+            .from('inventory_items')
+            .select('stock')
+            .eq('id', ingredient.inventory_item_id)
+            .single()
+
+          if (invItem) {
+            const newStock = Math.max(0, invItem.stock - toDiscount)
+            await supabase
+              .from('inventory_items')
+              .update({ stock: newStock, available: newStock > 0 })
+              .eq('id', ingredient.inventory_item_id)
+
+            await supabase
+              .from('inventory_movements')
+              .insert({
+                item_id: ingredient.inventory_item_id,
+                type: 'out',
+                quantity: toDiscount,
+                reason: 'Descuento automático por pedido',
+              })
+          }
+        }
+      }
+    }
+
+    // 4. Marcar ítem como done
     await supabase.from('order_items').update({ status: 'done' }).eq('id', itemId)
     fetchOrders()
   }
 
   async function markOrderDone(order) {
     await supabase.from('order_items').update({ status: 'done' }).eq('order_id', order.id)
-
     const isDelivery = order.table?.is_delivery && order.delivery_type === 'delivery'
     const newStatus = isDelivery ? 'inDelivery' : 'delivered'
     const newTableStatus = isDelivery ? 'occupied' : 'waiting_payment'
-
     await supabase.from('orders').update({
       status: newStatus,
       delivered_at: new Date().toISOString()
     }).eq('id', order.id)
-
-    await supabase.from('tables').update({
-      status: newTableStatus
-    }).eq('id', order.table_id)
-
+    await supabase.from('tables').update({ status: newTableStatus }).eq('id', order.table_id)
     setActiveOrderId(null)
     fetchOrders()
   }
@@ -292,38 +330,92 @@ export default function CocinaHome() {
   }
 
   function tableName(order) {
-    if (order.table?.is_delivery) return `Domicilio ${order.table.number}${order.customer_name ? ` — ${order.customer_name}` : ''}`
+    if (order.table?.is_delivery)
+      return `Domicilio ${order.table.number}${order.customer_name ? ` — ${order.customer_name}` : ''}`
     return `Mesa ${order.table?.number} — ${order.table?.zone?.name}`
   }
 
   const activeOrders = orders.filter(o => o.status === 'confirmed' || o.status === 'cancelled')
   const deliveredOrders = orders.filter(o => o.status === 'delivered')
 
+  // ── Contador de productos repetidos ─────────────────────────────────────────
+  const productCounts = {}
+  activeOrders.forEach(order => {
+    kitchenItems(order).forEach(item => {
+      if (item.status === 'done' || item.status === 'cancelled') return
+      const key = item.product.name
+      productCounts[key] = (productCounts[key] || 0) + item.quantity
+    })
+  })
+  const repeatedProducts = Object.entries(productCounts)
+    .filter(([_, count]) => count >= 3)
+    .sort((a, b) => b[1] - a[1])
+
   return (
-    <div className="min-h-screen flex flex-col pb-20 sm:pb-0"
-      style={{
-        background: '#2D1B4E',
-        backgroundImage: `
-          radial-gradient(ellipse at 0% 0%, rgba(130,10,209,0.15) 0%, transparent 50%),
-          radial-gradient(ellipse at 100% 100%, rgba(168,85,247,0.1) 0%, transparent 50%)
-        `
-      }}
-    >
-      {/* Header */}
-      <div className="px-6 pt-6 pb-4 flex items-center justify-between"
-        style={{ borderBottom: '1px solid rgba(168,85,247,0.2)' }}>
-        <h1 className="font-bold text-2xl text-white">
-          Cocina
-        </h1>
-        <span className="text-sm font-semibold px-3 py-1 rounded-full"
-          style={{ background: 'rgba(130,10,209,0.3)', color: '#D1A7F7' }}>
-          {activeOrders.length} pedidos
-        </span>
+    <div className="min-h-screen flex flex-col bg-[#F6F6F8] pb-20 sm:pb-0">
+
+      {/* ── Header fijo ── */}
+      <div className="
+        fixed top-0 left-0 right-0 z-50
+        sm:left-[92px]
+        bg-[#820AD1] px-4 pt-6 pb-4 shadow-md
+      ">
+        <div className="flex items-center justify-between">
+          <div className="w-10" />
+          <div className="text-center">
+            <h1 className="text-2xl font-semibold tracking-tight text-white">
+              Cocina
+            </h1>
+            <p className="text-sm text-white/70 mt-0.5">
+              Tablero de pedidos
+            </p>
+          </div>
+          <div className="w-10" />
+        </div>
       </div>
 
-      {/* Tablero de corcho */}
+      {/* ── Subheader — stats ── */}
+      <div className="pt-[88px] px-4 py-3 flex flex-col gap-2">
+
+        {/* Contador pedidos + repetidos */}
+        <div className="flex items-center gap-2 flex-wrap pt-5">
+
+          {/* Badge pedidos activos */}
+          <div className="
+            flex items-center gap-1.5
+            px-3 py-1.5 rounded-full
+            bg-white border border-zinc-200
+            shadow-sm
+          ">
+            <span className="text-sm font-semibold text-zinc-700">
+              {activeOrders.length} pedido{activeOrders.length !== 1 ? 's' : ''} activos
+            </span>
+          </div>
+
+          {/* Chips productos repetidos */}
+          {repeatedProducts.map(([name, count]) => (
+            <div
+              key={name}
+              className="
+                flex items-center gap-1.5
+                px-3 py-1.5 rounded-full
+                bg-orange-50 border border-orange-200
+              "
+            >
+              <span className="text-sm">🔥</span>
+              <span className="text-sm font-semibold text-orange-700">
+                {count}x {name}
+              </span>
+            </div>
+          ))}
+
+        </div>
+      </div>
+
+      {/* ── Tablero de corcho ── */}
       {!activeOrderId && (
-        <div className="flex-1 mx-4 my-4 rounded-2xl p-6 overflow-y-auto"
+        <div
+          className="flex-1 mx-4 mb-4 rounded-2xl p-6 overflow-y-auto"
           style={{
             background: '#A0785A',
             backgroundImage: `
@@ -332,14 +424,14 @@ export default function CocinaHome() {
               radial-gradient(ellipse at 30% 20%, rgba(180,140,100,0.5) 0%, transparent 60%),
               radial-gradient(ellipse at 70% 80%, rgba(130,90,60,0.4) 0%, transparent 60%)
             `,
-            boxShadow: 'inset 0 0 30px rgba(0,0,0,0.3), 0 4px 20px rgba(0,0,0,0.4)',
+            boxShadow: 'inset 0 0 30px rgba(0,0,0,0.3), 0 4px 20px rgba(0,0,0,0.2)',
             border: '6px solid #5D3A1A',
             minHeight: '300px',
           }}
         >
           {activeOrders.length === 0 && deliveredOrders.length === 0 && (
             <p className="text-center py-16 text-xl"
-              style={{ color: 'rgba(255,255,255,0.4)' }}>
+              style={{ fontFamily: "'Caveat', cursive", color: 'rgba(255,255,255,0.5)' }}>
               Sin pedidos activos
             </p>
           )}
@@ -358,9 +450,7 @@ export default function CocinaHome() {
             <div className="mt-10">
               <div className="flex items-center gap-3 mb-4">
                 <div className="flex-1 border-t border-dashed" style={{ borderColor: 'rgba(255,255,255,0.2)' }} />
-                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                  Entregados
-                </p>
+                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>Entregados</p>
                 <div className="flex-1 border-t border-dashed" style={{ borderColor: 'rgba(255,255,255,0.2)' }} />
               </div>
               <div className="flex flex-wrap gap-6 opacity-50">
@@ -369,15 +459,19 @@ export default function CocinaHome() {
                     <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
                       <Pin color="#9E9E9E" />
                     </div>
-                    <div className="rounded-sm px-3 py-3 pt-4 shadow"
+                    <div
+                      className="rounded-sm px-3 py-3 pt-4 shadow"
                       style={{
                         background: '#F5F5F5',
                         border: '1px solid #E0E0E0',
                         fontFamily: "'Caveat', cursive",
                         transform: `rotate(${(order.id.charCodeAt(2) % 5) - 2}deg)`,
                         minWidth: '110px',
-                      }}>
-                      <p className="font-bold text-base" style={{ color: '#9E9E9E' }}>{tableName(order)}</p>
+                      }}
+                    >
+                      <p className="font-bold text-base" style={{ color: '#9E9E9E' }}>
+                        {tableName(order)}
+                      </p>
                       <p className="text-sm" style={{ color: '#BDBDBD' }}>
                         Tardó {timeDuration(order.started_at, order.delivered_at)}
                       </p>
@@ -390,7 +484,7 @@ export default function CocinaHome() {
         </div>
       )}
 
-      {/* Vista detallada */}
+      {/* ── Vista detallada ── */}
       {activeOrderId && activeOrder && (() => {
         const color = getPastelColor(activeOrder.id)
         const pinColor = getPinColor(activeOrder.id)
@@ -401,13 +495,14 @@ export default function CocinaHome() {
         return (
           <div className={`flex-1 flex flex-col p-4 transition-all duration-150 ${flashing ? 'brightness-110' : ''}`}>
             <div className="max-w-lg mx-auto w-full flex flex-col flex-1" style={{ marginTop: '24px' }}>
-              <div className="relative flex-1 flex flex-col"
+              <div
+                className="relative flex-1 flex flex-col"
                 style={{
                   background: isCancelled ? '#FFEBEE' : color.bg,
                   border: `2px solid ${isCancelled ? '#FFCDD2' : color.border}`,
                   fontFamily: "'Caveat', cursive",
                   borderRadius: '4px',
-                  boxShadow: `6px 8px 24px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.8)`,
+                  boxShadow: `6px 8px 24px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.8)`,
                   padding: '24px',
                   transform: `rotate(${rotation * 0.5}deg)`,
                 }}
@@ -420,20 +515,30 @@ export default function CocinaHome() {
                 <div className="flex items-start justify-between mb-4 mt-2">
                   <div>
                     <h2 className="text-3xl font-bold" style={{ color: '#2D1B0E' }}>
-                      {activeOrder.table?.is_delivery ? `🛵 D-${activeOrder.table.number}` : `Mesa ${activeOrder.table?.number}`}
+                      {activeOrder.table?.is_delivery
+                        ? `🛵 D-${activeOrder.table.number}`
+                        : `Mesa ${activeOrder.table?.number}`}
                     </h2>
                     {activeOrder.table?.is_delivery && activeOrder.customer_name && (
-                      <p className="text-xl" style={{ color: '#5D4037' }}>{activeOrder.customer_name}</p>
+                      <p className="text-xl" style={{ color: '#5D4037' }}>
+                        {activeOrder.customer_name}
+                      </p>
                     )}
                     <p className="text-lg mt-1"
                       style={{ color: isDelayed(activeOrder.started_at) ? '#C62828' : '#795548' }}>
-                      {isDelayed(activeOrder.started_at) ? `⚠️ ${timeAgo(activeOrder.started_at)}` : timeAgo(activeOrder.started_at)}
+                      {isDelayed(activeOrder.started_at)
+                        ? `⚠️ ${timeAgo(activeOrder.started_at)}`
+                        : timeAgo(activeOrder.started_at)}
                     </p>
                   </div>
                   <button
                     onClick={() => setActiveOrderId(null)}
                     className="px-3 py-1 rounded-lg text-xl font-bold transition-all active:scale-95"
-                    style={{ color: '#795548', background: 'rgba(0,0,0,0.08)', fontFamily: "'Caveat', cursive" }}
+                    style={{
+                      color: '#795548',
+                      background: 'rgba(0,0,0,0.08)',
+                      fontFamily: "'Caveat', cursive"
+                    }}
                   >
                     ← Todos
                   </button>
@@ -450,7 +555,9 @@ export default function CocinaHome() {
 
                 {isCancelled ? (
                   <div className="flex-1 flex items-center justify-center py-8">
-                    <p className="text-3xl font-bold text-center" style={{ color: '#C62828' }}>✕ Pedido Cancelado</p>
+                    <p className="text-3xl font-bold text-center" style={{ color: '#C62828' }}>
+                      ✕ Pedido Cancelado
+                    </p>
                   </div>
                 ) : (
                   <div className="flex-1 flex flex-col gap-3 overflow-y-auto mb-4">
@@ -468,7 +575,9 @@ export default function CocinaHome() {
                               {item.quantity}x {item.product.name}
                             </p>
                             {item.variant && (
-                              <p className="text-lg font-bold" style={{ color: '#1565C0' }}>→ {item.variant}</p>
+                              <p className="text-lg font-bold" style={{ color: '#1565C0' }}>
+                                → {item.variant}
+                              </p>
                             )}
                             {item.note && (
                               <p className="text-lg" style={{ color: '#795548' }}>📝 {item.note}</p>
@@ -508,11 +617,13 @@ export default function CocinaHome() {
                     </button>
                   )}
                 </div>
+
               </div>
             </div>
           </div>
         )
       })()}
+
     </div>
   )
 }

@@ -35,21 +35,28 @@ function ProtectedRoute({ children, roles }) {
 export default function App() {
   const { user, init } = useAuthStore()
   const location = useLocation()
-  const hideNavbar = 
+  const hideNavbar =
     location.pathname.startsWith('/pedir') || location.pathname.startsWith('/login')
-  const isPublicOrder = 
+  const isPublicOrder =
     location.pathname.startsWith('/pedir') || location.pathname.startsWith('/login')
 
   useEffect(() => {
+
     init()
+
+    document.documentElement.setAttribute(
+      'data-theme',
+      'purple'
+    )
+
   }, [])
 
   return (
     <>
-      <div className={user 
-        ? isPublicOrder 
-         ? ''
-         : 'pb-[80px] lg:pb-0 lg:pl-[92px]' 
+      <div className={user
+        ? isPublicOrder
+          ? ''
+          : 'pb-[80px] lg:pb-0 lg:pl-[92px]'
         : ''
       }>
         <Routes>

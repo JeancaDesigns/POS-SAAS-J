@@ -53,38 +53,23 @@ const ROLE_TABS = {
 
 export default function NavBar() {
   const { user, clearUser } = useAuthStore()
-
   const navigate = useNavigate()
-
   const location = useLocation()
 
-  const hiddenRoutes = [
-    '/login',
-    '/pedir',
-  ]
+  const hiddenRoutes = ['/login', '/pedir']
 
-  if (
-    hiddenRoutes.includes(location.pathname)
-  ) {
-    return null
-  }
-
+  if (hiddenRoutes.includes(location.pathname)) return null
   if (!user) return null
 
   const tabs = [
-    ...new Set(
-      user.roles.flatMap(
-        role => ROLE_TABS[role] || []
-      )
-    ),
+    ...new Set(user.roles.flatMap(role => ROLE_TABS[role] || [])),
   ]
 
-  const orderedTabs = Object.keys(
-    NAV_ITEMS
-  ).filter(t => tabs.includes(t))
+  const orderedTabs = Object.keys(NAV_ITEMS).filter(t =>
+    tabs.includes(t)
+  )
 
   async function handleLogout() {
-
     const confirmLogout = window.confirm(
       '¿Seguro que deseas cerrar sesión?'
     )
@@ -92,9 +77,7 @@ export default function NavBar() {
     if (!confirmLogout) return
 
     await supabase.auth.signOut()
-
     clearUser()
-
     navigate('/login')
   }
 
@@ -108,10 +91,13 @@ export default function NavBar() {
         lg:h-full lg:w-[92px]
         lg:top-0 lg:left-0 lg:right-auto
         z-50
+
         border-t lg:border-t-0 lg:border-r
-        border-[#A855F7]/20
+        border-[#E5E7EB]
+
         backdrop-blur-xl
-        bg-[#1A1A2E]/95
+        bg-white/90
+
         flex lg:flex-col
         items-center
       "
@@ -130,52 +116,44 @@ export default function NavBar() {
       >
 
         {orderedTabs.map(tab => {
-
           const item = NAV_ITEMS[tab]
-
-          const isActive =
-            location.pathname === item.path
-
+          const isActive = location.pathname === item.path
           const Icon = item.icon
 
           return (
-
             <button
               key={tab}
               onClick={() => navigate(item.path)}
               className={`
                 group
-                w-[68px]
-                lg:w-[72px]
-                h-[62px]
-                lg:h-[72px]
+                w-[68px] lg:w-[72px]
+                h-[62px] lg:h-[72px]
                 rounded-2xl
+
                 flex flex-col
-                items-center
-                justify-center
+                items-center justify-center
                 gap-1
-                transition-all
-                duration-200
+
+                transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]
+                active:scale-[0.96]
                 cursor-pointer
                 border
 
                 ${
                   isActive
                     ? `
-                      bg-gradient-to-br
-                      from-[#820AD1]
-                      to-[#A855F7]
-                      border-[#C084FC]
-                      text-white
-                      shadow-lg
-                      shadow-purple-900/30
+                      bg-[#820AD1]/10
+                      border-[#820AD1]/25
+                      text-[#820AD1]
+                      shadow-[0_8px_20px_rgba(130,10,209,0.12)]
                     `
                     : `
-                      bg-white/[0.03]
-                      border-white/[0.04]
-                      text-white/55
-                      hover:text-white
-                      hover:bg-white/[0.06]
+                      bg-white
+                      border-[#ECECF0]
+                      text-[#71717A]
+
+                      hover:bg-[#FAFAFA]
+                      hover:text-[#111113]
                     `
                 }
               `}
@@ -183,7 +161,8 @@ export default function NavBar() {
 
               <Icon
                 size={22}
-                strokeWidth={2.3}
+                strokeWidth={2.2}
+                className="transition-all duration-200"
               />
 
               <span
@@ -201,44 +180,33 @@ export default function NavBar() {
         })}
       </div>
 
-      <div
-        className="
-          hidden lg:flex
-          mt-auto
-          mb-5
-        "
-      >
+      <div className="hidden lg:flex mt-auto mb-5">
 
         <button
           onClick={handleLogout}
           className="
-            w-[72px]
-            h-[72px]
+            w-[72px] h-[72px]
             rounded-2xl
+
             flex flex-col
-            items-center
-            justify-center
+            items-center justify-center
             gap-1
-            text-white/50
-            hover:text-red-400
-            hover:bg-red-500/10
+
+            text-[#71717A]
+            hover:text-red-500
+            hover:bg-red-50
+
             transition-all
             border border-transparent
+
             cursor-pointer
+            active:scale-[0.96]
           "
         >
 
-          <LogOut
-            size={22}
-            strokeWidth={2.3}
-          />
+          <LogOut size={22} strokeWidth={2.2} />
 
-          <span
-            className="
-              text-[11px]
-              font-semibold
-            "
-          >
+          <span className="text-[11px] font-semibold">
             Salir
           </span>
 

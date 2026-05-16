@@ -108,25 +108,9 @@ export default function PedidoActivo({ table, onClose }) {
 
   async function moverPedido(nuevaMesa) {
     setMoviendoMesa(true)
-
-    // Liberar mesa actual
-    await supabase
-      .from('tables')
-      .update({ status: 'free' })
-      .eq('id', table.id)
-
-    // Ocupar nueva mesa
-    await supabase
-      .from('tables')
-      .update({ status: 'occupied' })
-      .eq('id', nuevaMesa.id)
-
-    // Mover pedido a nueva mesa
-    await supabase
-      .from('orders')
-      .update({ table_id: nuevaMesa.id })
-      .eq('id', order.id)
-
+    await supabase.from('tables').update({ status: 'free' }).eq('id', table.id)
+    await supabase.from('tables').update({ status: 'occupied' }).eq('id', nuevaMesa.id)
+    await supabase.from('orders').update({ table_id: nuevaMesa.id }).eq('id', order.id)
     setMoviendoMesa(false)
     setShowMoverMesa(false)
     onClose()
@@ -173,42 +157,52 @@ export default function PedidoActivo({ table, onClose }) {
     refetch()
   }
 
+  // ─── Loading ────────────────────────────────────────────────────────────────
   if (loading) return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: '#1A1A2E' }}>
-      <p style={{ color: '#A855F7' }}>Cargando pedido...</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#F6F6F8]">
+      <p className="text-zinc-400 text-sm font-medium">Cargando pedido...</p>
     </div>
   )
 
+  // ─── UI ─────────────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-6"
-      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-6"
+      style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
+    >
 
-      <div className="w-full h-full md:max-w-4xl md:h-[90vh] md:rounded-3xl flex flex-col relative overflow-hidden shadow-2xl"
-        style={{ background: 'linear-gradient(160deg, #1A1A2E 0%, #2D1B4E 100%)' }}>
+      <div className="
+        w-full h-full
+        md:max-w-4xl md:h-[90vh] md:rounded-3xl
+        flex flex-col relative overflow-hidden
+        bg-white
+        shadow-2xl
+      ">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-4 pt-6 pb-3"
-          style={{ borderBottom: '1px solid rgba(168,85,247,0.15)' }}>
-          <button onClick={onClose} style={{ color: 'rgba(168,85,247,0.8)' }} className="text-sm cursor-pointer font-semibold">
+        <div className="flex items-center justify-between px-4 pt-6 pb-3 border-b border-zinc-100">
+          <button
+            onClick={onClose}
+            className="text-sm font-semibold text-violet-600 hover:text-violet-700 transition-colors cursor-pointer"
+          >
             ← Volver
           </button>
-          <h2 className="text-white font-bold text-lg">
+
+          <h2 className="text-zinc-900 font-bold text-lg tracking-tight">
             {table.is_delivery ? `Domicilio ${table.number}` : `Mesa ${table.number}`}
           </h2>
-          <div className='flex flex-col items-end gap-1'>
+
+          <div className="flex flex-col items-end gap-1">
             <button
               onClick={cargarMesas}
-              className="text-sm font-semibold cursor-pointer"
-              style={{ color: 'rgba(168,85,247,0.8)' }}
+              className="text-sm font-semibold cursor-pointer text-violet-600 hover:text-violet-700 transition-colors"
             >
               Mover
             </button>
             <button
               onClick={cancelFullOrder}
               disabled={cancelling}
-              className="text-sm font-semibold cursor-pointer"
-              style={{ color: 'rgba(220,38,38,0.8)' }}
+              className="text-sm font-semibold cursor-pointer text-red-500 hover:text-red-600 transition-colors disabled:opacity-50"
             >
               Cancelar
             </button>
@@ -217,61 +211,83 @@ export default function PedidoActivo({ table, onClose }) {
 
         {/* Info domicilio */}
         {table.is_delivery && order?.customer_name && (
-          <div className="mx-4 mt-3 rounded-2xl px-4 py-3"
-            style={{ background: 'rgba(130,10,209,0.1)', border: '1px solid rgba(168,85,247,0.2)' }}>
-            <p className="text-xs mb-1" style={{ color: 'rgba(168,85,247,0.7)' }}>CLIENTE</p>
-            <p className="text-white font-semibold">{order.customer_name}</p>
+          <div className="mx-4 mt-3 rounded-2xl px-4 py-3 bg-violet-50 border border-violet-200">
+            <p className="text-xs font-semibold mb-1 text-violet-400 tracking-wide">CLIENTE</p>
+            <p className="text-zinc-900 font-semibold">{order.customer_name}</p>
             {order.customer_phone && (
-              <p className="text-sm" style={{ color: 'rgba(168,85,247,0.8)' }}>{order.customer_phone}</p>
+              <p className="text-sm text-violet-600">{order.customer_phone}</p>
             )}
             <button
               onClick={toggleDeliveryType}
-              className="mt-2 w-full py-1.5 rounded-xl cursor-pointer text-sm font-semibold transition-all"
-              style={order.delivery_type === 'delivery'
-                ? { background: 'rgba(130,10,209,0.2)', color: '#A855F7', border: '1px solid rgba(130,10,209,0.3)' }
-                : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.1)' }
-              }
+              className={`
+                mt-2 w-full py-1.5 rounded-xl cursor-pointer text-sm font-semibold
+                border transition-all duration-200
+                ${order.delivery_type === 'delivery'
+                  ? 'bg-violet-100 text-violet-700 border-violet-300 hover:bg-violet-200'
+                  : 'bg-zinc-50 text-zinc-400 border-zinc-200 hover:bg-zinc-100'
+                }
+              `}
             >
-              {order.delivery_type === 'delivery' ? '🛵 A domicilio — cambiar a recoger' : '🏠 Recoge en local — cambiar a domicilio'}
+              {order.delivery_type === 'delivery'
+                ? '🛵 A domicilio — cambiar a recoger'
+                : '🏠 Recoge en local — cambiar a domicilio'
+              }
             </button>
           </div>
         )}
 
         {!addingMore ? (
           <>
+            {/* Lista pedido activo */}
             <div className="flex-1 overflow-y-auto px-4 py-3">
-              <p className="text-xs font-semibold mb-3" style={{ color: 'rgba(168,85,247,0.6)' }}>
+              <p className="text-xs font-semibold mb-3 text-violet-400 tracking-wide">
                 PEDIDO ACTIVO
               </p>
+
               <div className="flex flex-col gap-2">
                 {activeItems.map(item => (
-                  <div key={item.id} className="rounded-2xl p-4"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(168,85,247,0.1)' }}>
+                  <div
+                    key={item.id}
+                    className="rounded-2xl p-4 bg-zinc-50 border border-zinc-100"
+                  >
                     <div className="flex items-center justify-between">
-                      <p className="text-white font-semibold">{item.product.name}</p>
+                      <p className="text-zinc-900 font-semibold">{item.product.name}</p>
                       {item.variant && (
-                        <p className="text-xs font-semibold" style={{ color: '#A855F7' }}>→ {item.variant}</p>
+                        <p className="text-xs font-semibold text-violet-500">→ {item.variant}</p>
                       )}
                       <div className="flex items-center gap-3">
                         <button
                           onClick={() => decreaseConfirmedItem(item)}
-                          className="w-8 h-8 rounded-full cursor-pointer flex items-center justify-center font-bold text-white"
-                          style={{ background: 'rgba(220,38,38,0.3)', border: '1px solid rgba(220,38,38,0.4)' }}
+                          className="
+                            w-8 h-8 rounded-full cursor-pointer
+                            flex items-center justify-center
+                            font-bold text-red-500
+                            bg-red-50 border border-red-200
+                            hover:bg-red-100 transition-colors
+                          "
                         >
                           −
                         </button>
-                        <span className="text-white font-bold w-4 text-center">{item.quantity}</span>
+                        <span className="text-zinc-900 font-bold w-4 text-center">
+                          {item.quantity}
+                        </span>
                         <button
                           onClick={() => increaseConfirmedItem(item)}
-                          className="w-8 h-8 rounded-full flex cursor-pointer items-center justify-center font-bold text-white"
-                          style={{ background: 'rgba(130,10,209,0.4)', border: '1px solid rgba(130,10,209,0.5)' }}
+                          className="
+                            w-8 h-8 rounded-full cursor-pointer
+                            flex items-center justify-center
+                            font-bold text-violet-600
+                            bg-violet-50 border border-violet-200
+                            hover:bg-violet-100 transition-colors
+                          "
                         >
                           +
                         </button>
                       </div>
                     </div>
+
                     <div className="flex justify-between items-center mt-1">
-                      <span className="text-sm font-bold" style={{ color: '#A855F7' }}>
+                      <span className="text-sm font-bold text-violet-600">
                         ${(item.product.price * item.quantity).toLocaleString('es-CO')}
                       </span>
                       {editingNote === item.id ? (
@@ -281,14 +297,18 @@ export default function PedidoActivo({ table, onClose }) {
                           defaultValue={item.note || ''}
                           onBlur={e => saveNote(item.id, e.target.value)}
                           onKeyDown={e => e.key === 'Enter' && saveNote(item.id, e.target.value)}
-                          className="rounded-xl px-3 py-1 text-white text-xs outline-none w-40"
-                          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(168,85,247,0.3)' }}
+                          className="
+                            rounded-xl px-3 py-1 text-zinc-800 text-xs outline-none w-40
+                            bg-white border border-violet-300
+                            focus:border-violet-500 transition-colors
+                          "
                         />
                       ) : (
                         <button
                           onClick={() => setEditingNote(item.id)}
-                          className="text-xs cursor-pointer"
-                          style={{ color: item.note ? '#A855F7' : 'rgba(255,255,255,0.3)' }}
+                          className={`text-xs cursor-pointer transition-colors ${
+                            item.note ? 'text-violet-500' : 'text-zinc-300 hover:text-zinc-400'
+                          }`}
                         >
                           {item.note ? `📝 ${item.note}` : '+ Nota'}
                         </button>
@@ -299,19 +319,24 @@ export default function PedidoActivo({ table, onClose }) {
               </div>
             </div>
 
-            <div className="px-4 pb-22 pt-3 md:pb-4"
-              style={{ borderTop: '1px solid rgba(168,85,247,0.15)', background: 'rgba(26,26,46,0.95)' }}>
+            {/* Footer pedido activo */}
+            <div className="px-4 pb-24 pt-3 md:pb-4 border-t border-zinc-100 bg-white">
               <div className="flex justify-between mb-4">
-                <span style={{ color: 'rgba(255,255,255,0.5)' }}>Total</span>
-                <span className="text-white font-bold text-lg">${total.toLocaleString('es-CO')}</span>
+                <span className="text-zinc-400">Total</span>
+                <span className="text-zinc-900 font-bold text-lg">
+                  ${total.toLocaleString('es-CO')}
+                </span>
               </div>
               <button
                 onClick={() => setAddingMore(true)}
-                className="w-full cursor-pointer text-white font-bold rounded-2xl py-4 transition-all"
-                style={{
-                  background: 'linear-gradient(135deg, #820AD1, #A855F7)',
-                  boxShadow: '0 4px 20px rgba(130,10,209,0.4)',
-                }}
+                className="
+                  w-full cursor-pointer text-white font-bold
+                  rounded-2xl py-4
+                  bg-[#820AD1] hover:bg-violet-700
+                  shadow-[0_4px_20px_rgba(130,10,209,0.25)]
+                  transition-all duration-200
+                  active:scale-[0.98]
+                "
               >
                 + Agregar más ítems
               </button>
@@ -320,17 +345,20 @@ export default function PedidoActivo({ table, onClose }) {
         ) : (
           <>
             {/* Tabs categorías */}
-            <div className="flex gap-2 px-4 py-3 overflow-x-auto"
-              style={{ borderBottom: '1px solid rgba(168,85,247,0.15)' }}>
+            <div className="flex gap-2 px-4 py-3 overflow-x-auto border-b border-zinc-100">
               {categories.map(cat => (
                 <button
                   key={cat.id}
                   onClick={() => setActiveCategory(cat.id)}
-                  className="px-4 py-1.5 cursor-pointer rounded-full text-sm font-semibold whitespace-nowrap transition-all"
-                  style={displayCategory === cat.id
-                    ? { background: 'linear-gradient(135deg, #820AD1, #A855F7)', color: 'white' }
-                    : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' }
-                  }
+                  className={`
+                    px-4 py-1.5 cursor-pointer rounded-full
+                    text-sm font-semibold whitespace-nowrap
+                    border transition-all duration-200
+                    ${displayCategory === cat.id
+                      ? 'bg-[#820AD1] text-white border-[#820AD1]'
+                      : 'bg-white text-zinc-400 border-zinc-200 hover:border-violet-300 hover:text-violet-600'
+                    }
+                  `}
                 >
                   {cat.icon && <span className="mr-1">{cat.icon}</span>}
                   {cat.name}
@@ -338,18 +366,21 @@ export default function PedidoActivo({ table, onClose }) {
               ))}
             </div>
 
+            {/* Lista productos */}
             <div className="flex-1 overflow-y-auto px-4 py-3">
               <div className="flex flex-col gap-2">
                 {categoryProducts.map(product => {
                   const qty = getQuantity(product.id)
                   const item = newItems.find(i => i.product.id === product.id)
                   return (
-                    <div key={product.id} className="rounded-2xl p-4"
-                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(168,85,247,0.1)' }}>
+                    <div
+                      key={product.id}
+                      className="rounded-2xl p-4 bg-zinc-50 border border-zinc-100"
+                    >
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-white font-semibold">{product.name}</p>
-                          <p className="text-sm font-bold mt-0.5" style={{ color: '#A855F7' }}>
+                          <p className="text-zinc-900 font-semibold">{product.name}</p>
+                          <p className="text-sm font-bold mt-0.5 text-violet-600">
                             ${product.price.toLocaleString('es-CO')}
                           </p>
                         </div>
@@ -358,23 +389,34 @@ export default function PedidoActivo({ table, onClose }) {
                             <>
                               <button
                                 onClick={() => removeProduct(product.id)}
-                                className="w-8 h-8 rounded-full cursor-pointer flex items-center justify-center font-bold text-white"
-                                style={{ background: 'rgba(220,38,38,0.3)', border: '1px solid rgba(220,38,38,0.4)' }}
+                                className="
+                                  w-8 h-8 rounded-full cursor-pointer
+                                  flex items-center justify-center
+                                  font-bold text-red-500
+                                  bg-red-50 border border-red-200
+                                  hover:bg-red-100 transition-colors
+                                "
                               >
                                 −
                               </button>
-                              <span className="text-white font-bold w-4 text-center">{qty}</span>
+                              <span className="text-zinc-900 font-bold w-4 text-center">{qty}</span>
                             </>
                           )}
                           <button
                             onClick={() => addProduct(product)}
-                            className="w-8 h-8 rounded-full cursor-pointer flex items-center justify-center font-bold text-white"
-                            style={{ background: 'linear-gradient(135deg, #820AD1, #A855F7)' }}
+                            className="
+                              w-8 h-8 rounded-full cursor-pointer
+                              flex items-center justify-center
+                              font-bold text-white
+                              bg-[#820AD1] hover:bg-violet-700
+                              transition-colors
+                            "
                           >
                             +
                           </button>
                         </div>
                       </div>
+
                       {qty > 0 && (
                         <div className="mt-2">
                           {noteTarget === product.id ? (
@@ -385,14 +427,19 @@ export default function PedidoActivo({ table, onClose }) {
                               value={item?.note || ''}
                               onChange={e => updateNewNote(product.id, e.target.value)}
                               onBlur={() => setNoteTarget(null)}
-                              className="w-full rounded-xl px-3 py-1.5 text-white text-sm outline-none"
-                              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(168,85,247,0.3)' }}
+                              className="
+                                w-full rounded-xl px-3 py-1.5
+                                text-zinc-800 text-sm outline-none
+                                bg-white border border-violet-300
+                                focus:border-violet-500 transition-colors
+                              "
                             />
                           ) : (
                             <button
                               onClick={() => setNoteTarget(product.id)}
-                              className="text-xs cursor-pointer"
-                              style={{ color: item?.note ? '#A855F7' : 'rgba(255,255,255,0.3)' }}
+                              className={`text-xs cursor-pointer transition-colors ${
+                                item?.note ? 'text-violet-500' : 'text-zinc-300 hover:text-zinc-400'
+                              }`}
                             >
                               {item?.note ? `📝 ${item.note}` : '+ Agregar nota'}
                             </button>
@@ -405,61 +452,78 @@ export default function PedidoActivo({ table, onClose }) {
               </div>
             </div>
 
+            {/* Footer agregar más */}
             {newItems.length > 0 && (
-              <div className="px-4 pb-22 pt-3 md:pb-4"
-                style={{ borderTop: '1px solid rgba(197, 144, 247, 0.15)', background: 'rgba(26,26,46,0.95)' }}>
+              <div className="px-4 pb-24 pt-3 md:pb-4 border-t border-zinc-100 bg-white">
                 <div className="flex justify-between mb-3">
-                  <span style={{ color: 'rgba(255,255,255,0.5)' }} className="text-sm">
+                  <span className="text-zinc-400 text-sm">
                     {newItems.reduce((s, i) => s + i.quantity, 0)} ítems nuevos
                   </span>
-                  <span className="font-bold" style={{ color: '#A855F7' }}>
+                  <span className="font-bold text-violet-600">
                     +${newTotal.toLocaleString('es-CO')}
                   </span>
                 </div>
-                <div className="mb-3 pb-4">
-                  <p className="text-xs mb-1" style={{ color: 'rgba(168,85,247,0.6)' }}>
+                <div className="mb-3">
+                  <p className="text-xs mb-1 text-violet-400 font-medium">
                     ¿Programar entrega? (opcional)
                   </p>
                   <input
                     type="time"
                     value={scheduledMore}
                     onChange={e => setScheduledMore(e.target.value)}
-                    className="w-full rounded-xl px-4 py-2 text-white text-sm outline-none"
-                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(168,85,247,0.2)' }}
+                    className="
+                      w-full rounded-xl px-4 py-2
+                      text-zinc-800 text-sm outline-none
+                      bg-zinc-50 border border-zinc-200
+                      focus:border-violet-400 transition-colors
+                    "
                   />
                 </div>
                 <button
                   onClick={handleAddMore}
                   disabled={confirming}
-                  className="w-full cursor-pointer text-white font-bold rounded-2xl py-4 transition-all disabled:opacity-50"
-                  style={{
-                    background: 'linear-gradient(135deg, #820AD1, #A855F7)',
-                    boxShadow: '0 4px 20px rgba(130,10,209,0.4)',
-                  }}
+                  className="
+                    w-full cursor-pointer text-white font-bold
+                    rounded-2xl py-4
+                    bg-[#820AD1] hover:bg-violet-700
+                    shadow-[0_4px_20px_rgba(130,10,209,0.25)]
+                    transition-all duration-200
+                    active:scale-[0.98]
+                    disabled:opacity-50
+                  "
                 >
                   {confirming ? 'Agregando...' : 'Confirmar adición'}
                 </button>
               </div>
             )}
-
           </>
         )}
       </div>
+
+      {/* Modal mover mesa — pega aquí la continuación */}
+      {/* Modal — Mover mesa */}
       {showMoverMesa && (
-        <div className="fixed inset-0 z-60 flex items-end justify-center"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
-          <div className="w-full max-w-lg rounded-t-3xl p-6 pb-[90px] sm:pb-6"
-            style={{ background: 'linear-gradient(160deg, #1A1A2E 0%, #2D1B4E 100%)', border: '1px solid rgba(168,85,247,0.2)', borderBottom: 'none' }}>
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center"
+          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
+        >
+          <div className="
+            w-full max-w-lg
+            bg-white
+            rounded-t-3xl
+            border border-b-0 border-zinc-200
+            shadow-[0_-8px_40px_rgba(0,0,0,0.10)]
+            p-6 pb-[90px] sm:pb-6
+          ">
 
             <div className="flex items-center justify-between mb-4">
               <button
                 onClick={() => setShowMoverMesa(false)}
-                className="text-sm cursor-pointer font-semibold"
-                style={{ color: 'rgba(168,85,247,0.8)' }}
+                className="text-sm cursor-pointer font-semibold text-violet-600 hover:text-violet-700 transition-colors"
               >
                 ✕ Cerrar
               </button>
-              <h2 className="text-white cursor-pointer font-bold">Mover pedido</h2>
+              <h2 className="text-zinc-900 font-bold tracking-tight">Mover pedido</h2>
               <div className="w-16" />
             </div>
 
@@ -469,11 +533,15 @@ export default function PedidoActivo({ table, onClose }) {
                 <button
                   key={zona.id}
                   onClick={() => setZonaSeleccionada(zona.id)}
-                  className="px-4 py-2 cursor-pointer rounded-full text-sm font-semibold whitespace-nowrap transition-all"
-                  style={zonaSeleccionada === zona.id
-                    ? { background: 'linear-gradient(135deg, #820AD1, #A855F7)', color: 'white' }
-                    : { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)' }
-                  }
+                  className={`
+                    px-4 py-2 cursor-pointer rounded-full
+                    text-sm font-semibold whitespace-nowrap
+                    border transition-all duration-200
+                    ${zonaSeleccionada === zona.id
+                      ? 'bg-[#820AD1] text-white border-[#820AD1]'
+                      : 'bg-white text-zinc-400 border-zinc-200 hover:border-violet-300 hover:text-violet-600'
+                    }
+                  `}
                 >
                   {zona.name}
                 </button>
@@ -482,7 +550,7 @@ export default function PedidoActivo({ table, onClose }) {
 
             {/* Mesas libres */}
             {todasMesas.filter(m => m.zone_id === zonaSeleccionada && m.id !== table.id).length === 0 ? (
-              <p className="text-center py-8 text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>
+              <p className="text-center py-8 text-sm text-zinc-400">
                 No hay mesas libres en esta zona
               </p>
             ) : (
@@ -494,11 +562,14 @@ export default function PedidoActivo({ table, onClose }) {
                       key={mesa.id}
                       onClick={() => moverPedido(mesa)}
                       disabled={moviendoMesa}
-                      className="py-4 rounded-2xl cursor-pointer font-bold text-white transition-all active:scale-95 disabled:opacity-50"
-                      style={{
-                        background: 'rgba(130,10,209,0.2)',
-                        border: '1px solid rgba(130,10,209,0.4)',
-                      }}
+                      className="
+                        py-4 rounded-2xl cursor-pointer
+                        font-bold text-violet-700
+                        bg-violet-50 border border-violet-200
+                        hover:bg-violet-100 hover:border-violet-400
+                        transition-all duration-200
+                        active:scale-95 disabled:opacity-50
+                      "
                     >
                       {mesa.is_delivery ? `D-${mesa.number}` : `Mesa ${mesa.number}`}
                     </button>
@@ -509,21 +580,38 @@ export default function PedidoActivo({ table, onClose }) {
         </div>
       )}
 
+      {/* Modal — Variantes */}
       {variantModal && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
-          <div className="w-full max-w-lg rounded-t-3xl p-6 pb-20 sm:pb-0"
-            style={{ background: 'linear-gradient(160deg, #1A1A2E 0%, #2D1B4E 100%)', border: '1px solid rgba(168,85,247,0.2)', borderBottom: 'none' }}>
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center"
+          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
+        >
+          <div className="
+            w-full max-w-lg
+            bg-white
+            rounded-t-3xl
+            border border-b-0 border-zinc-200
+            shadow-[0_-8px_40px_rgba(0,0,0,0.10)]
+            p-6 pb-20 sm:pb-8
+          ">
+
             <div className="flex items-center justify-between mb-6">
-              <button onClick={() => setVariantModal(null)} style={{ color: 'rgba(168,85,247,0.8)' }} className="text-sm font-semibold">
+              <button
+                onClick={() => setVariantModal(null)}
+                className="text-sm font-semibold text-violet-600 hover:text-violet-700 transition-colors"
+              >
                 ✕ Cancelar
               </button>
-              <h2 className="text-white font-bold text-lg">{variantModal.name}</h2>
+              <h2 className="text-zinc-900 font-bold text-lg tracking-tight">
+                {variantModal.name}
+              </h2>
               <div className="w-16" />
             </div>
-            <p className="text-center text-sm mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>
+
+            <p className="text-center text-sm mb-4 text-zinc-400">
               Elige una opción
             </p>
+
             <div className="flex flex-col gap-3">
               {variantModal.variants.map(v => (
                 <button
@@ -532,17 +620,24 @@ export default function PedidoActivo({ table, onClose }) {
                     addProduct(variantModal, v)
                     setVariantModal(null)
                   }}
-                  className="w-full py-4 rounded-2xl font-bold text-white transition-all active:scale-95"
-                  style={{ background: 'rgba(130,10,209,0.2)', border: '1px solid rgba(130,10,209,0.4)' }}
+                  className="
+                    w-full py-4 rounded-2xl
+                    font-bold text-violet-700
+                    bg-violet-50 border border-violet-200
+                    hover:bg-violet-100 hover:border-violet-400
+                    transition-all duration-200
+                    active:scale-95
+                  "
                 >
                   {v}
                 </button>
               ))}
             </div>
+
           </div>
         </div>
       )}
-    </div>
 
+    </div>
   )
 }

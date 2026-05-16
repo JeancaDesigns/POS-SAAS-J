@@ -4,532 +4,218 @@ import { useAuthStore } from '../store/authStore'
 import { useNavigate } from 'react-router-dom'
 
 export default function Login() {
-
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [visible, setVisible] = useState(false)
 
-  const setUser =
-    useAuthStore((s) => s.setUser)
-
-  const navigate =
-    useNavigate()
+  const setUser = useAuthStore((s) => s.setUser)
+  const navigate = useNavigate()
 
   useEffect(() => {
-
-    setTimeout(
-      () => setVisible(true),
-      100
-    )
-
+    setTimeout(() => setVisible(true), 100)
   }, [])
 
   async function handleLogin() {
-
     setLoading(true)
     setError('')
 
-    // LOGIN SUPABASE AUTH
-    const {
-      data: authData,
-      error: authError,
-    } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    const { data: authData, error: authError } =
+      await supabase.auth.signInWithPassword({ email, password })
 
     if (authError || !authData.user) {
-
       setError('Credenciales incorrectas')
       setLoading(false)
-
       return
     }
 
-    // PERFIL
-    const {
-      data: profile,
-      error: profileError,
-    } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', authData.user.email)
-      .single()
+    const { data: profile, error: profileError } = await supabase
+      .from('users').select('*').eq('email', authData.user.email).single()
 
     if (profileError || !profile) {
-
       setError('Perfil no encontrado')
       setLoading(false)
-
       return
     }
 
     if (!profile.active) {
-
       setError('Usuario desactivado')
       setLoading(false)
-
       return
     }
 
     setUser(profile)
 
-    // REDIRECCIONES
-    if (
-      profile.roles.includes('cocina')
-    ) {
-      navigate('/cocina')
-    }
-
-    else if (
-      profile.roles.includes('cajero')
-    ) {
-      navigate('/caja')
-    }
-
-    else if (
-      profile.roles.includes('mesero')
-    ) {
-      navigate('/mesero')
-    }
-
-    else if (
-      profile.roles.includes('admin')
-    ) {
-      navigate('/admin')
-    }
-
-    else if (
-      profile.roles.includes('domiciliario')
-    ) {
-      navigate('/domiciliario')
-    }
+    if      (profile.roles.includes('cocina'))        navigate('/cocina')
+    else if (profile.roles.includes('cajero'))        navigate('/caja')
+    else if (profile.roles.includes('mesero'))        navigate('/mesero')
+    else if (profile.roles.includes('admin'))         navigate('/admin')
+    else if (profile.roles.includes('domiciliario'))  navigate('/domiciliario')
 
     setLoading(false)
   }
 
   return (
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden bg-[#0F0A1A]">
 
-    <div
-      className="
-        min-h-screen
-        flex
-        flex-col
-        items-center
-        justify-center
-        px-4
-        relative
-        overflow-hidden
-      "
-
-      style={{
-        background:
-          'linear-gradient(135deg, #1A1A2E 0%, #2D1B4E 50%, #1A1A2E 100%)'
-      }}
-    >
-
-      {/* DECORACIÓN */}
-      <div className="
-        absolute
-        top-0
-        left-0
-        w-full
-        h-full
-        overflow-hidden
-        pointer-events-none
-      ">
-
+      {/* ── Decoración de fondo ── */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
-          className="
-            absolute
-            -top-32
-            -left-32
-            w-96
-            h-96
-            rounded-full
-            opacity-20
-          "
-
+          className="absolute -top-32 -left-32 w-96 h-96 rounded-full opacity-20"
           style={{
-            background:
-              'radial-gradient(circle, #820AD1, transparent)',
-            animation:
-              'pulse 4s ease-in-out infinite'
+            background: 'radial-gradient(circle, #820AD1, transparent)',
+            animation: 'floatpulse 4s ease-in-out infinite',
           }}
         />
-
         <div
-          className="
-            absolute
-            -bottom-32
-            -right-32
-            w-96
-            h-96
-            rounded-full
-            opacity-20
-          "
-
+          className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full opacity-20"
           style={{
-            background:
-              'radial-gradient(circle, #A855F7, transparent)',
-            animation:
-              'pulse 4s ease-in-out infinite 2s'
+            background: 'radial-gradient(circle, #A855F7, transparent)',
+            animation: 'floatpulse 4s ease-in-out infinite 2s',
           }}
         />
-
       </div>
 
       <style>{`
-
-        @keyframes pulse {
-
-          0%,100% {
-            transform: scale(1);
-            opacity: 0.15;
-          }
-
-          50% {
-            transform: scale(1.1);
-            opacity: 0.25;
-          }
+        @keyframes floatpulse {
+          0%, 100% { transform: scale(1);   opacity: 0.15; }
+          50%       { transform: scale(1.1); opacity: 0.25; }
         }
-
       `}</style>
 
-      {/* CONTENT */}
-      <div
-        className={`
-          relative
-          z-10
+      {/* ── Contenido ── */}
+      <div className={`
+        relative z-10
+        flex flex-col lg:flex-row
+        items-center justify-center
+        gap-12 lg:gap-24
+        transition-all duration-700
+        ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}
+      `}>
 
-          flex
-          flex-col
-          lg:flex-row
-
-          items-center
-          justify-center
-
-          gap-12
-          lg:gap-24
-
-          transition-all
-          duration-700
-
-          ${visible
-            ? 'opacity-100 translate-y-0'
-            : 'opacity-0 translate-y-10'
-          }
-        `}
-      >
-
-        {/* BRANDING */}
+        {/* Branding */}
         <div className="text-center lg:text-left">
-
-          <div className="fade-slide">
-            <div className="flex flex-col items-center gap-2 mb-4">
-              <div className="flex flex-col items-center justify-between sm:w-120 w-80 rounded-2xl overflow-hidden py-3 px-4"
-                style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(168,85,247,0.3)', minHeight: '120px' }}>
-                <img src="/BP-Logo-R.png" alt="Restaurante"
-                  className="w-full object-contain flex-1 scale-250" style={{ maxHeight: '140px' }} />
-                <div className="flex flex-col items-center gap-1.5 -mt-9">
-                  <span className="text-xs" style={{ color: 'rgba(168,85,247,0.4)' }}>×</span>
-                  <img src="/logotipo.svg" alt="Jeanca Dev" className="h-3 w-auto opacity-50 scale-500 mb-6" />
-                </div>
+          <div className="flex flex-col items-center gap-2 mb-4">
+            <div className="
+              flex flex-col items-center justify-between
+              sm:w-120 w-80 rounded-2xl overflow-hidden
+              py-3 px-4
+              bg-white/10 border border-violet-400/30
+            " style={{ minHeight: '120px' }}>
+              <img
+                src="/BP-Logo-R.png"
+                alt="Restaurante"
+                className="w-full object-contain flex-1 scale-250"
+                style={{ maxHeight: '140px' }}
+              />
+              <div className="flex flex-col items-center gap-1.5 -mt-9">
+                <span className="text-xs text-violet-400/40">×</span>
+                <img
+                  src="/logotipo.svg"
+                  alt="Jeanca Dev"
+                  className="h-3 w-auto opacity-50 scale-500 mb-6"
+                />
               </div>
             </div>
           </div>
-          {/*
-          <h1 className="
-            text-white
-            font-black
-            text-4xl
-            lg:text-6xl
-            tracking-tighter
-            leading-tight
-          ">
-
-            BENDITAS
-            <br />
-
-            <span className="
-              text-transparent
-              bg-clip-text
-              bg-gradient-to-r
-              from-purple-400
-              to-pink-400
-            ">
-              PAPAS
-            </span>
-
-          </h1>
-
-          <p className="
-            text-purple-300
-            text-sm
-            lg:text-base
-
-            font-medium
-
-            tracking-[0.3em]
-
-            mt-4
-
-            uppercase
-            opacity-70
-          ">
-            Desde 1612
-          </p>     */}
-
         </div>
 
-        {/* CARD */}
-        <div
-          className="
-            w-full
-            max-w-sm
-
-            rounded-[2.5rem]
-
-            p-8
-            lg:p-10
-
-            shadow-2xl
-            pb-2
-          "
-
-          style={{
-            background:
-              'rgba(255,255,255,0.03)',
-
-            backdropFilter:
-              'blur(40px)',
-
-            border:
-              '1px solid rgba(168,85,247,0.15)'
-          }}
-        >
+        {/* Card login */}
+        <div className="
+          w-full max-w-sm
+          rounded-[2.5rem]
+          p-8 lg:p-10 pb-2
+          shadow-2xl
+          bg-white/[0.04] backdrop-blur-[40px]
+          border border-violet-400/15
+        ">
 
           <div className="mb-8">
-
-            <h2 className="
-              text-white
-              text-2xl
-              font-bold
-            ">
+            <h2 className="text-white text-2xl font-bold tracking-tight">
               Bienvenido
             </h2>
-
-            <p className="
-              text-purple-300/60
-              text-sm
-              mt-1
-            ">
+            <p className="text-violet-300/60 text-sm mt-1">
               Ingresa tus credenciales
             </p>
-
           </div>
 
           <div className="flex flex-col gap-5">
 
-            {/* EMAIL */}
+            {/* Email */}
             <div className="space-y-1.5">
-
-              <label className="
-                text-xs
-                font-semibold
-                text-purple-300/50
-                uppercase
-                ml-1
-              ">
+              <label className="text-xs font-semibold text-violet-300/50 uppercase tracking-wider ml-1">
                 Correo electrónico
               </label>
-
               <input
                 type="email"
-
                 placeholder="correo@empresa.com"
-
                 value={email}
-
-                onChange={(e) =>
-                  setEmail(e.target.value)
-                }
-
+                onChange={e => setEmail(e.target.value)}
                 className="
-                  w-full
-
-                  rounded-2xl
-
-                  px-5
-                  py-4
-
-                  text-white
-                  outline-none
-
-                  transition-all
-                  duration-300
-
-                  bg-white/5
-
-                  border
-                  border-white/10
-
-                  focus:border-purple-500
-                  focus:bg-white/10
+                  w-full rounded-2xl px-5 py-4
+                  text-white outline-none
+                  bg-white/5 border border-white/10
+                  focus:border-violet-500 focus:bg-white/10
+                  transition-all duration-300
+                  placeholder:text-white/20
                 "
               />
-
             </div>
 
-            {/* PASSWORD */}
+            {/* Password */}
             <div className="space-y-1.5">
-
-              <label className="
-                text-xs
-                font-semibold
-                text-purple-300/50
-                uppercase
-                ml-1
-              ">
+              <label className="text-xs font-semibold text-violet-300/50 uppercase tracking-wider ml-1">
                 Contraseña
               </label>
-
               <input
                 type="password"
-
                 placeholder="••••••••"
-
                 value={password}
-
-                onChange={(e) =>
-                  setPassword(e.target.value)
-                }
-
-                onKeyDown={(e) =>
-                  e.key === 'Enter' &&
-                  handleLogin()
-                }
-
+                onChange={e => setPassword(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleLogin()}
                 className="
-                  w-full
-
-                  rounded-2xl
-
-                  px-5
-                  py-4
-
-                  text-white
-                  outline-none
-
-                  transition-all
-                  duration-300
-
-                  bg-white/5
-
-                  border
-                  border-white/10
-
-                  focus:border-purple-500
-                  focus:bg-white/10
+                  w-full rounded-2xl px-5 py-4
+                  text-white outline-none
+                  bg-white/5 border border-white/10
+                  focus:border-violet-500 focus:bg-white/10
+                  transition-all duration-300
+                  placeholder:text-white/20
                 "
               />
-
             </div>
 
-            {/* ERROR */}
+            {/* Error */}
             {error && (
-
-              <div className="
-                bg-red-500/10
-
-                border
-                border-red-500/20
-
-                rounded-xl
-
-                py-3
-                px-4
-              ">
-
-                <p className="
-                  text-red-400
-                  text-xs
-                  text-center
-                  font-medium
-                ">
-                  {error}
-                </p>
-
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xl py-3 px-4">
+                <p className="text-red-400 text-xs text-center font-medium">{error}</p>
               </div>
             )}
 
-            {/* BTN */}
+            {/* Botón */}
             <button
               onClick={handleLogin}
-
               disabled={loading}
-
               className="
-                w-full
-
-                text-white
-                font-bold
-
-                rounded-2xl
-
-                py-4
-
-                transition-all
-                duration-300
-
-                disabled:opacity-50
-
-                mt-4
-
-                relative
-                overflow-hidden
+                w-full mt-4
+                text-white font-bold
+                rounded-2xl py-4
+                bg-[#820AD1] hover:bg-violet-700
+                shadow-[0_10px_25px_-5px_rgba(130,10,209,0.5)]
+                hover:shadow-[0_10px_25px_-5px_rgba(130,10,209,0.7)]
+                transition-all duration-300
+                active:scale-[0.98] disabled:opacity-50
               "
-
-              style={{
-                background:
-                  'linear-gradient(135deg, #820AD1, #A855F7)',
-
-                boxShadow:
-                  '0 10px 25px -5px rgba(130,10,209,0.5)',
-              }}
             >
-
-              {
-                loading
-                  ? 'Verificando...'
-                  : 'Acceder al Sistema'
-              }
-
+              {loading ? 'Verificando...' : 'Acceder al Sistema'}
             </button>
 
           </div>
-
         </div>
-
       </div>
 
-      <p className="
-        absolute
-
-        bottom-8
-
-        text-purple-300/20
-
-        text-xs
-
-        tracking-widest
-
-        uppercase
-
-        font-bold
-      ">
+      {/* Footer */}
+      <p className="absolute bottom-8 text-violet-300/20 text-xs tracking-widest uppercase font-bold">
         Designed by Jeanca
       </p>
 
