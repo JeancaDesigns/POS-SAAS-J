@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 import { useAuthStore } from '../store/authStore'
 import { useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -9,7 +10,8 @@ export default function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [visible, setVisible] = useState(false)
-
+  const { slug } = useParams()
+  const setSlug = useAuthStore(s => s.setSlug)
   const setUser = useAuthStore((s) => s.setUser)
   const navigate = useNavigate()
 
@@ -31,27 +33,58 @@ export default function Login() {
     }
 
     const { data: profile, error: profileError } = await supabase
-      .from('users').select('*').eq('email', authData.user.email).single()
+      .from('users')
+      .select('*')
+      .eq('email', authData.user.email)
+      .single()
 
     if (profileError || !profile) {
       setError('Perfil no encontrado')
+      await supabase.auth.signOut()
       setLoading(false)
       return
     }
 
     if (!profile.active) {
       setError('Usuario desactivado')
+      await supabase.auth.signOut()
       setLoading(false)
       return
     }
 
-    setUser(profile)
+    // ── Verificar que el usuario pertenece a este restaurante ──
+    const { data: restaurant } = await supabase
+      .from('restaurants')
+      .select('id')
+      .eq('slug', slug)
+      .single()
 
-    if      (profile.roles.includes('cocina'))        navigate('/cocina')
-    else if (profile.roles.includes('cajero'))        navigate('/caja')
-    else if (profile.roles.includes('mesero'))        navigate('/mesero')
-    else if (profile.roles.includes('admin'))         navigate('/admin')
-    else if (profile.roles.includes('domiciliario'))  navigate('/domiciliario')
+    if (!restaurant || profile.restaurant_id !== restaurant.id) {
+      setError('Este usuario no existe en este restaurante')
+      await supabase.auth.signOut()
+      setLoading(false)
+      return
+    }
+    // ──────────────────────────────────────────────────────────
+
+    // Después de verificar que el usuario pertenece al restaurante
+    const { data: restaurantData } = await supabase
+      .from('restaurants')
+      .select('slug, modules')
+      .eq('slug', slug)
+      .single()
+
+    setUser(profile)
+    useAuthStore.setState({
+      slug,
+      modules: restaurantData?.modules || []
+    })
+
+    if (profile.roles.includes('cocina')) navigate(`/${slug}/cocina`)
+    else if (profile.roles.includes('cajero')) navigate(`/${slug}/caja`)
+    else if (profile.roles.includes('mesero')) navigate(`/${slug}/mesero`)
+    else if (profile.roles.includes('admin')) navigate(`/${slug}/admin`)
+    else if (profile.roles.includes('domiciliario')) navigate(`/${slug}/domiciliario`)
 
     setLoading(false)
   }

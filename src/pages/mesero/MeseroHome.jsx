@@ -294,7 +294,7 @@ export default function MeseroHome() {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-2 overflow-x-auto pb-1 w-full justify-center">
+          <div className="flex gap-2 overflow-x-auto sm:pl-0 pl-21 pb-1 w-full justify-center">
 
             {zones.map(zone => {
               const active = displayZone === zone.id

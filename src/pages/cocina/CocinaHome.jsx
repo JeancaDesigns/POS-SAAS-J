@@ -2,11 +2,6 @@ import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useAuthStore } from '../../store/authStore'
 
-const fontLink = document.createElement('link')
-fontLink.href = 'https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&display=swap'
-fontLink.rel = 'stylesheet'
-document.head.appendChild(fontLink)
-
 const PASTEL_COLORS = [
   { bg: '#FFFDE7', border: '#FFF176', shadow: 'rgba(249,224,71,0.3)' },
   { bg: '#F1F8E9', border: '#DCEDC8', shadow: 'rgba(174,213,129,0.3)' },
