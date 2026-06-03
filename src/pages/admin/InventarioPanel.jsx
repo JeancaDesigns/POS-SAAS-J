@@ -526,9 +526,9 @@ export default function InventarioPanel() {
           MODAL — MOVIMIENTO
       ══════════════════════════════════════════════════════════════════════════ */}
       {movementModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center"
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}>
-          <div className="w-full max-w-lg bg-white rounded-t-3xl border border-b-0 border-zinc-200 shadow-[0_-8px_40px_rgba(0,0,0,0.10)] p-6 pb-10">
+          <div className="w-full max-w-lg bg-white rounded-3xl border border-zinc-200 shadow-2xl p-6 max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-zinc-900 font-bold">
                 Movimiento — {movementModal.name}

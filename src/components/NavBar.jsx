@@ -6,18 +6,18 @@ import {
 } from 'lucide-react'
 
 const NAV_ITEMS = {
-  mesero:      { path: 'mesero',      label: 'Mesas',  icon: UtensilsCrossed },
-  caja:        { path: 'caja',        label: 'Caja',   icon: Wallet          },
-  cocina:      { path: 'cocina',      label: 'Cocina', icon: ChefHat         },
-  domiciliario:{ path: 'domiciliario',label: 'Domis',  icon: Bike            },
-  admin:       { path: 'admin',       label: 'Admin',  icon: Settings        },
+  mesero: { path: 'mesero', label: 'Mesas', icon: UtensilsCrossed },
+  caja: { path: 'caja', label: 'Caja', icon: Wallet },
+  cocina: { path: 'cocina', label: 'Cocina', icon: ChefHat },
+  domiciliario: { path: 'domiciliario', label: 'Domis', icon: Bike },
+  admin: { path: 'admin', label: 'Admin', icon: Settings },
 }
 
 const ROLE_TABS = {
-  admin:        ['mesero', 'caja', 'cocina', 'domiciliario', 'admin'],
-  cajero:       ['mesero', 'caja', 'cocina'],
-  mesero:       ['mesero', 'cocina'],
-  cocina:       ['cocina'],
+  admin: ['mesero', 'caja', 'cocina', 'domiciliario', 'admin'],
+  cajero: ['mesero', 'caja', 'cocina'],
+  mesero: ['mesero', 'cocina'],
+  cocina: ['cocina'],
   domiciliario: ['domiciliario'],
 }
 
@@ -114,7 +114,6 @@ export default function NavBar() {
           <span className="text-[11px] font-semibold">Salir</span>
         </button>
       </div>
-
     </nav>
   )
 }

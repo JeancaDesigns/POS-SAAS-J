@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useProducts } from '../hooks/useProducts'
 import { supabase } from '../supabaseClient'
 import { useAuthStore } from '../store/authStore'
+import { useOnlineStatus } from '../hooks/useOnlineStatus'
+import { db } from '../db/localDB'
 
 export default function TomaPedido({ table, onClose, onConfirmed }) {
   const { user } = useAuthStore()
@@ -17,6 +19,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
   const [confirming, setConfirming] = useState(false)
   const [variantModal, setVariantModal] = useState(null)
   const [headerCollapsed, setHeaderCollapsed] = useState(false)
+  const isOnline = useOnlineStatus()
 
   const displayCategory = activeCategory || categories[0]?.id
   const categoryProducts = products.filter(
@@ -65,9 +68,45 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
     }
     setConfirming(true)
 
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .insert({
+    if (isOnline) {
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          restaurant_id: user.restaurant_id,
+          table_id: table.id,
+          status: 'confirmed',
+          confirmed_at: new Date().toISOString(),
+          started_at: new Date().toISOString(),
+          scheduled_for: scheduled
+            ? new Date(`${new Date().toDateString()} ${scheduled}`).toISOString()
+            : null,
+          customer_name: customerName.trim() || null,
+          customer_phone: customerPhone.trim() || null,
+          delivery_type: table.is_delivery ? deliveryType : null,
+        })
+        .select()
+        .single()
+
+      if (orderError) { setConfirming(false); return }
+
+      await supabase.from('order_items').insert(
+        items.map(i => ({
+          order_id: order.id,
+          product_id: i.product.id,
+          quantity: i.quantity,
+          note: i.note || null,
+          variant: i.variant || null,
+          status: 'pending',
+          kitchen_only: false,
+        }))
+      )
+
+      await supabase.from('tables').update({ status: 'occupied' }).eq('id', table.id)
+      setConfirming(false)
+      onConfirmed(order)
+
+    } else {
+      const localOrderId = await db.pendingOrders.add({
         restaurant_id: user.restaurant_id,
         table_id: table.id,
         status: 'confirmed',
@@ -79,43 +118,45 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
         customer_name: customerName.trim() || null,
         customer_phone: customerPhone.trim() || null,
         delivery_type: table.is_delivery ? deliveryType : null,
+        created_at: new Date().toISOString(),
       })
-      .select()
-      .single()
 
-    if (orderError) { setConfirming(false); return }
+      await db.pendingOrderItems.bulkAdd(
+        items.map(i => ({
+          local_order_id: localOrderId,
+          product_id: i.product.id,
+          quantity: i.quantity,
+          note: i.note || null,
+          variant: i.variant || null,
+          status: 'pending',
+          kitchen_only: false,
+        }))
+      )
 
-    await supabase.from('order_items').insert(
-      items.map(i => ({
-        order_id: order.id,
-        product_id: i.product.id,
-        quantity: i.quantity,
-        note: i.note || null,
-        variant: i.variant || null,
-        status: 'pending',
-        kitchen_only: false,
-      }))
-    )
+      await db.pendingOperations.add({
+        type: 'update_table_status',
+        payload: { tableId: table.id, status: 'occupied' },
+        created_at: new Date().toISOString(),
+      })
 
-    await supabase.from('tables').update({ status: 'occupied' }).eq('id', table.id)
-    setConfirming(false)
-    onConfirmed(order)
+      setConfirming(false)
+      onConfirmed(null)
+    }
   }
 
-  // ─── Loading ────────────────────────────────────────────────────────────────
+  // ── Loading ──────────────────────────────────────────────────────────────────
   if (loading) return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#F6F6F8]">
       <p className="text-zinc-400 text-sm font-medium">Cargando menú...</p>
     </div>
   )
 
-  // ─── UI ─────────────────────────────────────────────────────────────────────
+  // ── UI ───────────────────────────────────────────────────────────────────────
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-6"
       style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
     >
-
       <div className="
         w-full h-full
         md:max-w-4xl md:h-[90vh] md:rounded-3xl
@@ -126,7 +167,6 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
         {/* ── Header ── */}
         <div className="bg-[#820AD1] border-b border-violet-800/20">
 
-          {/* Barra top */}
           <div className="flex items-center justify-between px-4 pt-6 pb-3">
             <button
               onClick={onClose}
@@ -134,11 +174,9 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
             >
               ← Volver
             </button>
-
             <h2 className="text-white font-bold text-lg tracking-tight">
               {table.is_delivery ? `Domicilio ${table.number}` : `Mesa ${table.number}`}
             </h2>
-
             {table.is_delivery ? (
               <button
                 onClick={() => setHeaderCollapsed(prev => !prev)}
@@ -160,7 +198,6 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
             )}
           </div>
 
-          {/* Datos domicilio — expandido */}
           {table.is_delivery && !headerCollapsed && (
             <div className="px-4 pb-3 flex flex-col gap-2">
               <input
@@ -192,7 +229,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
               <div className="flex gap-2">
                 {[
                   { key: 'delivery', label: '🛵 A domicilio' },
-                  { key: 'pickup',   label: '🏠 Recoger' },
+                  { key: 'pickup',   label: '🏠 Recoger'    },
                 ].map(opt => (
                   <button
                     key={opt.key}
@@ -214,7 +251,6 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
             </div>
           )}
 
-          {/* Datos domicilio — colapsado */}
           {table.is_delivery && headerCollapsed && customerName && (
             <div className="px-4 pb-3">
               <span className="text-sm text-violet-200">
@@ -224,7 +260,6 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
             </div>
           )}
 
-          {/* Tabs categorías */}
           <div className="flex gap-2 px-4 py-3 overflow-x-auto border-t border-violet-800/20">
             {categories.map(cat => (
               <button
@@ -248,7 +283,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
         </div>
 
         {/* ── Productos ── */}
-        <div className="flex-1 overflow-y-auto px-4 py-3">
+        <div className="flex-1 overflow-y-auto px-4 py-3 sm:pb-3 pb-[90px]">
           {categoryProducts.length === 0 ? (
             <p className="text-center py-12 text-zinc-300 text-sm">
               Sin productos disponibles
@@ -326,9 +361,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                           <button
                             onClick={() => setNoteTarget(product.id)}
                             className={`text-xs cursor-pointer transition-colors ${
-                              item?.note
-                                ? 'text-violet-500'
-                                : 'text-zinc-300 hover:text-zinc-400'
+                              item?.note ? 'text-violet-500' : 'text-zinc-300 hover:text-zinc-400'
                             }`}
                           >
                             {item?.note ? `📝 ${item.note}` : '+ Agregar nota'}
@@ -346,7 +379,6 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
         {/* ── Footer ── */}
         {items.length > 0 && (
           <div className="px-4 pb-24 pt-3 md:pb-4 border-t border-zinc-100 bg-white">
-
             <div className="mb-3">
               <p className="text-xs mb-1 text-violet-400 font-medium">
                 ¿Pedido programado? (opcional)
@@ -425,8 +457,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
         >
           <div className="
             w-full max-w-lg
-            bg-white
-            rounded-t-3xl
+            bg-white rounded-t-3xl
             border border-b-0 border-zinc-200
             shadow-[0_-8px_40px_rgba(0,0,0,0.10)]
             p-6 pb-[90px] sm:pb-8
@@ -443,11 +474,9 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
               </h2>
               <div className="w-16" />
             </div>
-
             <p className="text-center text-sm mb-4 text-zinc-400">
               Elige una opción
             </p>
-
             <div className="flex flex-col gap-3">
               {variantModal.variants.map(v => (
                 <button

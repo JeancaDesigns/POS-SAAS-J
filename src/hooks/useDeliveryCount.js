@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
+import { useOnlineStatus } from './useOnlineStatus'
 
 export function useDeliveryCount(restaurantId) {
   const [count, setCount] = useState(0)
+  const isOnline = useOnlineStatus()
 
   async function fetchCount() {
-    // Reinicio cada martes — buscar el martes más reciente
+    if (!isOnline) return // ← guard
     const now = new Date()
-    const day = now.getDay() // 0 domingo, 2 martes
-    const daysFromWednesday = (day + 4) % 7 // días desde el último martes
+    const day = now.getDay()
+    const daysFromWednesday = (day + 4) % 7
     const lastWednesday = new Date(now)
     lastWednesday.setDate(now.getDate() - daysFromWednesday)
     lastWednesday.setHours(0, 0, 0, 0)
@@ -27,18 +29,15 @@ export function useDeliveryCount(restaurantId) {
   useEffect(() => {
     if (!restaurantId) return
     fetchCount()
+    if (!isOnline) return // ← no suscribirse sin internet
 
     const channel = supabase
       .channel('delivery-count')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'payments',
-      }, fetchCount)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, fetchCount)
       .subscribe()
 
     return () => supabase.removeChannel(channel)
-  }, [restaurantId])
+  }, [restaurantId, isOnline])
 
   return { count }
 }

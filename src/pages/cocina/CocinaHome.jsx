@@ -1,6 +1,9 @@
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useAuthStore } from '../../store/authStore'
+import { useOnlineStatus } from '../../hooks/useOnlineStatus'
+import { db } from '../../db/localDB'
+import { cacheOrders, getCachedOrders } from '../../db/cacheHelpers'
 
 const PASTEL_COLORS = [
   { bg: '#FFFDE7', border: '#FFF176', shadow: 'rgba(249,224,71,0.3)' },
@@ -185,47 +188,104 @@ export default function CocinaHome() {
   const [activeOrderId, setActiveOrderId] = useState(null)
   const [flashing, setFlashing] = useState(false)
   const prevItemsRef = useRef({})
+  const isOnline = useOnlineStatus()
 
   const activeOrder = orders.find(o => o.id === activeOrderId) || null
 
   async function fetchOrders() {
-    const { data } = await supabase
-      .from('orders')
-      .select('*, table:tables(number, is_delivery, zone:zones(name)), items:order_items(*, product:products(name, category_id, variants, category:categories(name, icon)))')
-      .eq('restaurant_id', user.restaurant_id)
-      .in('status', ['confirmed', 'delivered', 'cancelled'])
-      .order('started_at', { ascending: true })
+    if (isOnline) {
+      const { data } = await supabase
+        .from('orders')
+        .select('*, table:tables(number, is_delivery, zone:zones(name)), items:order_items(*, product:products(name, category_id, variants, category:categories(name, icon)))')
+        .eq('restaurant_id', user.restaurant_id)
+        .in('status', ['confirmed', 'delivered', 'cancelled'])
+        .order('started_at', { ascending: true })
 
-    const newOrders = data || []
+      const newOrders = data || []
+      await cacheOrders(newOrders, user.restaurant_id)
 
-    if (activeOrderId) {
-      const updated = newOrders.find(o => o.id === activeOrderId)
-      if (updated) {
-        const currItems = JSON.stringify(
-          updated.items.map(i => ({ id: i.id, qty: i.quantity, status: i.status, note: i.note }))
-        )
-        const prevItems = prevItemsRef.current[activeOrderId]
-        if (prevItems && prevItems !== currItems) {
-          playPing()
-          setFlashing(true)
-          setTimeout(() => setFlashing(false), 1500)
+      if (activeOrderId) {
+        const updated = newOrders.find(o => o.id === activeOrderId)
+        if (updated) {
+          const currItems = JSON.stringify(
+            updated.items.map(i => ({ id: i.id, qty: i.quantity, status: i.status, note: i.note }))
+          )
+          const prevItems = prevItemsRef.current[activeOrderId]
+          if (prevItems && prevItems !== currItems) {
+            playPing()
+            setFlashing(true)
+            setTimeout(() => setFlashing(false), 1500)
+          }
+          prevItemsRef.current[activeOrderId] = currItems
         }
-        prevItemsRef.current[activeOrderId] = currItems
       }
-    }
 
-    setOrders(newOrders)
+      setOrders(newOrders)
+
+    } else {
+      // Leer del cache + pedidos pendientes
+      const cached = await getCachedOrders(
+        user.restaurant_id,
+        ['confirmed', 'delivered', 'cancelled']
+      )
+
+      const pending = await db.pendingOrders
+        .where('restaurant_id').equals(user.restaurant_id).toArray()
+
+      const cachedProds = await db.cachedProducts
+        .where('restaurant_id').equals(user.restaurant_id).toArray()
+      const cachedTables = await db.cachedTables
+        .where('restaurant_id').equals(user.restaurant_id).toArray()
+      const cachedZones = await db.cachedZones
+        .where('restaurant_id').equals(user.restaurant_id).toArray()
+
+      const pendingFormatted = await Promise.all(pending.map(async p => {
+        const items = await db.pendingOrderItems
+          .where('local_order_id').equals(p.id).toArray()
+        const table = cachedTables.find(t => t.id === p.table_id)
+        const zone = table ? cachedZones.find(z => z.id === table.zone_id) : null
+
+        return {
+          ...p,
+          id: `local_${p.id}`,
+          items: items.map(i => {
+            const prod = cachedProds.find(pr => pr.id === i.product_id)
+            return {
+              ...i,
+              product: {
+                name: prod?.name || '?',
+                price: prod?.price || 0,
+                category_id: prod?.category_id,
+                variants: prod?.variants || [],
+                category: { name: '', icon: '' }
+              }
+            }
+          }),
+          table: table ? {
+            number: table.number,
+            is_delivery: table.is_delivery,
+            zone: zone ? { name: zone.name } : null,
+          } : null,
+        }
+      }))
+
+      setOrders([...cached, ...pendingFormatted]
+        .sort((a, b) => new Date(a.started_at) - new Date(b.started_at))
+      )
+    }
   }
 
   useEffect(() => {
     fetchOrders()
+    if (!isOnline) return
+
     const channel = supabase
       .channel('kitchen-orders')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchOrders)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, fetchOrders)
       .subscribe()
     return () => supabase.removeChannel(channel)
-  }, [])
+  }, [isOnline])
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -239,72 +299,170 @@ export default function CocinaHome() {
   }, [])
 
   async function markItemDone(itemId) {
-    // 1. Obtener el order_item
-    const { data: orderItem } = await supabase
-      .from('order_items')
-      .select('product_id, quantity')
-      .eq('id', itemId)
-      .single()
+    if (isOnline) {
+      // ── Online — flujo normal ──────────────────────────────────
+      const { data: orderItem } = await supabase
+        .from('order_items')
+        .select('product_id, quantity')
+        .eq('id', itemId)
+        .single()
 
-    if (orderItem) {
-      // 2. Buscar receta del producto
-      const { data: recipe } = await supabase
-        .from('recipes')
-        .select('id')
-        .eq('product_id', orderItem.product_id)
-        .maybeSingle() // no falla si no hay receta
+      if (orderItem) {
+        console.log('orderItem:', orderItem)
 
-      // 3. Si tiene receta, descontar ingredientes
-      if (recipe) {
-        const { data: recipeItems } = await supabase
-          .from('recipe_items')
-          .select('inventory_item_id, quantity')
-          .eq('recipe_id', recipe.id)
+        const { data: recipe, error: recipeError } = await supabase
+          .from('recipes')
+          .select('id')
+          .eq('product_id', orderItem.product_id)
+          .maybeSingle()
 
-        for (const ingredient of (recipeItems || [])) {
-          const toDiscount = ingredient.quantity * orderItem.quantity
+        console.log('recipe:', recipe, 'recipeError:', recipeError)
 
-          const { data: invItem } = await supabase
-            .from('inventory_items')
-            .select('stock')
-            .eq('id', ingredient.inventory_item_id)
-            .single()
+        if (recipe) {
+          const { data: recipeItems, error: recipeItemsError } = await supabase
+            .from('recipe_items')
+            .select('inventory_item_id, quantity')
+            .eq('recipe_id', recipe.id)
 
-          if (invItem) {
-            const newStock = Math.max(0, invItem.stock - toDiscount)
-            await supabase
+          console.log('recipeItems:', recipeItems, 'recipeItemsError:', recipeItemsError)
+
+          for (const ingredient of (recipeItems || [])) {
+            const toDiscount = ingredient.quantity * orderItem.quantity
+            const { data: invItem } = await supabase
               .from('inventory_items')
-              .update({ stock: newStock, available: newStock > 0 })
+              .select('stock')
               .eq('id', ingredient.inventory_item_id)
+              .single()
 
-            await supabase
-              .from('inventory_movements')
-              .insert({
-                item_id: ingredient.inventory_item_id,
-                type: 'out',
-                quantity: toDiscount,
-                reason: 'Descuento automático por pedido',
-              })
+            if (invItem) {
+              const newStock = Math.max(0, invItem.stock - toDiscount)
+              console.log('Descontando:', ingredient.inventory_item_id, 'stock actual:', invItem.stock, 'a descontar:', toDiscount, 'nuevo stock:', newStock)
+
+              const { error: updateError } = await supabase
+                .from('inventory_items')
+                .update({ stock: newStock, available: newStock > 0 })
+                .eq('id', ingredient.inventory_item_id)
+
+              console.log('updateError:', updateError)
+
+              await supabase
+                .from('inventory_movements')
+                .insert({
+                  item_id: ingredient.inventory_item_id,
+                  type: 'out',
+                  quantity: toDiscount,
+                  reason: 'Descuento automático por pedido',
+                })
+            }
           }
         }
       }
+
+      await supabase.from('order_items').update({ status: 'done' }).eq('id', itemId)
+
+    } else {
+      // ── Offline — guardar en cola ──────────────────────────────
+      await db.pendingOperations.add({
+        type: 'mark_item_done',
+        payload: { itemId },
+        created_at: new Date().toISOString(),
+      })
+
+      // Actualizar UI localmente sin esperar a Supabase
+      setOrders(prev => prev.map(order => ({
+        ...order,
+        items: order.items.map(item =>
+          item.id === itemId ? { ...item, status: 'done' } : item
+        )
+      })))
+      return // No llamar fetchOrders porque no hay internet
     }
 
-    // 4. Marcar ítem como done
-    await supabase.from('order_items').update({ status: 'done' }).eq('id', itemId)
     fetchOrders()
   }
 
   async function markOrderDone(order) {
-    await supabase.from('order_items').update({ status: 'done' }).eq('order_id', order.id)
     const isDelivery = order.table?.is_delivery && order.delivery_type === 'delivery'
     const newStatus = isDelivery ? 'inDelivery' : 'delivered'
     const newTableStatus = isDelivery ? 'occupied' : 'waiting_payment'
-    await supabase.from('orders').update({
-      status: newStatus,
-      delivered_at: new Date().toISOString()
-    }).eq('id', order.id)
-    await supabase.from('tables').update({ status: newTableStatus }).eq('id', order.table_id)
+    const delivered_at = new Date().toISOString()
+
+    if (isOnline) {
+      // ── Descontar inventario por cada ítem pendiente ──────────
+      const { data: pendingItems } = await supabase
+        .from('order_items')
+        .select('product_id, quantity')
+        .eq('order_id', order.id)
+        .not('status', 'in', '("done","cancelled")')
+
+      for (const orderItem of pendingItems) {
+        const { data: recipe } = await supabase
+          .from('recipes')
+          .select('id')
+          .eq('product_id', orderItem.product_id)
+          .maybeSingle()
+
+        if (recipe) {
+          const { data: recipeItems } = await supabase
+            .from('recipe_items')
+            .select('inventory_item_id, quantity')
+            .eq('recipe_id', recipe.id)
+
+          for (const ingredient of (recipeItems || [])) {
+            const toDiscount = ingredient.quantity * orderItem.quantity
+            const { data: invItem } = await supabase
+              .from('inventory_items')
+              .select('stock')
+              .eq('id', ingredient.inventory_item_id)
+              .single()
+
+            if (invItem) {
+              const newStock = Math.max(0, invItem.stock - toDiscount)
+              await supabase
+                .from('inventory_items')
+                .update({ stock: newStock, available: newStock > 0 })
+                .eq('id', ingredient.inventory_item_id)
+
+              await supabase
+                .from('inventory_movements')
+                .insert({
+                  item_id: ingredient.inventory_item_id,
+                  type: 'out',
+                  quantity: toDiscount,
+                  reason: 'Descuento automático por pedido',
+                })
+            }
+          }
+        }
+      }
+
+      // ── Marcar todo como done y entregar ──────────────────────
+      await supabase.from('order_items').update({ status: 'done' }).eq('order_id', order.id)
+      await supabase.from('orders').update({
+        status: newStatus,
+        delivered_at,
+      }).eq('id', order.id)
+      await supabase.from('tables').update({ status: newTableStatus }).eq('id', order.table_id)
+
+    } else {
+      await db.pendingOperations.add({
+        type: 'mark_order_done',
+        payload: { orderId: order.id, status: newStatus, delivered_at },
+        created_at: new Date().toISOString(),
+      })
+      await db.pendingOperations.add({
+        type: 'update_table_status',
+        payload: { tableId: order.table_id, status: newTableStatus },
+        created_at: new Date().toISOString(),
+      })
+
+      setOrders(prev => prev.map(o =>
+        o.id === order.id ? { ...o, status: newStatus, delivered_at } : o
+      ))
+      setActiveOrderId(null)
+      return
+    }
+
     setActiveOrderId(null)
     fetchOrders()
   }

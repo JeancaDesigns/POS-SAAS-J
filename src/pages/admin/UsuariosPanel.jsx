@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useAuthStore } from '../../store/authStore'
 
-const ROLES = ['admin', 'cajero', 'mesero', 'cocina', 'domiciliario']
+const ROLES = ['admin', 'cajero', 'mesero', 'cocina', 'domiciliario', 'dev']
 
 const inputClass = `
   w-full rounded-xl px-4 py-3

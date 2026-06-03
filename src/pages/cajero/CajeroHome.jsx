@@ -3,30 +3,87 @@ import { supabase } from '../../supabaseClient'
 import { useAuthStore } from '../../store/authStore'
 import PedidoActivo from '../../components/PedidoActivo'
 import { useDeliveryCount } from '../../hooks/useDeliveryCount'
+import { useOnlineStatus } from '../../hooks/useOnlineStatus'
+import { db } from '../../db/localDB'
+import { cacheOrders, getCachedOrders } from '../../db/cacheHelpers'
 
 function useCajaOrders(restaurantId) {
   const [orders, setOrders] = useState([])
+  const isOnline = useOnlineStatus()
 
   async function fetchOrders() {
-    const { data } = await supabase
-      .from('orders')
-      .select('*, table:tables(number, is_delivery, zone:zones(name)), items:order_items(*, product:products(name, price))')
-      .eq('restaurant_id', restaurantId)
-      .in('status', ['draft', 'confirmed', 'delivered', 'dispatched', 'inDelivery'])
-      .order('started_at', { ascending: true })
-    setOrders(data || [])
+    if (isOnline) {
+      const { data } = await supabase
+        .from('orders')
+        .select('*, table:tables(number, is_delivery, zone:zones(name)), items:order_items(*, product:products(name, price))')
+        .eq('restaurant_id', restaurantId)
+        .in('status', ['draft', 'confirmed', 'delivered', 'dispatched', 'inDelivery'])
+        .order('started_at', { ascending: true })
+
+      const result = data || []
+      setOrders(result)
+      await cacheOrders(result, restaurantId)
+
+    } else {
+      // Leer del cache + pedidos pendientes locales
+      const cached = await getCachedOrders(restaurantId,
+        ['draft', 'confirmed', 'delivered', 'dispatched', 'inDelivery']
+      )
+
+      // Agregar pedidos pendientes que aún no llegaron a Supabase
+      const pending = await db.pendingOrders
+        .where('restaurant_id').equals(restaurantId).toArray()
+
+      const pendingFormatted = await Promise.all(pending.map(async p => {
+        const items = await db.pendingOrderItems
+          .where('local_order_id').equals(p.id).toArray()
+
+        const tables = await db.cachedTables
+          .where('restaurant_id').equals(restaurantId).toArray()
+        const zones = await db.cachedZones
+          .where('restaurant_id').equals(restaurantId).toArray()
+        const table = tables.find(t => t.id === p.table_id)
+        const zone = table ? zones.find(z => z.id === table.zone_id) : null
+
+        const cachedProds = await db.cachedProducts
+          .where('restaurant_id').equals(restaurantId).toArray()
+
+        return {
+          ...p,
+          id: `local_${p.id}`,
+          items: items.map(i => {
+            const prod = cachedProds.find(pr => pr.id === i.product_id)
+            return {
+              ...i,
+              product: { name: prod?.name || '?', price: prod?.price || 0 }
+            }
+          }),
+          table: table ? {
+            number: table.number,
+            is_delivery: table.is_delivery,
+            zone: zone ? { name: zone.name } : null,
+          } : null,
+        }
+      }))
+
+      setOrders([...cached, ...pendingFormatted]
+        .sort((a, b) => new Date(a.started_at) - new Date(b.started_at))
+      )
+    }
   }
 
   useEffect(() => {
     if (!restaurantId) return
     fetchOrders()
+    if (!isOnline) return
+
     const channel = supabase
       .channel('caja-orders')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchOrders)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, fetchOrders)
       .subscribe()
     return () => supabase.removeChannel(channel)
-  }, [restaurantId])
+  }, [restaurantId, isOnline])
 
   return { orders, refetch: fetchOrders }
 }
@@ -210,12 +267,13 @@ export default function CajeroHome() {
   const [showNotifications, setShowNotifications] = useState(false)
   const [onlineOrders, setOnlineOrders] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
+  const isOnline = useOnlineStatus()
 
   useEffect(() => {
-    if (!user?.restaurant_id) return
+    if (!user?.restaurant_id || !isOnline) return
     supabase.from('restaurants').select('delivery_fee').eq('id', user.restaurant_id).single()
       .then(({ data }) => { if (data) setDeliveryFee(data.delivery_fee || 0) })
-  }, [user?.restaurant_id])
+  }, [user?.restaurant_id, isOnline])
 
   function orderTotal(order) {
     const itemsTotal = order.items.filter(i => i.status !== 'cancelled')
@@ -251,7 +309,7 @@ export default function CajeroHome() {
   }
 
   useEffect(() => {
-    if (!user?.restaurant_id) return
+    if (!user?.restaurant_id || !isOnline) return
     fetchOnlineOrders()
 
     const channel = supabase
@@ -274,11 +332,11 @@ export default function CajeroHome() {
       .subscribe()
 
     return () => supabase.removeChannel(channel)
-  }, [user?.restaurant_id])
+  }, [user?.restaurant_id, isOnline])
 
   useEffect(() => {
-    if (view === 'historial') fetchHistorial()
-  }, [view])
+    if (view === 'historial' && isOnline) fetchHistorial()
+  }, [view, isOnline])
 
 
   function handleEfectivoChange(val) {
@@ -307,23 +365,53 @@ export default function CajeroHome() {
       return
     }
     setProcesando(true)
-    await supabase.from('payments').insert({
-      restaurant_id: user.restaurant_id,
-      order_id: cobrarOrder.id,
-      table_id: cobrarOrder.table_id,
-      cash: parseInt(efectivo) || 0,
-      transfer: parseInt(transferencia) || 0,
-      total,
-      voided: false,
-      is_delivery: cobrarOrder.delivery_type === 'delivery' && cobrarOrder.table?.is_delivery,
-    })
-    await supabase.from('orders').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', cobrarOrder.id)
-    await supabase.from('tables').update({ status: 'free' }).eq('id', cobrarOrder.table_id)
+
+    if (isOnline) {
+      // ── Online — flujo normal ──────────────────────────────────
+      await supabase.from('payments').insert({
+        restaurant_id: user.restaurant_id,
+        order_id: cobrarOrder.id,
+        table_id: cobrarOrder.table_id,
+        cash: parseInt(efectivo) || 0,
+        transfer: parseInt(transferencia) || 0,
+        total,
+        voided: false,
+        is_delivery: cobrarOrder.delivery_type === 'delivery' && cobrarOrder.table?.is_delivery,
+      })
+      await supabase.from('orders')
+        .update({ status: 'paid', paid_at: new Date().toISOString() })
+        .eq('id', cobrarOrder.id)
+      await supabase.from('tables')
+        .update({ status: 'free' })
+        .eq('id', cobrarOrder.table_id)
+
+    } else {
+      // ── Offline — guardar en cola ──────────────────────────────
+      await db.pendingOperations.add({
+        type: 'register_payment',
+        payload: {
+          restaurant_id: user.restaurant_id,
+          order_id: cobrarOrder.id,
+          table_id: cobrarOrder.table_id,
+          cash: parseInt(efectivo) || 0,
+          transfer: parseInt(transferencia) || 0,
+          total,
+          voided: false,
+          is_delivery: cobrarOrder.delivery_type === 'delivery' && cobrarOrder.table?.is_delivery,
+          paid_at: new Date().toISOString(),
+        },
+        created_at: new Date().toISOString(),
+      })
+
+      // Actualizar UI localmente
+      setOrders(prev => prev.filter(o => o.id !== cobrarOrder.id))
+    }
+
     setCobrarOrder(null)
     setEfectivo('')
     setTransferencia('')
     setProcesando(false)
-    refetch()
+    if (isOnline) refetch()
   }
 
   async function handleVoid(payment) {
