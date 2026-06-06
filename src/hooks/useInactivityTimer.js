@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 
-const INACTIVITY_MINUTES = 1
+const INACTIVITY_MINUTES = 30
 const COUNTDOWN_SECONDS = 10
 
 export function useInactivityTimer(onLogout) {
