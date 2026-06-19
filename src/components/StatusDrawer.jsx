@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/authStore'
 import { supabase } from '../supabaseClient'
 import { db } from '../db/localDB'
 import DevPanel from './DevPanel'
+import DebtPanel from './DebtPanel'
 import { useNavigate } from 'react-router-dom'
 import { LogOut, Wifi, WifiOff, Clock } from 'lucide-react'
 
@@ -17,6 +18,8 @@ export default function StatusDrawer() {
   const prevOnlineRef = useState(false)
   const [showDevPanel, setShowDevPanel] = useState(false)
   const isDev = user?.roles?.includes('dev')
+  const [showDebtPanel, setShowDebtPanel] = useState(false)
+  const isAdminOrCajero = user?.roles?.some(r => ['admin', 'cajero', 'dev'].includes(r))
 
   // Auto-abrir cuando se va la conexión
   useEffect(() => {
@@ -209,6 +212,24 @@ export default function StatusDrawer() {
           </button>
         )}
 
+        {isAdminOrCajero && (
+          <button
+            onClick={() => { setOpen(false); setShowDebtPanel(true) }}
+            className="
+              w-full py-3 rounded-2xl
+              flex items-center justify-center gap-2
+              text-sm font-semibold
+              text-red-600
+              bg-red-50 border border-red-200
+              hover:bg-red-100
+              transition-all duration-200
+              active:scale-[0.98]
+            "
+          >
+            💳 Gestión de deudas
+          </button>
+        )}
+
         {/* Footer — logout */}
         <div className="px-5 pb-8 pt-4 border-t border-zinc-100">
           <button
@@ -231,6 +252,7 @@ export default function StatusDrawer() {
 
       </div>
       {showDevPanel && <DevPanel onClose={() => setShowDevPanel(false)} />}
+      {showDebtPanel && <DebtPanel onClose={() => setShowDebtPanel(false)} />}
     </>
   )
 }

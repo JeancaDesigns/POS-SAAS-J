@@ -268,6 +268,22 @@ export default function CajeroHome() {
   const [onlineOrders, setOnlineOrders] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
   const isOnline = useOnlineStatus()
+  const [fiado, setFiado] = useState(false)
+  const [debtorName, setDebtorName] = useState('')
+  const [debtAmount, setDebtAmount] = useState('')
+  const [selectedDebtor, setSelectedDebtor] = useState(null)
+  const [debtorSuggestions, setDebtorSuggestions] = useState([])
+  const [existingDebtors, setExistingDebtors] = useState([])
+
+  useEffect(() => {
+    if (!user?.restaurant_id || !isOnline) return
+    supabase
+      .from('debtors')
+      .select('id, name, total_debt')
+      .eq('restaurant_id', user.restaurant_id)
+      .order('name')
+      .then(({ data }) => setExistingDebtors(data || []))
+  }, [user?.restaurant_id, isOnline])
 
   useEffect(() => {
     if (!user?.restaurant_id || !isOnline) return
@@ -341,6 +357,7 @@ export default function CajeroHome() {
 
   function handleEfectivoChange(val) {
     setEfectivo(val)
+    if (fiado) return // ← si hay fiado, no auto-completar
     const t = orderTotal(cobrarOrder)
     const ef = parseInt(val) || 0
     setTransferencia(Math.max(0, t - ef) > 0 ? String(Math.max(0, t - ef)) : '0')
@@ -348,11 +365,11 @@ export default function CajeroHome() {
 
   function handleTransferenciaChange(val) {
     setTransferencia(val)
+    if (fiado) return // ← si hay fiado, no auto-completar
     const t = orderTotal(cobrarOrder)
     const tr = parseInt(val) || 0
     setEfectivo(Math.max(0, t - tr) > 0 ? String(Math.max(0, t - tr)) : '0')
   }
-
   const total = cobrarOrder ? orderTotal(cobrarOrder) : 0
   const sumaPagos = (parseInt(efectivo) || 0) + (parseInt(transferencia) || 0)
   const cambio = (parseInt(efectivo) || 0) - total
@@ -367,17 +384,72 @@ export default function CajeroHome() {
     setProcesando(true)
 
     if (isOnline) {
-      // ── Online — flujo normal ──────────────────────────────────
+      // Registrar pago normal
       await supabase.from('payments').insert({
         restaurant_id: user.restaurant_id,
         order_id: cobrarOrder.id,
         table_id: cobrarOrder.table_id,
         cash: parseInt(efectivo) || 0,
         transfer: parseInt(transferencia) || 0,
-        total,
+        total: sumaPagos, // lo que realmente pagó
         voided: false,
         is_delivery: cobrarOrder.delivery_type === 'delivery' && cobrarOrder.table?.is_delivery,
       })
+
+      // Registrar fiado si aplica
+      if (fiado && debtorName.trim() && Number(debtAmount) > 0) {
+        const debtValue = Number(debtAmount)
+
+        // Buscar o crear deudor
+        let debtorId = selectedDebtor?.id || null
+
+        if (!debtorId) {
+          // Intentar encontrar deudor existente con ese nombre
+          const { data: existing } = await supabase
+            .from('debtors')
+            .select('id, total_debt')
+            .eq('restaurant_id', user.restaurant_id)
+            .eq('name', debtorName.trim())
+            .maybeSingle()
+
+          if (existing) {
+            debtorId = existing.id
+            // Actualizar total
+            await supabase
+              .from('debtors')
+              .update({ total_debt: Number(existing.total_debt) + debtValue })
+              .eq('id', existing.id)
+          } else {
+            // Crear nuevo deudor
+            const { data: newDebtor } = await supabase
+              .from('debtors')
+              .insert({
+                restaurant_id: user.restaurant_id,
+                name: debtorName.trim(),
+                total_debt: debtValue,
+              })
+              .select()
+              .single()
+            debtorId = newDebtor.id
+          }
+        } else {
+          // Actualizar total del deudor existente
+          await supabase
+            .from('debtors')
+            .update({ total_debt: Number(selectedDebtor.total_debt) + debtValue })
+            .eq('id', debtorId)
+        }
+
+        // Registrar movimiento de deuda
+        await supabase.from('debt_movements').insert({
+          debtor_id: debtorId,
+          order_id: cobrarOrder.id,
+          type: 'debt',
+          amount: debtValue,
+          note: `Fiado en ${tableName(cobrarOrder)}`,
+        })
+      }
+
       await supabase.from('orders')
         .update({ status: 'paid', paid_at: new Date().toISOString() })
         .eq('id', cobrarOrder.id)
@@ -386,7 +458,7 @@ export default function CajeroHome() {
         .eq('id', cobrarOrder.table_id)
 
     } else {
-      // ── Offline — guardar en cola ──────────────────────────────
+      // Offline — cola de sincronización
       await db.pendingOperations.add({
         type: 'register_payment',
         payload: {
@@ -395,21 +467,23 @@ export default function CajeroHome() {
           table_id: cobrarOrder.table_id,
           cash: parseInt(efectivo) || 0,
           transfer: parseInt(transferencia) || 0,
-          total,
+          total: sumaPagos,
           voided: false,
           is_delivery: cobrarOrder.delivery_type === 'delivery' && cobrarOrder.table?.is_delivery,
           paid_at: new Date().toISOString(),
         },
         created_at: new Date().toISOString(),
       })
-
-      // Actualizar UI localmente
       setOrders(prev => prev.filter(o => o.id !== cobrarOrder.id))
     }
 
     setCobrarOrder(null)
     setEfectivo('')
     setTransferencia('')
+    setFiado(false)
+    setDebtorName('')
+    setDebtAmount('')
+    setSelectedDebtor(null)
     setProcesando(false)
     if (isOnline) refetch()
   }
@@ -551,6 +625,11 @@ export default function CajeroHome() {
                     setCobrarOrder(o)
                     setEfectivo('')
                     setTransferencia('')
+                    setFiado(false)
+                    setDebtorName('')
+                    setDebtAmount('')
+                    setSelectedDebtor(null)
+                    setDebtorSuggestions([])
                   }}
                 />
               ))}
@@ -570,139 +649,275 @@ export default function CajeroHome() {
       }
 
       {/* ── Vista cobrar ── */}
-      {
-        cobrarOrder && !selectedOrder && (
-          <div className="flex-1 overflow-y-auto p-4">
+      {cobrarOrder && !selectedOrder && (
+        <div className="flex-1 overflow-y-auto p-4">
 
-            <div className="flex items-center gap-3 mb-4">
-              <button
-                onClick={() => setCobrarOrder(null)}
-                className="text-sm font-semibold text-violet-600 hover:text-violet-700 transition-colors"
-              >
-                ← Volver
-              </button>
-              <h2 className="text-zinc-900 font-bold">{tableName(cobrarOrder)}</h2>
+          <div className="flex items-center gap-3 mb-4">
+            <button
+              onClick={() => setCobrarOrder(null)}
+              className="text-sm font-semibold text-violet-600 hover:text-violet-700 transition-colors"
+            >
+              ← Volver
+            </button>
+            <h2 className="text-zinc-900 font-bold">{tableName(cobrarOrder)}</h2>
+          </div>
+
+          {/* Ticket cobro */}
+          <div className="mx-auto w-full max-w-xs mb-4 drop-shadow-[0_4px_16px_rgba(0,0,0,0.10)]">
+            <DentedEdge flipped />
+            <div style={{ background: '#F5F0E8', padding: '16px' }}>
+              <p style={{
+                fontFamily: 'monospace', fontSize: '13px', fontWeight: 'bold',
+                textAlign: 'center', marginBottom: '12px', color: '#2D1B0E'
+              }}>
+                CUENTA
+              </p>
+              {cobrarOrder.items.filter(i => i.status !== 'cancelled').map(item => (
+                <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#2D1B0E' }}>
+                    {item.quantity}x {item.product.name}
+                  </span>
+                  <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#2D1B0E' }}>
+                    ${(item.product.price * item.quantity).toLocaleString('es-CO')}
+                  </span>
+                </div>
+              ))}
+              {cobrarOrder.delivery_type === 'delivery' && cobrarOrder.table?.is_delivery && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#795548' }}>Domicilio</span>
+                  <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#795548' }}>
+                    ${deliveryFee.toLocaleString('es-CO')}
+                  </span>
+                </div>
+              )}
+              <div style={{
+                borderTop: '1px dashed #C4B89A', marginTop: '8px', paddingTop: '8px',
+                display: 'flex', justifyContent: 'space-between'
+              }}>
+                <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 'bold', color: '#2D1B0E' }}>
+                  TOTAL
+                </span>
+                <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 'bold', color: '#2D1B0E' }}>
+                  ${total.toLocaleString('es-CO')}
+                </span>
+              </div>
+            </div>
+            <DentedEdge />
+          </div>
+
+          {/* Método de pago */}
+          <div className="rounded-2xl p-4 mb-4 bg-white border border-zinc-100 shadow-sm">
+            <p className="text-xs font-semibold mb-3 text-violet-400 tracking-wide">
+              MÉTODO DE PAGO
+            </p>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <label className="text-zinc-600 text-sm w-28">Efectivo</label>
+                <input
+                  type="number"
+                  value={efectivo}
+                  onChange={e => handleEfectivoChange(e.target.value)}
+                  placeholder="0"
+                  className="
+              flex-1 rounded-xl px-4 py-2
+              text-zinc-800 outline-none
+              bg-zinc-50 border border-zinc-200
+              focus:border-violet-400 transition-colors
+            "
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="text-zinc-600 text-sm w-28">Transferencia</label>
+                <input
+                  type="number"
+                  value={transferencia}
+                  onChange={e => handleTransferenciaChange(e.target.value)}
+                  placeholder="0"
+                  className="
+              flex-1 rounded-xl px-4 py-2
+              text-zinc-800 outline-none
+              bg-zinc-50 border border-zinc-200
+              focus:border-violet-400 transition-colors
+            "
+                />
+              </div>
             </div>
 
-            {/* Ticket cobro */}
-            <div className="mx-auto w-full max-w-xs mb-4 drop-shadow-[0_4px_16px_rgba(0,0,0,0.10)]">
-              <DentedEdge flipped />
-              <div style={{ background: '#F5F0E8', padding: '16px' }}>
-                <p style={{
-                  fontFamily: 'monospace', fontSize: '13px', fontWeight: 'bold',
-                  textAlign: 'center', marginBottom: '12px', color: '#2D1B0E'
-                }}>
-                  CUENTA
-                </p>
-                {cobrarOrder.items.filter(i => i.status !== 'cancelled').map(item => (
-                  <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                    <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#2D1B0E' }}>
-                      {item.quantity}x {item.product.name}
-                    </span>
-                    <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#2D1B0E' }}>
-                      ${(item.product.price * item.quantity).toLocaleString('es-CO')}
-                    </span>
+            {(parseInt(efectivo) || 0) > total && (
+              <div className="mt-3 rounded-xl px-4 py-2 flex justify-between bg-green-50 border border-green-200">
+                <span className="text-sm text-green-600">Cambio</span>
+                <span className="font-bold text-green-600">${cambio.toLocaleString('es-CO')}</span>
+              </div>
+            )}
+            {descuadre && sumaPagos > 0 && (
+              <div className="mt-3 rounded-xl px-4 py-2 flex justify-between bg-yellow-50 border border-yellow-200">
+                <span className="text-sm text-yellow-600">
+                  {sumaPagos > total ? 'Excede el total' : 'Falta por cubrir'}
+                </span>
+                <span className="font-bold text-yellow-600">
+                  ${Math.abs(sumaPagos - total).toLocaleString('es-CO')}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* ── Fiado ── */}
+          <div className="rounded-2xl p-4 mb-4 bg-white border border-zinc-100 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold text-violet-400 tracking-wide">
+                FIADO
+              </p>
+              <button
+                onClick={() => {
+                  setFiado(prev => !prev)
+                  setEfectivo('')        // ← limpiar al activar/desactivar
+                  setTransferencia('')   // ← limpiar al activar/desactivar
+                }}
+                className="w-12 h-6 rounded-full transition-colors relative flex-shrink-0"
+                style={{ background: fiado ? '#820AD1' : '#E4E4E7' }}
+              >
+                <div className={`
+                  absolute top-0.5 w-5 h-5 bg-white rounded-full
+                  shadow-sm transition-transform duration-200
+                  ${fiado ? 'translate-x-6' : 'translate-x-0.5'}
+                `} />
+              </button>
+            </div>
+
+            {fiado && (
+              <div className="flex flex-col gap-3">
+                {/* Nombre del deudor */}
+                <div>
+                  <p className="text-sm text-zinc-500 mb-1.5">Nombre del cliente</p>
+                  <input
+                    type="text"
+                    placeholder="¿A nombre de quién?"
+                    value={debtorName}
+                    onChange={e => {
+                      setDebtorName(e.target.value)
+                      // Buscar en deudores existentes
+                      if (e.target.value.length > 1) {
+                        const matches = existingDebtors.filter(d =>
+                          d.name.toLowerCase().includes(e.target.value.toLowerCase())
+                        )
+                        setDebtorSuggestions(matches)
+                      } else {
+                        setDebtorSuggestions([])
+                      }
+                    }}
+                    className="
+                w-full rounded-xl px-4 py-3
+                text-zinc-800 outline-none
+                bg-zinc-50 border border-zinc-200
+                focus:border-violet-400 transition-colors
+                placeholder:text-zinc-400
+              "
+                  />
+                  {/* Sugerencias de deudores existentes */}
+                  {debtorSuggestions.length > 0 && (
+                    <div className="mt-1 rounded-xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
+                      {debtorSuggestions.map(d => (
+                        <button
+                          key={d.id}
+                          onClick={() => {
+                            setDebtorName(d.name)
+                            setSelectedDebtor(d)
+                            setDebtorSuggestions([])
+                          }}
+                          className="w-full px-4 py-2.5 text-left text-sm hover:bg-violet-50 transition-colors flex items-center justify-between"
+                        >
+                          <span className="text-zinc-800 font-medium">{d.name}</span>
+                          <span className="text-red-500 text-xs font-semibold">
+                            Debe ${Number(d.total_debt).toLocaleString('es-CO')}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Monto a fiar */}
+                <div>
+                  <p className="text-sm text-zinc-500 mb-1.5">Monto a fiar</p>
+                  <div className="flex gap-2 mb-2">
+                    <button
+                      onClick={() => setDebtAmount(String(Math.max(0, total - sumaPagos)))}
+                      className={`
+                  flex-1 py-2 rounded-xl text-sm font-semibold border
+                  transition-all duration-200
+                  ${debtAmount === String(Math.max(0, total - sumaPagos))
+                          ? 'bg-[#820AD1] text-white border-[#820AD1]'
+                          : 'bg-zinc-50 text-zinc-500 border-zinc-200 hover:border-violet-300'
+                        }
+                `}
+                    >
+                      Todo lo que falta
+                    </button>
+                    <button
+                      onClick={() => setDebtAmount('')}
+                      className={`
+                  flex-1 py-2 rounded-xl text-sm font-semibold border
+                  transition-all duration-200
+                  ${debtAmount !== String(Math.max(0, total - sumaPagos)) && debtAmount !== ''
+                          ? 'bg-[#820AD1] text-white border-[#820AD1]'
+                          : 'bg-zinc-50 text-zinc-500 border-zinc-200 hover:border-violet-300'
+                        }
+                `}
+                    >
+                      Monto específico
+                    </button>
                   </div>
-                ))}
-                {cobrarOrder.delivery_type === 'delivery' && cobrarOrder.table?.is_delivery && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                    <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#795548' }}>Domicilio</span>
-                    <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#795548' }}>
-                      ${deliveryFee.toLocaleString('es-CO')}
-                    </span>
+                  <input
+                    type="number"
+                    placeholder="¿Cuánto queda debiendo?"
+                    value={debtAmount}
+                    onChange={e => setDebtAmount(e.target.value)}
+                    className="
+                w-full rounded-xl px-4 py-3
+                text-zinc-800 outline-none
+                bg-zinc-50 border border-zinc-200
+                focus:border-violet-400 transition-colors
+                placeholder:text-zinc-400
+              "
+                  />
+                </div>
+
+                {/* Resumen fiado */}
+                {debtAmount && Number(debtAmount) > 0 && debtorName.trim() && (
+                  <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3">
+                    <p className="text-sm text-red-600">
+                      <span className="font-bold">{debtorName}</span> quedará debiendo{' '}
+                      <span className="font-bold">${Number(debtAmount).toLocaleString('es-CO')}</span>
+                    </p>
                   </div>
                 )}
-                <div style={{
-                  borderTop: '1px dashed #C4B89A', marginTop: '8px', paddingTop: '8px',
-                  display: 'flex', justifyContent: 'space-between'
-                }}>
-                  <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 'bold', color: '#2D1B0E' }}>
-                    TOTAL
-                  </span>
-                  <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 'bold', color: '#2D1B0E' }}>
-                    ${total.toLocaleString('es-CO')}
-                  </span>
-                </div>
               </div>
-              <DentedEdge />
-            </div>
-
-            {/* Método de pago */}
-            <div className="rounded-2xl p-4 mb-4 bg-white border border-zinc-100 shadow-sm">
-              <p className="text-xs font-semibold mb-3 text-violet-400 tracking-wide">
-                MÉTODO DE PAGO
-              </p>
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center gap-3">
-                  <label className="text-zinc-600 text-sm w-28">Efectivo</label>
-                  <input
-                    type="number"
-                    value={efectivo}
-                    onChange={e => handleEfectivoChange(e.target.value)}
-                    placeholder="0"
-                    className="
-                    flex-1 rounded-xl px-4 py-2
-                    text-zinc-800 outline-none
-                    bg-zinc-50 border border-zinc-200
-                    focus:border-violet-400 transition-colors
-                  "
-                  />
-                </div>
-                <div className="flex items-center gap-3">
-                  <label className="text-zinc-600 text-sm w-28">Transferencia</label>
-                  <input
-                    type="number"
-                    value={transferencia}
-                    onChange={e => handleTransferenciaChange(e.target.value)}
-                    placeholder="0"
-                    className="
-                    flex-1 rounded-xl px-4 py-2
-                    text-zinc-800 outline-none
-                    bg-zinc-50 border border-zinc-200
-                    focus:border-violet-400 transition-colors
-                  "
-                  />
-                </div>
-              </div>
-
-              {(parseInt(efectivo) || 0) > total && (
-                <div className="mt-3 rounded-xl px-4 py-2 flex justify-between bg-green-50 border border-green-200">
-                  <span className="text-sm text-green-600">Cambio</span>
-                  <span className="font-bold text-green-600">
-                    ${cambio.toLocaleString('es-CO')}
-                  </span>
-                </div>
-              )}
-              {descuadre && sumaPagos > 0 && (
-                <div className="mt-3 rounded-xl px-4 py-2 flex justify-between bg-yellow-50 border border-yellow-200">
-                  <span className="text-sm text-yellow-600">
-                    {sumaPagos > total ? 'Excede el total' : 'Falta por cubrir'}
-                  </span>
-                  <span className="font-bold text-yellow-600">
-                    ${Math.abs(sumaPagos - total).toLocaleString('es-CO')}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Botón cobrar — pega aquí la continuación */}
-
-            <button
-              onClick={handleCobrar}
-              disabled={procesando}
-              className="
-            w-full text-white font-bold
-            rounded-2xl py-4
-            bg-[#820AD1] hover:bg-violet-700
-            shadow-[0_4px_20px_rgba(130,10,209,0.25)]
-            transition-all duration-200
-            active:scale-[0.98] disabled:opacity-50
-          "
-            >
-              {procesando ? 'Procesando...' : 'Registrar pago y liberar mesa'}
-            </button>
+            )}
           </div>
-        )}
+
+          {/* Botón cobrar */}
+          <button
+            onClick={handleCobrar}
+            disabled={procesando || (fiado && (!debtorName.trim() || !debtAmount || Number(debtAmount) <= 0))}
+            className="
+              w-full text-white font-bold
+              rounded-2xl py-4
+              bg-[#820AD1] hover:bg-violet-700
+              shadow-[0_4px_20px_rgba(130,10,209,0.25)]
+              transition-all duration-200
+              active:scale-[0.98] disabled:opacity-50
+            "
+          >
+            {procesando
+              ? 'Procesando...'
+              : fiado
+                ? `Registrar — $${(sumaPagos).toLocaleString('es-CO')} pagado + $${Number(debtAmount || 0).toLocaleString('es-CO')} fiado`
+                : 'Registrar pago y liberar mesa'
+            }
+          </button>
+
+        </div>
+      )}
 
       {/* ── Historial ── */}
       {view === 'historial' && (
