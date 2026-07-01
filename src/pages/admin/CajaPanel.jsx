@@ -293,7 +293,7 @@ export default function CajaPanel() {
             {/* Cierre */}
             <div className="mt-6 pt-5 border-t border-zinc-100">
               <p className="text-xs font-semibold text-violet-400 tracking-wide mb-2">
-                DINERO CONTADO FÍSICAMENTE
+                DINERO CONTADO (EFECTIVO + TRANSFERENCIA)
               </p>
               <input
                 type="number"

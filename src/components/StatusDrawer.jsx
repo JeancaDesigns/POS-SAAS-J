@@ -205,6 +205,7 @@ export default function StatusDrawer() {
               hover:bg-violet-100
               transition-all duration-200
               active:scale-[0.98]
+              pb-1
             "
           >
             <span className="text-xs font-black bg-violet-200 text-violet-700 px-1.5 py-0.5 rounded-md">DEV</span>

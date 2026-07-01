@@ -367,7 +367,7 @@ export default function PedidoActivo({ table, onClose }) {
             </div>
 
             {/* Lista productos */}
-            <div className="flex-1 overflow-y-auto px-4 py-3">
+            <div className="flex-1 overflow-y-auto px-4 py-3 sm:pb-3 pb-[90px]">
               <div className="flex flex-col gap-2">
                 {categoryProducts.map(product => {
                   const qty = getQuantity(product.id)

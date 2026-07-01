@@ -176,7 +176,7 @@ export default function DomiciliarioHome() {
         rounded-2xl border p-4 md:p-5
         transition-all duration-200
         ${inTanda
-          ? 'bg-orange-50 border-orange-200'
+          ? 'bg-purple-50 border-purple-200'
           : delivered
             ? 'bg-zinc-50 border-zinc-100 opacity-60'
             : 'bg-white border-zinc-200 hover:border-violet-200 shadow-sm'
@@ -198,7 +198,7 @@ export default function DomiciliarioHome() {
           </div>
           <div className="text-right">
             <p className="text-xs text-zinc-400 mb-0.5">Total</p>
-            <p className={`font-bold text-lg ${inTanda ? 'text-orange-500' : 'text-violet-600'}`}>
+            <p className={`font-bold text-lg ${inTanda ? 'text-purple-500' : 'text-violet-600'}`}>
               ${orderTotal(order).toLocaleString('es-CO')}
             </p>
           </div>
@@ -339,7 +339,7 @@ export default function DomiciliarioHome() {
               border transition-all duration-200
               active:scale-[0.98]
               ${inTanda
-                ? 'bg-orange-50 text-orange-600 border-orange-300 hover:bg-orange-100'
+                ? 'bg-purple-50 text-purple-600 border-purple-300 hover:bg-purple-100'
                 : 'bg-white text-zinc-600 border-zinc-200 hover:border-violet-300 hover:text-violet-600'
               }
             `}
@@ -383,7 +383,7 @@ export default function DomiciliarioHome() {
 
   // ─── UI ──────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen flex flex-col bg-[#F6F6F8] pb-20 sm:pb-0">
+    <div className="min-h-screen flex flex-col bg-[#F6F6F8]">
 
       {/* ── Header fijo ── */}
       <div className="
@@ -427,7 +427,7 @@ export default function DomiciliarioHome() {
       </div>
 
       {/* ── Contenido ── */}
-      <div className="flex-1 overflow-y-auto pt-[88px] p-4">
+      <div className="flex-1 overflow-y-auto pt-[110px] p-4">
         <div className="w-full max-w-6xl mx-auto">
 
           {/* Empty state */}
@@ -461,10 +461,10 @@ export default function DomiciliarioHome() {
           {tandaOrders.length > 0 && (
             <div className="mb-8">
               <div className="flex items-center justify-between mb-4">
-                <span className="text-xs uppercase tracking-wider text-orange-500 font-semibold">
+                <span className="text-xs uppercase tracking-wider text-purple-500 font-semibold">
                   En esta tanda
                 </span>
-                <span className="text-xs bg-orange-50 border border-orange-200 rounded-full px-3 py-1 text-orange-500">
+                <span className="text-xs bg-purple-50 border border-purple-200 rounded-full px-3 py-1 text-purple-500">
                   {tandaOrders.length} pedidos
                 </span>
               </div>
@@ -512,11 +512,11 @@ export default function DomiciliarioHome() {
               onClick={salir}
               className="
                 w-full
-                bg-orange-500 hover:bg-orange-600
+                bg-purple-500 hover:bg-purple-600
                 text-white font-black
                 rounded-3xl py-5 text-lg
                 transition-colors
-                shadow-lg shadow-orange-500/20
+                shadow-lg shadow-purple-500/20
                 active:scale-[0.98]
               "
             >
