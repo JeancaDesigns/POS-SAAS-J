@@ -13,6 +13,7 @@ export default function CajaPanel() {
   const [movements, setMovements] = useState([])
   const [closingAmount, setClosingAmount] = useState('')
   const [history, setHistory] = useState([])
+  const [salesTotal, setSalesTotal] = useState(0)
 
   useEffect(() => {
     if (user) { loadCashRegister(); loadHistory() }
@@ -30,7 +31,10 @@ export default function CajaPanel() {
       .maybeSingle()
     if (error) { console.error(error); setLoading(false); return }
     setCashRegister(data)
-    if (data) loadMovements(data.id)
+    if (data) {
+      await loadMovements(data.id)
+      await loadSales(data.created_at)
+    }
     setLoading(false)
   }
 
@@ -42,6 +46,19 @@ export default function CajaPanel() {
       .order('created_at', { ascending: false })
     if (error) { console.error(error); return }
     setMovements(data || [])
+  }
+
+  // Cargar ventas desde que se abrió la caja
+  async function loadSales(openedAt) {
+    const { data, error } = await supabase
+      .from('payments')
+      .select('total')
+      .eq('restaurant_id', user.restaurant_id)
+      .eq('voided', false)
+      .gte('created_at', openedAt)
+    if (error) { console.error(error); return }
+    const total = (data || []).reduce((sum, p) => sum + Number(p.total), 0)
+    setSalesTotal(total)
   }
 
   async function loadHistory() {
@@ -70,6 +87,7 @@ export default function CajaPanel() {
       .single()
     if (error) { console.error(error); alert(error.message); return }
     setCashRegister(data)
+    setSalesTotal(0)
     setOpeningAmount('0')
     await loadMovements(data.id)
     await loadHistory()
@@ -79,7 +97,11 @@ export default function CajaPanel() {
     if (!cashRegister) return
     const counted = Number(closingAmount)
     if (isNaN(counted) || counted < 0) { alert('Monto inválido'); return }
-    const difference = counted - Number(cashRegister.expected_amount)
+
+    // Esperado final = apertura + ventas + ingresos - egresos
+    const expectedFinal = computedExpected
+
+    const difference = counted - expectedFinal
     const confirmed = confirm(
       `Cerrar caja con diferencia de ${difference >= 0 ? '+' : ''}$${difference.toLocaleString('es-CO')} ?`
     )
@@ -90,12 +112,14 @@ export default function CajaPanel() {
         status: 'closed',
         closed_at: new Date().toISOString(),
         closing_amount: counted,
+        expected_amount: expectedFinal,
         difference_amount: difference,
       })
       .eq('id', cashRegister.id)
     if (error) { console.error(error); alert(error.message); return }
     setCashRegister(null)
     setMovements([])
+    setSalesTotal(0)
     setClosingAmount('')
     await loadHistory()
   }
@@ -113,14 +137,24 @@ export default function CajaPanel() {
         description: movementDescription.trim(),
       })
     if (error) { console.error(error); alert(error.message); return }
-    const newExpected = movementType === 'income'
-      ? Number(cashRegister.expected_amount) + amount
-      : Number(cashRegister.expected_amount) - amount
-    await supabase.from('cash_registers').update({ expected_amount: newExpected }).eq('id', cashRegister.id)
     setMovementAmount('')
     setMovementDescription('')
-    await loadCashRegister()
+    await loadMovements(cashRegister.id)
   }
+
+  // ── Cálculo del esperado en tiempo real ──────────────────────────────────────
+  const manualIncome = movements
+    .filter(m => m.type === 'income')
+    .reduce((sum, m) => sum + Number(m.amount), 0)
+
+  const manualExpense = movements
+    .filter(m => m.type === 'expense')
+    .reduce((sum, m) => sum + Number(m.amount), 0)
+
+  const computedExpected = Number(cashRegister?.opening_amount || 0)
+    + salesTotal
+    + manualIncome
+    - manualExpense
 
   if (loading) return (
     <p className="text-zinc-400 text-sm">Cargando caja...</p>
@@ -171,25 +205,35 @@ export default function CajaPanel() {
       {cashRegister && (
         <>
           {/* Resumen */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="rounded-2xl bg-white border border-zinc-200 p-5
               shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
               <p className="text-xs font-semibold text-violet-400 tracking-wide">APERTURA</p>
-              <p className="text-2xl font-black text-zinc-900 mt-2">
+              <p className="text-xl font-black text-zinc-900 mt-2">
                 ${Number(cashRegister.opening_amount).toLocaleString('es-CO')}
               </p>
             </div>
+
+            <div className="rounded-2xl bg-green-50 border border-green-200 p-5
+              shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+              <p className="text-xs font-semibold text-green-500 tracking-wide">VENTAS</p>
+              <p className="text-xl font-black text-green-600 mt-2">
+                ${salesTotal.toLocaleString('es-CO')}
+              </p>
+            </div>
+
             <div className="rounded-2xl bg-violet-50 border border-violet-200 p-5
               shadow-[0_2px_8px_rgba(130,10,209,0.08)]">
               <p className="text-xs font-semibold text-violet-400 tracking-wide">ESPERADO</p>
-              <p className="text-2xl font-black text-violet-600 mt-2">
-                ${Number(cashRegister.expected_amount).toLocaleString('es-CO')}
+              <p className="text-xl font-black text-violet-600 mt-2">
+                ${computedExpected.toLocaleString('es-CO')}
               </p>
             </div>
-            <div className="rounded-2xl bg-green-50 border border-green-200 p-5
+
+            <div className="rounded-2xl bg-zinc-50 border border-zinc-200 p-5
               shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
-              <p className="text-xs font-semibold text-green-500 tracking-wide">ESTADO</p>
-              <p className="text-2xl font-black text-green-600 mt-2">ABIERTA</p>
+              <p className="text-xs font-semibold text-zinc-400 tracking-wide">ESTADO</p>
+              <p className="text-xl font-black text-green-600 mt-2">ABIERTA</p>
             </div>
           </div>
 
@@ -257,11 +301,11 @@ export default function CajaPanel() {
           <div className="rounded-2xl bg-white border border-zinc-200 p-6
             shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
             <p className="text-xs font-semibold text-violet-400 tracking-wide mb-4">
-              MOVIMIENTOS
+              MOVIMIENTOS MANUALES
             </p>
             <div className="space-y-2">
               {movements.length === 0 && (
-                <p className="text-sm text-zinc-400">No hay movimientos registrados</p>
+                <p className="text-sm text-zinc-400">No hay movimientos manuales registrados</p>
               )}
               {movements.map(movement => (
                 <div
@@ -290,10 +334,34 @@ export default function CajaPanel() {
               ))}
             </div>
 
+            {/* Resumen movimientos manuales */}
+            {movements.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-zinc-100 grid grid-cols-2 gap-3">
+                <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-3">
+                  <p className="text-xs text-green-600 font-semibold">Ingresos manuales</p>
+                  <p className="text-lg font-black text-green-600 mt-1">
+                    +${manualIncome.toLocaleString('es-CO')}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3">
+                  <p className="text-xs text-red-500 font-semibold">Egresos manuales</p>
+                  <p className="text-lg font-black text-red-500 mt-1">
+                    −${manualExpense.toLocaleString('es-CO')}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Cierre */}
             <div className="mt-6 pt-5 border-t border-zinc-100">
-              <p className="text-xs font-semibold text-violet-400 tracking-wide mb-2">
-                DINERO CONTADO (EFECTIVO + TRANSFERENCIA)
+              <p className="text-xs font-semibold text-violet-400 tracking-wide mb-1">
+                DINERO TOTAL CONTADO (EFECTIVO + TRANSFERENCIA)
+              </p>
+              <p className="text-xs text-zinc-400 mb-3">
+                Esperado en caja: <span className="font-bold text-violet-600">
+                  ${computedExpected.toLocaleString('es-CO')}
+                </span>
+                {' '}(apertura + ventas + ingresos − egresos)
               </p>
               <input
                 type="number"
@@ -306,6 +374,23 @@ export default function CajaPanel() {
                   focus:border-violet-400 transition-colors
                 "
               />
+
+              {/* Preview diferencia */}
+              {closingAmount && (
+                <div className={`mt-3 rounded-xl px-4 py-3 border ${
+                  Number(closingAmount) >= computedExpected
+                    ? 'bg-green-50 border-green-200'
+                    : 'bg-red-50 border-red-200'
+                }`}>
+                  <p className={`text-sm font-bold ${
+                    Number(closingAmount) >= computedExpected ? 'text-green-600' : 'text-red-500'
+                  }`}>
+                    Diferencia: {Number(closingAmount) - computedExpected >= 0 ? '+' : ''}
+                    ${(Number(closingAmount) - computedExpected).toLocaleString('es-CO')}
+                  </p>
+                </div>
+              )}
+
               <button
                 onClick={closeCash}
                 className="
