@@ -5,37 +5,41 @@ export const useAuthStore = create((set) => ({
   user: null,
   slug: null,
   modules: [],
+  theme: 'purple', // ← nuevo
   loading: true,
 
   setUser: (user) => set({ user }),
-  clearUser: () => set({ user: null, slug: null, modules: [] }),
+  clearUser: () => set({ user: null, slug: null, modules: [], theme: 'purple' }),
   setSlug: (slug) => set({ slug }),
 
   init: async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
-      const { data: userData, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('auth_user_id', session.user.id)
-        .single()
+      const { data: userData } = await supabase
+        .from('users').select('*')
+        .eq('auth_user_id', session.user.id).single()
 
       let slug = null
       let modules = []
+      let theme = 'purple'
 
       if (userData?.restaurant_id) {
         const { data: restaurant } = await supabase
           .from('restaurants')
-          .select('slug, modules')
+          .select('slug, modules, theme')
           .eq('id', userData.restaurant_id)
           .single()
         slug = restaurant?.slug || null
         modules = restaurant?.modules || []
+        theme = restaurant?.theme || 'purple'
       }
 
-      set({ user: userData, slug, modules, loading: false })
+      // Aplicar tema al documento
+      document.documentElement.setAttribute('data-theme', theme)
+
+      set({ user: userData, slug, modules, theme, loading: false })
     } else {
-      set({ user: null, slug: null, modules: [], loading: false })
+      set({ user: null, slug: null, modules: [], theme: 'purple', loading: false })
     }
   }
 }))

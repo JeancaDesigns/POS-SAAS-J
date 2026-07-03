@@ -215,7 +215,7 @@ export default function PedidoPublico() {
     w-full rounded-xl px-4 py-3
     text-zinc-800 outline-none
     bg-zinc-50 border border-zinc-200
-    focus:border-violet-400 transition-colors
+    focus:border-[var(--brand-border)] transition-colors
     placeholder:text-zinc-400 text-sm
   `
 
@@ -226,7 +226,7 @@ export default function PedidoPublico() {
         w-full max-w-md
         bg-white rounded-3xl
         border border-zinc-200
-        shadow-[0_20px_60px_rgba(130,10,209,0.12)]
+        shadow-[0_20px_60px_var(--brand-soft)]
         p-8 text-center
         animate-[fadein_0.5s_ease]
       ">
@@ -234,7 +234,7 @@ export default function PedidoPublico() {
           w-24 h-24 rounded-full mx-auto
           flex items-center justify-center
           text-5xl mb-6
-          bg-[#820AD1]
+          bg-[var(--brand)]
           shadow-[0_8px_30px_rgba(130,10,209,0.35)]
         ">
           ✅
@@ -246,7 +246,7 @@ export default function PedidoPublico() {
 
         {pedidosAnteriores > 0 ? (
           <p className="text-zinc-500 text-sm">
-            Hay <span className="font-bold text-violet-600">{pedidosAnteriores}</span> pedido{pedidosAnteriores !== 1 ? 's' : ''} antes que el tuyo
+            Hay <span className="font-bold text-[var(--brand-text)]">{pedidosAnteriores}</span> pedido{pedidosAnteriores !== 1 ? 's' : ''} antes que el tuyo
           </p>
         ) : (
           <p className="text-zinc-500 text-sm">
@@ -255,7 +255,7 @@ export default function PedidoPublico() {
         )}
 
         {domiciliarioActivo && (
-          <p className="text-sm mt-2 text-violet-600 font-medium">
+          <p className="text-sm mt-2 text-[var(--brand-text)] font-medium">
             🛵 Será entregado por: <span className="font-bold">{domiciliarioActivo}</span>
           </p>
         )}
@@ -265,8 +265,8 @@ export default function PedidoPublico() {
           className="
             w-full mt-8 rounded-2xl py-4
             font-bold text-white
-            bg-[#820AD1] hover:bg-violet-700
-            shadow-[0_4px_20px_rgba(130,10,209,0.25)]
+            bg-[var(--brand)] hover:bg-[var(--brand-hover)]
+            shadow-[0_4px_20px_var(--brand-shadow)]
             transition-all duration-200 active:scale-[0.98]
           "
         >
@@ -281,7 +281,7 @@ export default function PedidoPublico() {
     <div className="h-[100dvh] overflow-hidden flex flex-col bg-[#F6F6F8]">
 
       {/* ── Header ── */}
-      <div className="shrink-0 bg-[#820AD1] shadow-md">
+      <div className="shrink-0 bg-[var(--brand)] shadow-md">
         <div className="max-w-7xl mx-auto px-4 pt-5 pb-4">
 
           {/* Info restaurante */}
@@ -332,7 +332,7 @@ export default function PedidoPublico() {
                   py-2.5 rounded-xl font-bold text-sm
                   transition-all duration-200
                   ${activeSection === section.key
-                    ? 'bg-white text-[#820AD1] shadow-sm'
+                    ? 'bg-white text-[var(--brand)] shadow-sm'
                     : 'text-white/60 hover:text-white/80'
                   }
                 `}
@@ -390,8 +390,8 @@ export default function PedidoPublico() {
                       px-4 py-2 rounded-full text-sm font-semibold
                       whitespace-nowrap border transition-all duration-200
                       ${activeCategory === cat.id
-                        ? 'bg-[#820AD1] text-white border-[#820AD1] shadow-[0_4px_12px_rgba(130,10,209,0.25)]'
-                        : 'bg-white text-zinc-500 border-zinc-200 hover:border-violet-300'
+                        ? 'bg-[var(--brand)] text-white border-[var(--brand)] shadow-[0_4px_12px_var(--brand-shadow)]'
+                        : 'bg-white text-zinc-500 border-zinc-200 hover:border-[var(--brand-border)]'
                       }
                       ${!open ? 'opacity-50' : ''}
                     `}
@@ -415,7 +415,7 @@ export default function PedidoPublico() {
                         ${!open
                           ? 'border-zinc-100 opacity-50 pointer-events-none'
                           : qty > 0
-                            ? 'border-violet-200 shadow-[0_4px_16px_rgba(130,10,209,0.10)]'
+                            ? 'border-[var(--brand-border)] shadow-[0_4px_16px_var(--brand-soft)]'
                             : 'border-zinc-100 hover:border-violet-100'
                         }
                       `}
@@ -428,7 +428,7 @@ export default function PedidoPublico() {
                               {product.description}
                             </p>
                           )}
-                          <p className="text-violet-600 font-bold mt-1.5">
+                          <p className="text-[var(--brand-text)] font-bold mt-1.5">
                             ${product.price.toLocaleString('es-CO')}
                           </p>
                         </div>
@@ -458,7 +458,7 @@ export default function PedidoPublico() {
                               w-8 h-8 rounded-full
                               flex items-center justify-center
                               font-bold text-white
-                              bg-[#820AD1] hover:bg-violet-700
+                              bg-[var(--brand)] hover:bg-[var(--brand-hover)]
                               shadow-[0_4px_12px_rgba(130,10,209,0.3)]
                               transition-all active:scale-95
                               disabled:opacity-40 disabled:cursor-not-allowed
@@ -517,8 +517,8 @@ export default function PedidoPublico() {
                         rounded-xl py-3 font-semibold text-sm
                         border transition-all duration-200
                         ${deliveryType === opt.key
-                          ? 'bg-[#820AD1] text-white border-[#820AD1] shadow-[0_4px_12px_rgba(130,10,209,0.25)]'
-                          : 'bg-zinc-50 text-zinc-500 border-zinc-200 hover:border-violet-300'
+                          ? 'bg-[var(--brand)] text-white border-[var(--brand)] shadow-[0_4px_12px_var(--brand-shadow)]'
+                          : 'bg-zinc-50 text-zinc-500 border-zinc-200 hover:border-[var(--brand-border)]'
                         }
                       `}
                     >
@@ -600,7 +600,7 @@ export default function PedidoPublico() {
                         <span className="text-zinc-700">
                           {item.quantity}x {item.product.name}
                         </span>
-                        <span className="font-semibold text-violet-600">
+                        <span className="font-semibold text-[var(--brand-text)]">
                           ${(item.product.price * item.quantity).toLocaleString('es-CO')}
                         </span>
                       </div>
@@ -611,7 +611,7 @@ export default function PedidoPublico() {
                 {/* Total */}
                 <div className="flex justify-between items-center mb-5 pt-4 border-t border-zinc-100">
                   <span className="font-bold text-zinc-700">Total</span>
-                  <span className="font-black text-2xl text-violet-600">
+                  <span className="font-black text-2xl text-[var(--brand-text)]">
                     ${total.toLocaleString('es-CO')}
                   </span>
                 </div>
@@ -623,8 +623,8 @@ export default function PedidoPublico() {
                   className="
                     w-full rounded-2xl py-4
                     font-black text-lg text-white
-                    bg-[#820AD1] hover:bg-violet-700
-                    shadow-[0_8px_30px_rgba(130,10,209,0.30)]
+                    bg-[var(--brand)] hover:bg-[var(--brand-hover)]
+                    shadow-[0_8px_30px_var(--brand-shadow)]]
                     transition-all duration-200
                     active:scale-[0.98] disabled:opacity-50
                   "
@@ -649,8 +649,8 @@ export default function PedidoPublico() {
               className="
                 w-full rounded-2xl py-4
                 font-black text-lg text-white
-                bg-[#820AD1] hover:bg-violet-700
-                shadow-[0_8px_30px_rgba(130,10,209,0.30)]
+                bg-[var(--brand)] hover:bg-[var(--brand-hover)]
+                shadow-[0_8px_30px_var(--brand-shadow)]]
                 transition-all duration-200
                 active:scale-[0.98]
               "
@@ -677,7 +677,7 @@ export default function PedidoPublico() {
             <div className="flex items-center justify-between mb-6">
               <button
                 onClick={() => setVariantModal(null)}
-                className="text-sm font-semibold text-violet-600 hover:text-violet-700 transition-colors"
+                className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
               >
                 ✕ Cancelar
               </button>
@@ -696,9 +696,9 @@ export default function PedidoPublico() {
                   onClick={() => { addProduct(variantModal, v); setVariantModal(null) }}
                   className="
                     w-full py-4 rounded-2xl
-                    font-bold text-violet-700
-                    bg-violet-50 border border-violet-200
-                    hover:bg-violet-100 hover:border-violet-400
+                    font-bold text-[var(--brand-text)]
+                    bg-[var(--brand-light)] border border-[var(--brand-border)]
+                    hover:bg-[var(--brand-light)] hover:border-[var(--brand-border)]
                     transition-all duration-200
                     active:scale-95
                   "

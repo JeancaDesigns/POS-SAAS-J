@@ -79,7 +79,7 @@ export default function DebtPanel({ onClose }) {
     w-full rounded-xl px-4 py-3
     text-zinc-800 outline-none
     bg-zinc-50 border border-zinc-200
-    focus:border-violet-400 transition-colors
+    focus:border-[var(--brand-border)] transition-colors
     placeholder:text-zinc-400 text-sm
   `
 
@@ -102,7 +102,7 @@ export default function DebtPanel({ onClose }) {
             {selectedDebtor && (
               <button
                 onClick={() => setSelectedDebtor(null)}
-                className="text-sm font-semibold text-violet-600 hover:text-violet-700 transition-colors"
+                className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
               >
                 ←
               </button>
@@ -151,7 +151,7 @@ export default function DebtPanel({ onClose }) {
                 className="
                   w-full rounded-2xl p-4
                   bg-zinc-50 border border-zinc-100
-                  hover:border-violet-200 hover:bg-violet-50/50
+                  hover:border-[var(--brand-border)] hover:bg-[var(--brand-light)]/50
                   transition-all duration-200
                   text-left flex items-center justify-between
                 "
@@ -181,7 +181,7 @@ export default function DebtPanel({ onClose }) {
 
             {/* Registrar abono */}
             <div className="rounded-2xl bg-white border border-zinc-200 p-4 shadow-sm">
-              <p className="text-xs font-semibold text-violet-400 tracking-wide mb-3">
+              <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-3">
                 REGISTRAR ABONO O PAGO
               </p>
               <div className="space-y-3">
@@ -249,8 +249,8 @@ export default function DebtPanel({ onClose }) {
                   className="
                     w-full py-3 rounded-2xl
                     font-bold text-white text-sm
-                    bg-[#820AD1] hover:bg-violet-700
-                    shadow-[0_4px_20px_rgba(130,10,209,0.25)]
+                    bg-[var(--brand)] hover:bg-[var(--brand-hover)]
+                    shadow-[0_4px_20px_var(--brand-shadow)]
                     transition-all duration-200
                     active:scale-[0.98] disabled:opacity-50
                   "
@@ -262,7 +262,7 @@ export default function DebtPanel({ onClose }) {
 
             {/* Historial de movimientos */}
             <div>
-              <p className="text-xs font-semibold text-violet-400 tracking-wide mb-3">
+              <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-3">
                 HISTORIAL
               </p>
 

@@ -46,7 +46,7 @@ export default function AdminHome() {
       <div className="
         fixed top-0 left-0 right-0 z-50
         sm:left-[92px]
-        bg-[#820AD1] px-4 pt-6 pb-4 shadow-md
+        bg-[var(--brand)] px-4 pt-6 pb-4 shadow-md
       ">
         <div className="text-center mb-4">
           <h1 className="text-2xl font-semibold tracking-tight text-white">
@@ -73,7 +73,7 @@ export default function AdminHome() {
                 border transition-all duration-200
                 active:scale-95
                 ${activeGroup === key
-                  ? 'bg-white text-[#820AD1] border-white'
+                  ? 'bg-white text-[var(--brand)] border-white'
                   : 'bg-white/10 text-white/70 border-white/20 hover:bg-white/20'
                 }
               `}
@@ -97,7 +97,7 @@ export default function AdminHome() {
               border transition-all duration-200
               active:scale-95
               ${section === item.key
-                ? 'bg-[#820AD1] text-white border-[#820AD1]'
+                ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
                 : 'bg-white text-[#71717A] border-[#ECECF0] hover:bg-[#FAFAFA]'
               }
             `}

@@ -170,7 +170,7 @@ export default function CajaPanel() {
           <h2 className="text-zinc-900 font-bold text-base mb-4">Abrir caja</h2>
           <div className="space-y-3">
             <div>
-              <p className="text-xs font-semibold text-violet-400 tracking-wide mb-2">
+              <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-2">
                 MONTO INICIAL
               </p>
               <input
@@ -181,7 +181,7 @@ export default function CajaPanel() {
                   w-full rounded-xl px-4 py-3
                   text-zinc-800 outline-none
                   bg-zinc-50 border border-zinc-200
-                  focus:border-violet-400 transition-colors
+                  focus:border-[var(--brand-border)] transition-colors
                 "
               />
             </div>
@@ -190,8 +190,8 @@ export default function CajaPanel() {
               className="
                 w-full rounded-2xl py-4
                 font-bold text-white
-                bg-[#820AD1] hover:bg-violet-700
-                shadow-[0_4px_20px_rgba(130,10,209,0.25)]
+                bg-[var(--brand)] hover:bg-[var(--brand-hover)]
+                shadow-[0_4px_20px_var(--brand-shadow)
                 transition-all duration-200 active:scale-[0.98]
               "
             >
@@ -208,7 +208,7 @@ export default function CajaPanel() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="rounded-2xl bg-white border border-zinc-200 p-5
               shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
-              <p className="text-xs font-semibold text-violet-400 tracking-wide">APERTURA</p>
+              <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">APERTURA</p>
               <p className="text-xl font-black text-zinc-900 mt-2">
                 ${Number(cashRegister.opening_amount).toLocaleString('es-CO')}
               </p>
@@ -222,10 +222,10 @@ export default function CajaPanel() {
               </p>
             </div>
 
-            <div className="rounded-2xl bg-violet-50 border border-violet-200 p-5
+            <div className="rounded-2xl bg-[var(--brand-light)] border border-[var(--brand-border)] p-5
               shadow-[0_2px_8px_rgba(130,10,209,0.08)]">
-              <p className="text-xs font-semibold text-violet-400 tracking-wide">ESPERADO</p>
-              <p className="text-xl font-black text-violet-600 mt-2">
+              <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">ESPERADO</p>
+              <p className="text-xl font-black text-[var(--brand-text)] mt-2">
                 ${computedExpected.toLocaleString('es-CO')}
               </p>
             </div>
@@ -240,7 +240,7 @@ export default function CajaPanel() {
           {/* Registrar movimiento */}
           <div className="rounded-2xl bg-white border border-zinc-200 p-6
             shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
-            <p className="text-xs font-semibold text-violet-400 tracking-wide mb-4">
+            <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-4">
               REGISTRAR MOVIMIENTO
             </p>
             <div className="grid md:grid-cols-4 gap-3">
@@ -251,7 +251,7 @@ export default function CajaPanel() {
                   rounded-xl px-4 py-3
                   text-zinc-800 outline-none
                   bg-zinc-50 border border-zinc-200
-                  focus:border-violet-400 transition-colors
+                  focus:border-[var(--brand-border)] transition-colors
                 "
               >
                 <option value="income">Ingreso</option>
@@ -266,7 +266,7 @@ export default function CajaPanel() {
                   rounded-xl px-4 py-3
                   text-zinc-800 outline-none
                   bg-zinc-50 border border-zinc-200
-                  focus:border-violet-400 transition-colors
+                  focus:border-[var(--brand-border)] transition-colors
                   placeholder:text-zinc-400
                 "
               />
@@ -279,7 +279,7 @@ export default function CajaPanel() {
                   rounded-xl px-4 py-3
                   text-zinc-800 outline-none
                   bg-zinc-50 border border-zinc-200
-                  focus:border-violet-400 transition-colors
+                  focus:border-[var(--brand-border)] transition-colors
                   placeholder:text-zinc-400
                 "
               />
@@ -288,7 +288,7 @@ export default function CajaPanel() {
                 className="
                   rounded-xl py-3
                   font-bold text-white
-                  bg-[#820AD1] hover:bg-violet-700
+                  bg-[var(--brand)] hover:bg-[var(--brand-hover)]
                   transition-all duration-200 active:scale-[0.98]
                 "
               >
@@ -300,7 +300,7 @@ export default function CajaPanel() {
           {/* Movimientos */}
           <div className="rounded-2xl bg-white border border-zinc-200 p-6
             shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
-            <p className="text-xs font-semibold text-violet-400 tracking-wide mb-4">
+            <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-4">
               MOVIMIENTOS MANUALES
             </p>
             <div className="space-y-2">
@@ -354,11 +354,11 @@ export default function CajaPanel() {
 
             {/* Cierre */}
             <div className="mt-6 pt-5 border-t border-zinc-100">
-              <p className="text-xs font-semibold text-violet-400 tracking-wide mb-1">
+              <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-1">
                 DINERO TOTAL CONTADO (EFECTIVO + TRANSFERENCIA)
               </p>
               <p className="text-xs text-zinc-400 mb-3">
-                Esperado en caja: <span className="font-bold text-violet-600">
+                Esperado en caja: <span className="font-bold text-[var(--brand-text)]">
                   ${computedExpected.toLocaleString('es-CO')}
                 </span>
                 {' '}(apertura + ventas + ingresos − egresos)
@@ -371,7 +371,7 @@ export default function CajaPanel() {
                   w-full rounded-xl px-4 py-3
                   text-zinc-800 outline-none
                   bg-zinc-50 border border-zinc-200
-                  focus:border-violet-400 transition-colors
+                  focus:border-[var(--brand-border)] transition-colors
                 "
               />
 
@@ -410,7 +410,7 @@ export default function CajaPanel() {
       {/* ── Historial de cajas ── */}
       <div className="rounded-2xl bg-white border border-zinc-200 p-6
         shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
-        <p className="text-xs font-semibold text-violet-400 tracking-wide mb-4">
+        <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-4">
           HISTORIAL DE CAJAS
         </p>
         <div className="space-y-2">

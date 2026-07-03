@@ -7,7 +7,7 @@ const inputClass = `
   w-full rounded-xl px-4 py-3
   text-zinc-800 outline-none
   bg-zinc-50 border border-zinc-200
-  focus:border-violet-400 transition-colors
+  focus:border-[var(--brand-border)] transition-colors
   placeholder:text-zinc-400
 `
 
@@ -253,7 +253,7 @@ export default function InventarioPanel() {
               text-sm font-semibold border
               transition-all duration-200 active:scale-95
               ${view === v.key
-                ? 'bg-[#820AD1] text-white border-[#820AD1]'
+                ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
                 : 'bg-white text-zinc-500 border-zinc-200 hover:bg-zinc-50'
               }
             `}
@@ -271,7 +271,7 @@ export default function InventarioPanel() {
           {/* Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
-              { title: 'Productos',  value: stats.total, icon: <Package size={20} />,       accent: 'text-violet-600', bg: 'bg-violet-50 border-violet-200'  },
+              { title: 'Productos',  value: stats.total, icon: <Package size={20} />,       accent: 'text-[var(--brand-text)]', bg: 'bg-[var(--brand-light)] border-[var(--brand-border)]'  },
               { title: 'Stock bajo', value: stats.low,   icon: <AlertTriangle size={20} />, accent: 'text-yellow-600', bg: 'bg-yellow-50 border-yellow-200'  },
               { title: 'Agotados',   value: stats.empty, icon: <X size={20} />,             accent: 'text-red-500',    bg: 'bg-red-50 border-red-200'        },
             ].map(card => (
@@ -294,14 +294,14 @@ export default function InventarioPanel() {
           <div className="rounded-2xl bg-white border border-zinc-200 p-6
             shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
             <div className="flex items-center justify-between mb-4">
-              <p className="text-xs font-semibold text-violet-400 tracking-wide">
+              <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">
                 {items.length} PRODUCTOS
               </p>
               <button
                 onClick={() => { resetItemForm(); setShowItemModal(true) }}
                 className="
                   flex items-center gap-2 px-4 py-2 rounded-xl
-                  bg-[#820AD1] hover:bg-violet-700
+                  bg-[var(--brand)] hover:bg-[var(--brand-hover)]
                   text-white text-sm font-semibold
                   transition-all duration-200 active:scale-95
                 "
@@ -366,11 +366,11 @@ export default function InventarioPanel() {
                         </div>
                         <div className="flex flex-col gap-2 shrink-0">
                           <button onClick={() => openEditItem(item)}
-                            className="w-9 h-9 rounded-xl flex items-center justify-center bg-white border border-zinc-200 text-zinc-500 hover:text-violet-600 hover:border-violet-300 transition-colors">
+                            className="w-9 h-9 rounded-xl flex items-center justify-center bg-white border border-zinc-200 text-zinc-500 hover:text-[var(--brand-text)] hover:border-[var(--brand-border)] transition-colors">
                             <Pencil size={15} />
                           </button>
                           <button onClick={() => setMovementModal(item)}
-                            className="w-9 h-9 rounded-xl flex items-center justify-center bg-violet-50 border border-violet-200 text-violet-600 hover:bg-violet-100 transition-colors">
+                            className="w-9 h-9 rounded-xl flex items-center justify-center bg-[var(--brand-light)] border border-[var(--brand-border)] text-[var(--brand-text)] hover:bg-[var(--brand-light)] transition-colors">
                             <Plus size={15} />
                           </button>
                           <button onClick={() => deleteItem(item.id)}
@@ -396,14 +396,14 @@ export default function InventarioPanel() {
           shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
 
           <div className="flex items-center justify-between mb-4">
-            <p className="text-xs font-semibold text-violet-400 tracking-wide">
+            <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">
               {recipes.length} RECETAS
             </p>
             <button
               onClick={openNewRecipe}
               className="
                 flex items-center gap-2 px-4 py-2 rounded-xl
-                bg-[#820AD1] hover:bg-violet-700
+                bg-[var(--brand)] hover:bg-[var(--brand-hover)]
                 text-white text-sm font-semibold
                 transition-all duration-200 active:scale-95
               "
@@ -454,7 +454,7 @@ export default function InventarioPanel() {
                     <div className="flex gap-2 shrink-0">
                       <button
                         onClick={() => openEditRecipe(recipe)}
-                        className="w-9 h-9 rounded-xl flex items-center justify-center bg-white border border-zinc-200 text-zinc-500 hover:text-violet-600 hover:border-violet-300 transition-colors"
+                        className="w-9 h-9 rounded-xl flex items-center justify-center bg-white border border-zinc-200 text-zinc-500 hover:text-[var(--brand-text)] hover:border-[var(--brand-border)] transition-colors"
                       >
                         <Pencil size={15} />
                       </button>
@@ -514,7 +514,7 @@ export default function InventarioPanel() {
                 Cancelar
               </button>
               <button onClick={saveItem}
-                className="flex-1 py-3 rounded-2xl text-sm font-bold text-white bg-[#820AD1] hover:bg-violet-700 shadow-[0_4px_20px_rgba(130,10,209,0.25)] transition-all duration-200 active:scale-[0.98]">
+                className="flex-1 py-3 rounded-2xl text-sm font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] shadow-[0_4px_20px_var(--brand-shadow)] transition-all duration-200 active:scale-[0.98]">
                 Guardar
               </button>
             </div>
@@ -534,7 +534,7 @@ export default function InventarioPanel() {
                 Movimiento — {movementModal.name}
               </h2>
               <button onClick={() => setMovementModal(null)}
-                className="text-sm font-semibold text-violet-600 hover:text-violet-700 transition-colors">
+                className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors">
                 ✕ Cerrar
               </button>
             </div>
@@ -548,8 +548,8 @@ export default function InventarioPanel() {
                   <button key={opt.key} onClick={() => setMovement({ ...movement, type: opt.key })}
                     className={`py-2.5 rounded-xl text-sm font-semibold border transition-all duration-200
                       ${movement.type === opt.key
-                        ? 'bg-[#820AD1] text-white border-[#820AD1]'
-                        : 'bg-zinc-50 text-zinc-500 border-zinc-200 hover:border-violet-300'
+                        ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
+                        : 'bg-zinc-50 text-zinc-500 border-zinc-200 hover:border-[var(--brand-border)]'
                       }`}>
                     {opt.label}
                   </button>
@@ -568,7 +568,7 @@ export default function InventarioPanel() {
                 Cancelar
               </button>
               <button onClick={registerMovement}
-                className="flex-1 py-3 rounded-2xl text-sm font-bold text-white bg-[#820AD1] hover:bg-violet-700 shadow-[0_4px_20px_rgba(130,10,209,0.25)] transition-all duration-200 active:scale-[0.98]">
+                className="flex-1 py-3 rounded-2xl text-sm font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] shadow-[0_4px_20px_var(--brand-shadow)] transition-all duration-200 active:scale-[0.98]">
                 Registrar
               </button>
             </div>
@@ -608,9 +608,9 @@ export default function InventarioPanel() {
               )}
 
               {editingRecipe && (
-                <div className="rounded-xl bg-violet-50 border border-violet-200 px-4 py-3">
-                  <p className="text-xs text-violet-400 font-semibold tracking-wide">PRODUCTO</p>
-                  <p className="text-violet-700 font-bold">{editingRecipe.product?.name}</p>
+                <div className="rounded-xl bg-[var(--brand-light)] border border-[var(--brand-border)] px-4 py-3">
+                  <p className="text-xs text-[var(--brand-text)] font-semibold tracking-wide">PRODUCTO</p>
+                  <p className="text-[var(--brand-text)] font-bold">{editingRecipe.product?.name}</p>
                 </div>
               )}
 
@@ -662,7 +662,7 @@ export default function InventarioPanel() {
                   />
                   <button
                     onClick={addIngredientToForm}
-                    className="px-4 rounded-xl bg-[#820AD1] hover:bg-violet-700 text-white font-bold transition-all active:scale-95"
+                    className="px-4 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white font-bold transition-all active:scale-95"
                   >
                     <Plus size={18} />
                   </button>
@@ -679,7 +679,7 @@ export default function InventarioPanel() {
               <button
                 onClick={saveRecipe}
                 disabled={!recipeForm.product_id && !editingRecipe || recipeForm.ingredients.length === 0}
-                className="flex-1 py-3 rounded-2xl text-sm font-bold text-white bg-[#820AD1] hover:bg-violet-700 shadow-[0_4px_20px_rgba(130,10,209,0.25)] transition-all duration-200 active:scale-[0.98] disabled:opacity-50">
+                className="flex-1 py-3 rounded-2xl text-sm font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] shadow-[0_4px_20px_var(--brand-shadow)] transition-all duration-200 active:scale-[0.98] disabled:opacity-50">
                 Guardar receta
               </button>
             </div>

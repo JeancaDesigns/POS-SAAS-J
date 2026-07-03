@@ -8,7 +8,7 @@ const inputClass = `
   w-full rounded-xl px-4 py-3
   text-zinc-800 outline-none
   bg-zinc-50 border border-zinc-200
-  focus:border-violet-400 transition-colors
+  focus:border-[var(--brand-border)] transition-colors
   placeholder:text-zinc-400
 `
 
@@ -101,13 +101,13 @@ export default function UsuariosPanel() {
           shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
 
           <div className="flex justify-between items-center mb-4">
-            <p className="text-xs font-semibold text-violet-400 tracking-wide">
+            <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">
               {usuarios.length} USUARIOS
             </p>
             <button
               onClick={openNew}
               className="
-                bg-[#820AD1] hover:bg-violet-700
+                bg-[var(--brand)] hover:bg-[var(--brand-hover)]
                 text-white rounded-xl px-4 py-2
                 text-sm font-semibold
                 transition-all duration-200 active:scale-95
@@ -143,7 +143,7 @@ export default function UsuariosPanel() {
                   {u.roles.map(r => (
                     <span
                       key={r}
-                      className="text-xs bg-violet-50 text-violet-700 border border-violet-200 rounded-full px-2 py-0.5 capitalize"
+                      className="text-xs bg-[var(--brand-light)] text-[var(--brand-text)] border border-[var(--brand-border)] rounded-full px-2 py-0.5 capitalize"
                     >
                       {r}
                     </span>
@@ -191,7 +191,7 @@ export default function UsuariosPanel() {
           <div className="flex items-center gap-3 mb-6">
             <button
               onClick={() => setShowForm(false)}
-              className="text-sm font-semibold text-violet-600 hover:text-violet-700 transition-colors"
+              className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
             >
               ← Volver
             </button>
@@ -248,8 +248,8 @@ export default function UsuariosPanel() {
                       px-4 py-2 rounded-full text-sm font-semibold capitalize
                       border transition-all duration-200
                       ${form.roles.includes(role)
-                        ? 'bg-[#820AD1] text-white border-[#820AD1]'
-                        : 'bg-white text-zinc-500 border-zinc-200 hover:border-violet-300'
+                        ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
+                        : 'bg-white text-zinc-500 border-zinc-200 hover:border-[var(--brand-border)]'
                       }
                     `}
                   >
@@ -265,9 +265,9 @@ export default function UsuariosPanel() {
               onClick={handleSave}
               disabled={saving}
               className="
-                bg-[#820AD1] hover:bg-violet-700
+                bg-[var(--brand)] hover:bg-[var(--brand-hover)]
                 text-white font-bold rounded-2xl py-4
-                shadow-[0_4px_20px_rgba(130,10,209,0.25)]
+                shadow-[0_4px_20px_var(--brand-shadow)]
                 transition-all duration-200 active:scale-[0.98] disabled:opacity-50
               "
             >

@@ -511,7 +511,7 @@ export default function CocinaHome() {
       <div className="
         fixed top-0 left-0 right-0 z-50
         sm:left-[92px]
-        bg-[#820AD1] px-4 pt-6 pb-4 shadow-md
+        bg-[var(--brand)] px-4 pt-6 pb-4 shadow-md
       ">
         <div className="flex items-center justify-between">
           <div className="w-10" />

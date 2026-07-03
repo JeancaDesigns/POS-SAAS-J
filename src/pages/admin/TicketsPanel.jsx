@@ -113,7 +113,7 @@ export default function TicketsPanel() {
                 >
                   <div className="flex items-center gap-3">
                     {isExpanded
-                      ? <ChevronDown size={18} className="text-violet-500" />
+                      ? <ChevronDown size={18} className="text-[var(--brand-text)]" />
                       : <ChevronRight size={18} className="text-zinc-400" />
                     }
                     <span className="font-bold text-zinc-900 capitalize">
@@ -123,7 +123,7 @@ export default function TicketsPanel() {
                       {monthOrders.length} pedido{monthOrders.length !== 1 ? 's' : ''}
                     </span>
                   </div>
-                  <span className="font-black text-violet-600">
+                  <span className="font-black text-[var(--brand-text)]">
                     ${monthTotal.toLocaleString('es-CO')}
                   </span>
                 </button>
@@ -143,7 +143,7 @@ export default function TicketsPanel() {
                             className="flex-1 text-left"
                           >
                             <div className="flex items-center gap-3">
-                              <Receipt size={16} className="text-violet-400 shrink-0" />
+                              <Receipt size={16} className="text-[var(--brand-text)] shrink-0" />
                               <div>
                                 <div className="flex items-center gap-2">
                                   <p className="font-semibold text-zinc-900 text-sm">
@@ -168,7 +168,7 @@ export default function TicketsPanel() {
                           </button>
 
                           <div className="flex items-center gap-3 ml-4">
-                            <span className="font-bold text-violet-600 text-sm">
+                            <span className="font-bold text-[var(--brand-text)] text-sm">
                               ${total.toLocaleString('es-CO')}
                             </span>
                             <button
@@ -215,9 +215,9 @@ export default function TicketsPanel() {
                 className="
                   px-4 py-2 rounded-2xl
                   text-sm font-semibold
-                  text-violet-600 hover:text-violet-700
-                  bg-violet-50 hover:bg-violet-100
-                  border border-violet-200
+                  text-[var(--brand-text)] hover:text-[var(--brand-text)]
+                  bg-[var(--brand-light)] hover:bg-[var(--brand-light)]
+                  border border-[var(--brand-border)]
                   transition-colors
                 "
               >
@@ -229,8 +229,8 @@ export default function TicketsPanel() {
                   flex items-center gap-2
                   px-4 py-2 rounded-2xl
                   font-bold text-white text-sm
-                  bg-[#820AD1] hover:bg-violet-700
-                  shadow-[0_4px_20px_rgba(130,10,209,0.25)]
+                  bg-[var(--brand)] hover:bg-[var(--brand-hover)]
+                  shadow-[0_4px_20px_var(--brand-shadow)]
                   transition-all active:scale-95
                 "
               >

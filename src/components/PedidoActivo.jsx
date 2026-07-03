@@ -183,7 +183,7 @@ export default function PedidoActivo({ table, onClose }) {
         <div className="flex items-center justify-between px-4 pt-6 pb-3 border-b border-zinc-100">
           <button
             onClick={onClose}
-            className="text-sm font-semibold text-violet-600 hover:text-violet-700 transition-colors cursor-pointer"
+            className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors cursor-pointer"
           >
             ← Volver
           </button>
@@ -195,7 +195,7 @@ export default function PedidoActivo({ table, onClose }) {
           <div className="flex flex-col items-end gap-1">
             <button
               onClick={cargarMesas}
-              className="text-sm font-semibold cursor-pointer text-violet-600 hover:text-violet-700 transition-colors"
+              className="text-sm font-semibold cursor-pointer text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
             >
               Mover
             </button>
@@ -211,11 +211,11 @@ export default function PedidoActivo({ table, onClose }) {
 
         {/* Info domicilio */}
         {table.is_delivery && order?.customer_name && (
-          <div className="mx-4 mt-3 rounded-2xl px-4 py-3 bg-violet-50 border border-violet-200">
-            <p className="text-xs font-semibold mb-1 text-violet-400 tracking-wide">CLIENTE</p>
+          <div className="mx-4 mt-3 rounded-2xl px-4 py-3 bg-[var(--brand-light)] border border-[var(--brand-border)]">
+            <p className="text-xs font-semibold mb-1 text-[var(--brand-text)] tracking-wide">CLIENTE</p>
             <p className="text-zinc-900 font-semibold">{order.customer_name}</p>
             {order.customer_phone && (
-              <p className="text-sm text-violet-600">{order.customer_phone}</p>
+              <p className="text-sm text-[var(--brand-text)]">{order.customer_phone}</p>
             )}
             <button
               onClick={toggleDeliveryType}
@@ -223,7 +223,7 @@ export default function PedidoActivo({ table, onClose }) {
                 mt-2 w-full py-1.5 rounded-xl cursor-pointer text-sm font-semibold
                 border transition-all duration-200
                 ${order.delivery_type === 'delivery'
-                  ? 'bg-violet-100 text-violet-700 border-violet-300 hover:bg-violet-200'
+                  ? 'bg-[var(--brand-light)] text-[var(--brand-text)] border-[var(--brand-border)] hover:bg-violet-200'
                   : 'bg-zinc-50 text-zinc-400 border-zinc-200 hover:bg-zinc-100'
                 }
               `}
@@ -240,7 +240,7 @@ export default function PedidoActivo({ table, onClose }) {
           <>
             {/* Lista pedido activo */}
             <div className="flex-1 overflow-y-auto px-4 py-3">
-              <p className="text-xs font-semibold mb-3 text-violet-400 tracking-wide">
+              <p className="text-xs font-semibold mb-3 text-[var(--brand-text)] tracking-wide">
                 PEDIDO ACTIVO
               </p>
 
@@ -253,7 +253,7 @@ export default function PedidoActivo({ table, onClose }) {
                     <div className="flex items-center justify-between">
                       <p className="text-zinc-900 font-semibold">{item.product.name}</p>
                       {item.variant && (
-                        <p className="text-xs font-semibold text-violet-500">→ {item.variant}</p>
+                        <p className="text-xs font-semibold text-[var(--brand-text)]">→ {item.variant}</p>
                       )}
                       <div className="flex items-center gap-3">
                         <button
@@ -276,9 +276,9 @@ export default function PedidoActivo({ table, onClose }) {
                           className="
                             w-8 h-8 rounded-full cursor-pointer
                             flex items-center justify-center
-                            font-bold text-violet-600
-                            bg-violet-50 border border-violet-200
-                            hover:bg-violet-100 transition-colors
+                            font-bold text-[var(--brand-text)]
+                            bg-[var(--brand-light)] border border-[var(--brand-border)]
+                            hover:bg-[var(--brand-light)] transition-colors
                           "
                         >
                           +
@@ -287,7 +287,7 @@ export default function PedidoActivo({ table, onClose }) {
                     </div>
 
                     <div className="flex justify-between items-center mt-1">
-                      <span className="text-sm font-bold text-violet-600">
+                      <span className="text-sm font-bold text-[var(--brand-text)]">
                         ${(item.product.price * item.quantity).toLocaleString('es-CO')}
                       </span>
                       {editingNote === item.id ? (
@@ -299,15 +299,15 @@ export default function PedidoActivo({ table, onClose }) {
                           onKeyDown={e => e.key === 'Enter' && saveNote(item.id, e.target.value)}
                           className="
                             rounded-xl px-3 py-1 text-zinc-800 text-xs outline-none w-40
-                            bg-white border border-violet-300
-                            focus:border-violet-500 transition-colors
+                            bg-white border border-[var(--brand-border)]
+                            focus:border-[var(--brand)] transition-colors
                           "
                         />
                       ) : (
                         <button
                           onClick={() => setEditingNote(item.id)}
                           className={`text-xs cursor-pointer transition-colors ${
-                            item.note ? 'text-violet-500' : 'text-zinc-300 hover:text-zinc-400'
+                            item.note ? 'text-[var(--brand-text)]' : 'text-zinc-300 hover:text-zinc-400'
                           }`}
                         >
                           {item.note ? `📝 ${item.note}` : '+ Nota'}
@@ -332,8 +332,8 @@ export default function PedidoActivo({ table, onClose }) {
                 className="
                   w-full cursor-pointer text-white font-bold
                   rounded-2xl py-4
-                  bg-[#820AD1] hover:bg-violet-700
-                  shadow-[0_4px_20px_rgba(130,10,209,0.25)]
+                  bg-[var(--brand)] hover:bg-[var(--brand-hover)]
+                  shadow-[0_4px_20px_var(--brand-shadow)
                   transition-all duration-200
                   active:scale-[0.98]
                 "
@@ -355,8 +355,8 @@ export default function PedidoActivo({ table, onClose }) {
                     text-sm font-semibold whitespace-nowrap
                     border transition-all duration-200
                     ${displayCategory === cat.id
-                      ? 'bg-[#820AD1] text-white border-[#820AD1]'
-                      : 'bg-white text-zinc-400 border-zinc-200 hover:border-violet-300 hover:text-violet-600'
+                      ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
+                      : 'bg-white text-zinc-400 border-zinc-200 hover:border-[var(--brand-border)] hover:text-[var(--brand-text)]'
                     }
                   `}
                 >
@@ -380,7 +380,7 @@ export default function PedidoActivo({ table, onClose }) {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-zinc-900 font-semibold">{product.name}</p>
-                          <p className="text-sm font-bold mt-0.5 text-violet-600">
+                          <p className="text-sm font-bold mt-0.5 text-[var(--brand-text)]">
                             ${product.price.toLocaleString('es-CO')}
                           </p>
                         </div>
@@ -408,7 +408,7 @@ export default function PedidoActivo({ table, onClose }) {
                               w-8 h-8 rounded-full cursor-pointer
                               flex items-center justify-center
                               font-bold text-white
-                              bg-[#820AD1] hover:bg-violet-700
+                              bg-[var(--brand)] hover:bg-[var(--brand-hover)]
                               transition-colors
                             "
                           >
@@ -430,15 +430,15 @@ export default function PedidoActivo({ table, onClose }) {
                               className="
                                 w-full rounded-xl px-3 py-1.5
                                 text-zinc-800 text-sm outline-none
-                                bg-white border border-violet-300
-                                focus:border-violet-500 transition-colors
+                                bg-white border border-[var(--brand-border)]
+                                focus:border-[var(--brand)] transition-colors
                               "
                             />
                           ) : (
                             <button
                               onClick={() => setNoteTarget(product.id)}
                               className={`text-xs cursor-pointer transition-colors ${
-                                item?.note ? 'text-violet-500' : 'text-zinc-300 hover:text-zinc-400'
+                                item?.note ? 'text-[var(--brand-text)]' : 'text-zinc-300 hover:text-zinc-400'
                               }`}
                             >
                               {item?.note ? `📝 ${item.note}` : '+ Agregar nota'}
@@ -459,12 +459,12 @@ export default function PedidoActivo({ table, onClose }) {
                   <span className="text-zinc-400 text-sm">
                     {newItems.reduce((s, i) => s + i.quantity, 0)} ítems nuevos
                   </span>
-                  <span className="font-bold text-violet-600">
+                  <span className="font-bold text-[var(--brand-text)]">
                     +${newTotal.toLocaleString('es-CO')}
                   </span>
                 </div>
                 <div className="mb-3">
-                  <p className="text-xs mb-1 text-violet-400 font-medium">
+                  <p className="text-xs mb-1 text-[var(--brand-text)] font-medium">
                     ¿Programar entrega? (opcional)
                   </p>
                   <input
@@ -475,7 +475,7 @@ export default function PedidoActivo({ table, onClose }) {
                       w-full rounded-xl px-4 py-2
                       text-zinc-800 text-sm outline-none
                       bg-zinc-50 border border-zinc-200
-                      focus:border-violet-400 transition-colors
+                      focus:border-[var(--brand-border)] transition-colors
                     "
                   />
                 </div>
@@ -485,8 +485,8 @@ export default function PedidoActivo({ table, onClose }) {
                   className="
                     w-full cursor-pointer text-white font-bold
                     rounded-2xl py-4
-                    bg-[#820AD1] hover:bg-violet-700
-                    shadow-[0_4px_20px_rgba(130,10,209,0.25)]
+                    bg-[var(--brand)] hover:bg-[var(--brand-hover)]
+                    shadow-[0_4px_20px_var(--brand-shadow)
                     transition-all duration-200
                     active:scale-[0.98]
                     disabled:opacity-50
@@ -519,7 +519,7 @@ export default function PedidoActivo({ table, onClose }) {
             <div className="flex items-center justify-between mb-4">
               <button
                 onClick={() => setShowMoverMesa(false)}
-                className="text-sm cursor-pointer font-semibold text-violet-600 hover:text-violet-700 transition-colors"
+                className="text-sm cursor-pointer font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
               >
                 ✕ Cerrar
               </button>
@@ -538,8 +538,8 @@ export default function PedidoActivo({ table, onClose }) {
                     text-sm font-semibold whitespace-nowrap
                     border transition-all duration-200
                     ${zonaSeleccionada === zona.id
-                      ? 'bg-[#820AD1] text-white border-[#820AD1]'
-                      : 'bg-white text-zinc-400 border-zinc-200 hover:border-violet-300 hover:text-violet-600'
+                      ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
+                      : 'bg-white text-zinc-400 border-zinc-200 hover:border-[var(--brand-border)] hover:text-[var(--brand-text)]'
                     }
                   `}
                 >
@@ -564,9 +564,9 @@ export default function PedidoActivo({ table, onClose }) {
                       disabled={moviendoMesa}
                       className="
                         py-4 rounded-2xl cursor-pointer
-                        font-bold text-violet-700
-                        bg-violet-50 border border-violet-200
-                        hover:bg-violet-100 hover:border-violet-400
+                        font-bold text-[var(--brand-text)]
+                        bg-[var(--brand-light)] border border-[var(--brand-border)]
+                        hover:bg-[var(--brand-light)] hover:border-[var(--brand-border)]
                         transition-all duration-200
                         active:scale-95 disabled:opacity-50
                       "
@@ -598,7 +598,7 @@ export default function PedidoActivo({ table, onClose }) {
             <div className="flex items-center justify-between mb-6">
               <button
                 onClick={() => setVariantModal(null)}
-                className="text-sm font-semibold text-violet-600 hover:text-violet-700 transition-colors"
+                className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
               >
                 ✕ Cancelar
               </button>
@@ -622,9 +622,9 @@ export default function PedidoActivo({ table, onClose }) {
                   }}
                   className="
                     w-full py-4 rounded-2xl
-                    font-bold text-violet-700
-                    bg-violet-50 border border-violet-200
-                    hover:bg-violet-100 hover:border-violet-400
+                    font-bold text-[var(--brand-text)]
+                    bg-[var(--brand-light)] border border-[var(--brand-border)]
+                    hover:bg-[var(--brand-light)] hover:border-[var(--brand-border)]
                     transition-all duration-200
                     active:scale-95
                   "

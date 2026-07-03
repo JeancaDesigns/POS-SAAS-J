@@ -187,7 +187,7 @@ export default function DevPanel({ onClose }) {
     w-full rounded-xl px-4 py-3
     text-zinc-800 outline-none
     bg-zinc-50 border border-zinc-200
-    focus:border-violet-400 transition-colors
+    focus:border-[var(--brand-border)] transition-colors
     placeholder:text-zinc-400 text-sm
   `
 
@@ -205,7 +205,7 @@ export default function DevPanel({ onClose }) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 bg-zinc-900">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-violet-500 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-[var(--brand-light)]0 flex items-center justify-center">
               <span className="text-white text-xs font-black">DEV</span>
             </div>
             <div>
@@ -449,7 +449,7 @@ export default function DevPanel({ onClose }) {
                       </p>
                       <p className="text-xs text-zinc-400">
                         {new Date(order.started_at).toLocaleString('es-CO')} ·{' '}
-                        <span className="font-semibold text-violet-600">{order.status}</span>
+                        <span className="font-semibold text-[var(--brand-text)]">{order.status}</span>
                       </p>
                     </div>
                   </div>

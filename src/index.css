@@ -1,1 +1,32 @@
 @import "tailwindcss";
+
+/* ── Temas de color ─────────────────────────────────────────── */
+[data-theme="purple"] {
+  --brand:          #820AD1;
+  --brand-hover:    #7c3aed;
+  --brand-light:    #f5f3ff;
+  --brand-border:   #e9d5ff;
+  --brand-text:     #7c3aed;
+  --brand-soft:     rgba(130,10,209,0.25);
+  --brand-shadow:   rgba(130,10,209,0.25);
+}
+
+[data-theme="orange"] {
+  --brand:          #EA580C;
+  --brand-hover:    #c2410c;
+  --brand-light:    #fff7ed;
+  --brand-border:   #fed7aa;
+  --brand-text:     #c2410c;
+  --brand-soft:     rgba(234,88,12,0.25);
+  --brand-shadow:   rgba(234,88,12,0.25);
+}
+
+[data-theme="blue"] {
+  --brand:          #2563EB;
+  --brand-hover:    #1d4ed8;
+  --brand-light:    #eff6ff;
+  --brand-border:   #bfdbfe;
+  --brand-text:     #1d4ed8;
+  --brand-soft:     rgba(37,99,235,0.25);
+  --brand-shadow:   rgba(37,99,235,0.25);
+}

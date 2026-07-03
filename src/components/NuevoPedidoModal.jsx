@@ -50,7 +50,7 @@ export default function NuevoPedidoModal({
 
           <button
             onClick={step === 'mesa' ? () => setStep('zona') : onClose}
-            className="text-sm font-semibold text-violet-600 hover:text-violet-700 transition-colors"
+            className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
           >
             {step === 'mesa' ? '← Volver' : '✕ Cerrar'}
           </button>
@@ -79,7 +79,7 @@ export default function NuevoPedidoModal({
                   text-left font-semibold text-zinc-800
                   bg-zinc-50
                   border border-zinc-200
-                  hover:border-violet-400 hover:bg-violet-50/50
+                  hover:border-[var(--brand-border)] hover:bg-[var(--brand-light)]/50
                   transition-all duration-200
                   active:scale-[0.98]
                 "
@@ -108,10 +108,10 @@ export default function NuevoPedidoModal({
                   className="
                     py-4
                     rounded-2xl
-                    font-bold text-violet-700
-                    bg-violet-50
-                    border border-violet-200
-                    hover:bg-violet-100 hover:border-violet-400
+                    font-bold text-[var(--brand-text)]
+                    bg-[var(--brand-light)]
+                    border border-[var(--brand-border)]
+                    hover:bg-[var(--brand-light)] hover:border-[var(--brand-border)]
                     transition-all duration-200
                     active:scale-95
                   "

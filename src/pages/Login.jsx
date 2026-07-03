@@ -68,16 +68,22 @@ export default function Login() {
     // ──────────────────────────────────────────────────────────
 
     // Después de verificar que el usuario pertenece al restaurante
+    // Después de verificar que el usuario pertenece al restaurante
     const { data: restaurantData } = await supabase
       .from('restaurants')
-      .select('slug, modules')
+      .select('slug, modules, theme')
       .eq('slug', slug)
       .single()
+
+    // Aplicar tema
+    const theme = restaurantData?.theme || 'purple'
+    document.documentElement.setAttribute('data-theme', theme)
 
     setUser(profile)
     useAuthStore.setState({
       slug,
-      modules: restaurantData?.modules || []
+      modules: restaurantData?.modules || [],
+      theme,
     })
 
     if (profile.roles.includes('cocina')) navigate(`/${slug}/cocina`)
@@ -97,7 +103,7 @@ export default function Login() {
         <div
           className="absolute -top-32 -left-32 w-96 h-96 rounded-full opacity-20"
           style={{
-            background: 'radial-gradient(circle, #820AD1, transparent)',
+            background: 'radial-gradient(circle, var(--brand), transparent)',
             animation: 'floatpulse 4s ease-in-out infinite',
           }}
         />
@@ -134,7 +140,7 @@ export default function Login() {
               flex flex-col items-center justify-between
               sm:w-120 w-80 rounded-2xl overflow-hidden
               py-3 px-4
-              bg-white/10 border border-violet-400/30
+              bg-white/10 border border-[var(--brand-border)]/30
             " style={{ minHeight: '120px' }}>
               <img
                 src="/BP-Logo-R.png"
@@ -143,7 +149,7 @@ export default function Login() {
                 style={{ maxHeight: '140px' }}
               />
               <div className="flex flex-col items-center gap-1.5 -mt-9">
-                <span className="text-xs text-violet-400/40">×</span>
+                <span className="text-xs text-[var(--brand-text)]/40">×</span>
                 <img
                   src="/logotipo.svg"
                   alt="Jeanca Dev"
@@ -158,17 +164,17 @@ export default function Login() {
         <div className="
           w-full max-w-sm
           rounded-[2.5rem]
-          p-8 lg:p-10 pb-2
+          p-8 lg:p-10 pb-6 mb-8
           shadow-2xl
           bg-white/[0.04] backdrop-blur-[40px]
-          border border-violet-400/15
+          border border-[var(--brand-border)]/15
         ">
 
           <div className="mb-8">
             <h2 className="text-white text-2xl font-bold tracking-tight">
               Bienvenido
             </h2>
-            <p className="text-violet-300/60 text-sm mt-1">
+            <p className="text-white text-sm mt-1">
               Ingresa tus credenciales
             </p>
           </div>
@@ -177,7 +183,7 @@ export default function Login() {
 
             {/* Email */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-violet-300/50 uppercase tracking-wider ml-1">
+              <label className="text-xs font-semibold text-white uppercase tracking-wider ml-1">
                 Correo electrónico
               </label>
               <input
@@ -186,10 +192,10 @@ export default function Login() {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 className="
-                  w-full rounded-2xl px-5 py-4
+                  w-full rounded-2xl px-5 py-4 mt-2
                   text-white outline-none
                   bg-white/5 border border-white/10
-                  focus:border-violet-500 focus:bg-white/10
+                  focus:border-[var(--brand)] focus:bg-white/10
                   transition-all duration-300
                   placeholder:text-white/20
                 "
@@ -198,7 +204,7 @@ export default function Login() {
 
             {/* Password */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-violet-300/50 uppercase tracking-wider ml-1">
+              <label className="text-xs font-semibold text-white uppercase tracking-wider ml-1">
                 Contraseña
               </label>
               <input
@@ -208,10 +214,10 @@ export default function Login() {
                 onChange={e => setPassword(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleLogin()}
                 className="
-                  w-full rounded-2xl px-5 py-4
+                  w-full rounded-2xl px-5 py-4 mt-2
                   text-white outline-none
                   bg-white/5 border border-white/10
-                  focus:border-violet-500 focus:bg-white/10
+                  focus:border-[var(--brand)] focus:bg-white/10
                   transition-all duration-300
                   placeholder:text-white/20
                 "
@@ -233,7 +239,7 @@ export default function Login() {
                 w-full mt-4
                 text-white font-bold
                 rounded-2xl py-4
-                bg-[#820AD1] hover:bg-violet-700
+                bg-[var(--brand)] hover:bg-[var(--brand-hover)]
                 shadow-[0_10px_25px_-5px_rgba(130,10,209,0.5)]
                 hover:shadow-[0_10px_25px_-5px_rgba(130,10,209,0.7)]
                 transition-all duration-300
@@ -248,7 +254,7 @@ export default function Login() {
       </div>
 
       {/* Footer */}
-      <p className="absolute bottom-8 text-violet-300/20 text-xs tracking-widest uppercase font-bold">
+      <p className="absolute bottom-6 text-white text-xs tracking-widest uppercase font-bold">
         Designed by Jeanca
       </p>
 

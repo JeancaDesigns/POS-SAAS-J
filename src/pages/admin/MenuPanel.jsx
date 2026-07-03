@@ -8,7 +8,7 @@ const inputClass = `
   w-full rounded-xl px-4 py-3
   text-zinc-800 outline-none
   bg-zinc-50 border border-zinc-200
-  focus:border-violet-400 transition-colors
+  focus:border-[var(--brand-border)] transition-colors
   placeholder:text-zinc-400
 `
 
@@ -128,7 +128,7 @@ export default function MenuPanel() {
               text-sm font-semibold
               border transition-all duration-200 active:scale-95
               ${view === v.key
-                ? 'bg-[#820AD1] text-white border-[#820AD1]'
+                ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
                 : 'bg-white text-zinc-500 border-zinc-200 hover:bg-zinc-50'
               }
             `}
@@ -144,13 +144,13 @@ export default function MenuPanel() {
           shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
 
           <div className="flex justify-between items-center mb-4">
-            <p className="text-xs font-semibold text-violet-400 tracking-wide">
+            <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">
               {categories.length} CATEGORÍAS
             </p>
             <button
               onClick={openNewCat}
               className="
-                bg-[#820AD1] hover:bg-violet-700
+                bg-[var(--brand)] hover:bg-[var(--brand-hover)]
                 text-white rounded-xl px-4 py-2
                 text-sm font-semibold
                 transition-all duration-200 active:scale-95
@@ -214,7 +214,7 @@ export default function MenuPanel() {
           <div className="flex items-center gap-3 mb-6">
             <button
               onClick={() => setShowForm(false)}
-              className="text-sm font-semibold text-violet-600 hover:text-violet-700 transition-colors"
+              className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
             >
               ← Volver
             </button>
@@ -241,8 +241,8 @@ export default function MenuPanel() {
                     className={`
                       text-2xl p-2 rounded-xl border transition-all duration-200
                       ${catForm.icon === icon
-                        ? 'bg-violet-50 border-violet-300'
-                        : 'bg-zinc-50 border-zinc-200 hover:border-violet-200'
+                        ? 'bg-[var(--brand-light)] border-[var(--brand-border)]'
+                        : 'bg-zinc-50 border-zinc-200 hover:border-[var(--brand-border)]'
                       }
                     `}
                   >
@@ -256,9 +256,9 @@ export default function MenuPanel() {
               onClick={saveCat}
               disabled={saving}
               className="
-                bg-[#820AD1] hover:bg-violet-700
+                bg-[var(--brand)] hover:bg-[var(--brand-hover)]
                 text-white font-bold rounded-2xl py-4
-                shadow-[0_4px_20px_rgba(130,10,209,0.25)]
+                shadow-[0_4px_20px_var(--brand-shadow)]
                 transition-all duration-200 active:scale-[0.98] disabled:opacity-50
               "
             >
@@ -274,13 +274,13 @@ export default function MenuPanel() {
           shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
 
           <div className="flex justify-between items-center mb-4">
-            <p className="text-xs font-semibold text-violet-400 tracking-wide">
+            <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">
               {products.length} PRODUCTOS
             </p>
             <button
               onClick={openNewProd}
               className="
-                bg-[#820AD1] hover:bg-violet-700
+                bg-[var(--brand)] hover:bg-[var(--brand-hover)]
                 text-white rounded-xl px-4 py-2
                 text-sm font-semibold
                 transition-all duration-200 active:scale-95
@@ -316,13 +316,13 @@ export default function MenuPanel() {
                         </span>
                       )}
                       {prod.variants?.length > 0 && (
-                        <span className="text-xs bg-violet-50 text-violet-600 border border-violet-200 rounded-full px-2 py-0.5">
+                        <span className="text-xs bg-[var(--brand-light)] text-[var(--brand-text)] border border-[var(--brand-border)] rounded-full px-2 py-0.5">
                           {prod.variants.length} variante{prod.variants.length !== 1 ? 's' : ''}
                         </span>
                       )}
                     </div>
                   </div>
-                  <span className="text-violet-600 font-bold">
+                  <span className="text-[var(--brand-text)] font-bold">
                     ${prod.price.toLocaleString('es-CO')}
                   </span>
                 </div>
@@ -378,7 +378,7 @@ export default function MenuPanel() {
           <div className="flex items-center gap-3 mb-6">
             <button
               onClick={() => setShowForm(false)}
-              className="text-sm font-semibold text-violet-600 hover:text-violet-700 transition-colors"
+              className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
             >
               ← Volver
             </button>
@@ -422,8 +422,8 @@ export default function MenuPanel() {
                       px-4 py-2 rounded-full text-sm font-semibold
                       border transition-all duration-200
                       ${prodForm.category_id === cat.id
-                        ? 'bg-[#820AD1] text-white border-[#820AD1]'
-                        : 'bg-white text-zinc-500 border-zinc-200 hover:border-violet-300'
+                        ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
+                        : 'bg-white text-zinc-500 border-zinc-200 hover:border-[var(--brand-border)]'
                       }
                     `}
                   >
@@ -442,7 +442,7 @@ export default function MenuPanel() {
               <button
                 onClick={() => setProdForm(p => ({ ...p, local_only: !p.local_only }))}
                 className="w-12 h-6 rounded-full transition-colors relative flex-shrink-0"
-                style={{ background: prodForm.local_only ? '#820AD1' : '#E4E4E7' }}
+                style={{ background: prodForm.local_only ? 'var(--brand)' : '#E4E4E7' }}
               >
                 <div className={`
                   absolute top-0.5 w-5 h-5 bg-white rounded-full
@@ -463,9 +463,9 @@ export default function MenuPanel() {
                   {prodForm.variants.map((v, i) => (
                     <div
                       key={i}
-                      className="flex items-center gap-1 bg-violet-50 border border-violet-200 rounded-full px-3 py-1"
+                      className="flex items-center gap-1 bg-[var(--brand-light)] border border-[var(--brand-border)] rounded-full px-3 py-1"
                     >
-                      <span className="text-violet-700 text-sm">{v}</span>
+                      <span className="text-[var(--brand-text)] text-sm">{v}</span>
                       <button
                         onClick={() => setProdForm(p => ({
                           ...p, variants: p.variants.filter((_, idx) => idx !== i)
@@ -497,7 +497,7 @@ export default function MenuPanel() {
                     flex-1 rounded-xl px-4 py-2.5
                     text-zinc-800 outline-none text-sm
                     bg-zinc-50 border border-zinc-200
-                    focus:border-violet-400 transition-colors
+                    focus:border-[var(--brand-border)] transition-colors
                     placeholder:text-zinc-400
                   "
                 />
@@ -512,7 +512,7 @@ export default function MenuPanel() {
                     }
                   }}
                   className="
-                    bg-[#820AD1] hover:bg-violet-700
+                    bg-[var(--brand)] hover:bg-[var(--brand-hover)]
                     text-white rounded-xl px-4 py-2.5
                     text-sm font-semibold
                     transition-all active:scale-95
@@ -529,9 +529,9 @@ export default function MenuPanel() {
               onClick={saveProd}
               disabled={saving}
               className="
-                bg-[#820AD1] hover:bg-violet-700
+                bg-[var(--brand)] hover:bg-[var(--brand-hover)]
                 text-white font-bold rounded-2xl py-4
-                shadow-[0_4px_20px_rgba(130,10,209,0.25)]
+                shadow-[0_4px_20px_var(--brand-shadow)]
                 transition-all duration-200 active:scale-[0.98] disabled:opacity-50
               "
             >

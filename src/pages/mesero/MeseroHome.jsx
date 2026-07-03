@@ -11,7 +11,7 @@ function MesaSVG({ status, number, isDelivery }) {
       border: '#D4D4D8',
       chair: '#E4E4E7',
       number: '#18181B',
-      detail: '#820AD1',
+      detail: 'var(--brand)',
     },
 
     occupied: {
@@ -247,7 +247,7 @@ export default function MeseroHome() {
 
       default:
         return {
-          bg: 'bg-violet-50/50',
+          bg: 'bg-[var(--brand-light)]/50',
           border: 'border-violet-100',
           shadow: 'hover:shadow-violet-100/80',
         }
@@ -261,7 +261,7 @@ export default function MeseroHome() {
       <div className="flex flex-col gap-3">
 
         {/* Identidad (SOLO ESTO en morado) */}
-        <div className="fixed top-0 left-0 right-0 z-50 bg-[#820AD1] px-4 pt-6 pb-4 text-center shadow-md sm:left-[92px]">
+        <div className="fixed top-0 left-0 right-0 z-50 bg-[var(--brand)] px-4 pt-6 pb-4 text-center shadow-md sm:left-[92px]">
           <h1 className="text-2xl font-semibold tracking-tight text-white">
             Mesas
           </h1>
@@ -315,9 +315,9 @@ export default function MeseroHome() {
 
               ${active
                       ? `
-                    bg-[#820AD1]
+                    bg-[var(--brand)]
                     text-white
-                    border-[#820AD1]
+                    border-[var(--brand)]
                   `
                       : `
                     bg-white
@@ -468,13 +468,13 @@ export default function MeseroHome() {
     rounded-2xl
 
     bg-violet-600
-    hover:bg-violet-700
+    hover:bg-[var(--brand-hover)]
 
     text-white text-2xl font-medium
 
     border border-violet-500
 
-    shadow-[0_10px_30px_rgba(130,10,209,0.25)]
+    shadow-[0_10px_30px_var(--brand-shadow)]
 
     transition-all duration-300
 

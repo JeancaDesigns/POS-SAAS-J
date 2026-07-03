@@ -11,6 +11,7 @@ export default function ConfigPanel() {
     opening_time: '',
     closing_time: '',
     delivery_fee: '1000',
+    theme: 'purple',
   })
 
   useEffect(() => {
@@ -25,6 +26,7 @@ export default function ConfigPanel() {
         opening_time: data.opening_time || '',
         closing_time: data.closing_time || '',
         delivery_fee: String(data.delivery_fee || 1000),
+        theme: data.theme || 'purple',
       })
     }
     fetch()
@@ -39,8 +41,13 @@ export default function ConfigPanel() {
         opening_time: form.opening_time || null,
         closing_time: form.closing_time || null,
         delivery_fee: parseInt(form.delivery_fee) || 1000,
+        theme: form.theme,
       })
       .eq('id', user.restaurant_id)
+
+    document.documentElement.setAttribute('data-theme', form.theme)
+    useAuthStore.setState({ theme: form.theme })
+
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
@@ -50,7 +57,7 @@ export default function ConfigPanel() {
     w-full rounded-xl px-4 py-3
     text-zinc-800 outline-none
     bg-zinc-50 border border-zinc-200
-    focus:border-violet-400 transition-colors
+    focus:border-[var(--brand-border)] transition-colors
     placeholder:text-zinc-400
   `
 
@@ -58,7 +65,7 @@ export default function ConfigPanel() {
     <div className="rounded-2xl bg-white border border-zinc-200 p-6
       shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
 
-      <p className="text-xs text-center font-semibold text-violet-400 tracking-wide mb-5">
+      <p className="text-xs text-center font-semibold text-[var(--brand-text)] tracking-wide mb-5">
         CONFIGURACIÓN GENERAL
       </p>
 
@@ -105,6 +112,37 @@ export default function ConfigPanel() {
           />
         </div>
 
+        <div>
+          <p className="text-sm text-zinc-500 mb-3">Tema de color</p>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { key: 'purple', label: 'Morado', color: '#820AD1' },
+              { key: 'orange', label: 'Naranja', color: '#EA580C' },
+              { key: 'blue', label: 'Azul', color: '#2563EB' },
+            ].map(t => (
+              <button
+                key={t.key}
+                onClick={() => setForm(p => ({ ...p, theme: t.key }))}
+                className={`
+                  rounded-2xl py-4 px-3
+                  flex flex-col items-center gap-2
+                  border-2 transition-all duration-200
+                  ${form.theme === t.key
+                    ? 'border-zinc-900 shadow-md scale-[1.02]'
+                    : 'border-zinc-200 hover:border-zinc-300'
+                  }
+                `}
+              >
+                <div
+                  className="w-8 h-8 rounded-full shadow-sm"
+                  style={{ background: t.color }}
+                />
+                <span className="text-xs font-semibold text-zinc-600">{t.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <button
           onClick={handleSave}
           disabled={saving}
@@ -115,7 +153,7 @@ export default function ConfigPanel() {
             active:scale-[0.98] disabled:opacity-50
             ${saved
               ? 'bg-green-500'
-              : 'bg-[#820AD1] hover:bg-violet-700 shadow-[0_4px_20px_rgba(130,10,209,0.25)]'
+              : 'bg-[var(--brand)] hover:bg-[var(--brand-hover)] shadow-[0_4px_20px_var(--brand-shadow)'
             }
           `}
         >

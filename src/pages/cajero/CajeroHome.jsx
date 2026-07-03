@@ -234,7 +234,7 @@ function TicketActivo({ order, deliveryFee, onVerPedido, onCobrar }) {
               flex: 1, padding: '8px', borderRadius: '6px',
               fontFamily: 'monospace', fontSize: '11px', fontWeight: 'bold',
               cursor: canPay ? 'pointer' : 'not-allowed',
-              background: canPay ? '#820AD1' : '#E0D6C8',
+              background: canPay ? 'var(--brand)' : '#E0D6C8',
               color: canPay ? 'white' : '#9E9E9E',
               border: 'none',
             }}
@@ -514,7 +514,7 @@ export default function CajeroHome() {
     <div className="min-h-screen flex flex-col bg-[#F6F6F8] relative overflow-hidden pt-[88px]">
 
       {/* ── Header fijo — SOLO bloque morado ── */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-[#820AD1] sm:left-[92px] px-4 pt-6 pb-4 shadow-md">
+      <div className="fixed top-0 left-0 right-0 z-50 bg-[var(--brand)] sm:left-[92px] px-4 pt-6 pb-4 shadow-md">
         <div className="flex items-center justify-between">
 
           <div className="w-10" />
@@ -565,7 +565,7 @@ export default function CajeroHome() {
                 min-w-[18px] h-[18px]
                 rounded-full
                 bg-red-500
-                border-2 border-[#820AD1]
+                border-2 border-[var(--brand)]
                 flex items-center justify-center
                 animate-bounce
               ">
@@ -595,7 +595,7 @@ export default function CajeroHome() {
             transition-all duration-200
             active:scale-95
             ${view === v.key
-                ? 'bg-[#820AD1] text-white border-[#820AD1]'
+                ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
                 : 'bg-white text-[#71717A] border-[#ECECF0] hover:bg-[#FAFAFA]'
               }
           `}
@@ -655,7 +655,7 @@ export default function CajeroHome() {
           <div className="flex items-center gap-3 mb-4">
             <button
               onClick={() => setCobrarOrder(null)}
-              className="text-sm font-semibold text-violet-600 hover:text-violet-700 transition-colors"
+              className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
             >
               ← Volver
             </button>
@@ -707,7 +707,7 @@ export default function CajeroHome() {
 
           {/* Método de pago */}
           <div className="rounded-2xl p-4 mb-4 bg-white border border-zinc-100 shadow-sm">
-            <p className="text-xs font-semibold mb-3 text-violet-400 tracking-wide">
+            <p className="text-xs font-semibold mb-3 text-[var(--brand-text)] tracking-wide">
               MÉTODO DE PAGO
             </p>
             <div className="flex flex-col gap-3">
@@ -722,7 +722,7 @@ export default function CajeroHome() {
               flex-1 rounded-xl px-4 py-2
               text-zinc-800 outline-none
               bg-zinc-50 border border-zinc-200
-              focus:border-violet-400 transition-colors
+              focus:border-[var(--brand-border)] transition-colors
             "
                 />
               </div>
@@ -737,7 +737,7 @@ export default function CajeroHome() {
               flex-1 rounded-xl px-4 py-2
               text-zinc-800 outline-none
               bg-zinc-50 border border-zinc-200
-              focus:border-violet-400 transition-colors
+              focus:border-[var(--brand-border)] transition-colors
             "
                 />
               </div>
@@ -764,7 +764,7 @@ export default function CajeroHome() {
           {/* ── Fiado ── */}
           <div className="rounded-2xl p-4 mb-4 bg-white border border-zinc-100 shadow-sm">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-semibold text-violet-400 tracking-wide">
+              <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">
                 FIADO
               </p>
               <button
@@ -774,7 +774,7 @@ export default function CajeroHome() {
                   setTransferencia('')   // ← limpiar al activar/desactivar
                 }}
                 className="w-12 h-6 rounded-full transition-colors relative flex-shrink-0"
-                style={{ background: fiado ? '#820AD1' : '#E4E4E7' }}
+                style={{ background: fiado ? 'var(--brand)' : '#E4E4E7' }}
               >
                 <div className={`
                   absolute top-0.5 w-5 h-5 bg-white rounded-full
@@ -809,7 +809,7 @@ export default function CajeroHome() {
                 w-full rounded-xl px-4 py-3
                 text-zinc-800 outline-none
                 bg-zinc-50 border border-zinc-200
-                focus:border-violet-400 transition-colors
+                focus:border-[var(--brand-border)] transition-colors
                 placeholder:text-zinc-400
               "
                   />
@@ -824,7 +824,7 @@ export default function CajeroHome() {
                             setSelectedDebtor(d)
                             setDebtorSuggestions([])
                           }}
-                          className="w-full px-4 py-2.5 text-left text-sm hover:bg-violet-50 transition-colors flex items-center justify-between"
+                          className="w-full px-4 py-2.5 text-left text-sm hover:bg-[var(--brand-light)] transition-colors flex items-center justify-between"
                         >
                           <span className="text-zinc-800 font-medium">{d.name}</span>
                           <span className="text-red-500 text-xs font-semibold">
@@ -846,8 +846,8 @@ export default function CajeroHome() {
                   flex-1 py-2 rounded-xl text-sm font-semibold border
                   transition-all duration-200
                   ${debtAmount === String(Math.max(0, total - sumaPagos))
-                          ? 'bg-[#820AD1] text-white border-[#820AD1]'
-                          : 'bg-zinc-50 text-zinc-500 border-zinc-200 hover:border-violet-300'
+                          ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
+                          : 'bg-zinc-50 text-zinc-500 border-zinc-200 hover:border-[var(--brand-border)]'
                         }
                 `}
                     >
@@ -859,8 +859,8 @@ export default function CajeroHome() {
                   flex-1 py-2 rounded-xl text-sm font-semibold border
                   transition-all duration-200
                   ${debtAmount !== String(Math.max(0, total - sumaPagos)) && debtAmount !== ''
-                          ? 'bg-[#820AD1] text-white border-[#820AD1]'
-                          : 'bg-zinc-50 text-zinc-500 border-zinc-200 hover:border-violet-300'
+                          ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
+                          : 'bg-zinc-50 text-zinc-500 border-zinc-200 hover:border-[var(--brand-border)]'
                         }
                 `}
                     >
@@ -876,7 +876,7 @@ export default function CajeroHome() {
                 w-full rounded-xl px-4 py-3
                 text-zinc-800 outline-none
                 bg-zinc-50 border border-zinc-200
-                focus:border-violet-400 transition-colors
+                focus:border-[var(--brand-border)] transition-colors
                 placeholder:text-zinc-400
               "
                   />
@@ -902,8 +902,8 @@ export default function CajeroHome() {
             className="
               w-full text-white font-bold
               rounded-2xl py-4
-              bg-[#820AD1] hover:bg-violet-700
-              shadow-[0_4px_20px_rgba(130,10,209,0.25)]
+              bg-[var(--brand)] hover:bg-[var(--brand-hover)]
+              shadow-[0_4px_20px_var(--brand-shadow)]
               transition-all duration-200
               active:scale-[0.98] disabled:opacity-50
             "
@@ -934,7 +934,7 @@ export default function CajeroHome() {
               w-full rounded-xl px-4 py-2.5
               text-zinc-800 text-sm outline-none
               bg-white border border-zinc-200
-              focus:border-violet-400 transition-colors
+              focus:border-[var(--brand-border)] transition-colors
               placeholder:text-zinc-400
             "
             />
@@ -953,8 +953,8 @@ export default function CajeroHome() {
                   text-xs font-semibold
                   border transition-all duration-200
                   ${filterMethod === f.key
-                      ? 'bg-[#820AD1] text-white border-[#820AD1]'
-                      : 'bg-white text-zinc-400 border-zinc-200 hover:border-violet-300 hover:text-violet-600'
+                      ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
+                      : 'bg-white text-zinc-400 border-zinc-200 hover:border-[var(--brand-border)] hover:text-[var(--brand-text)]'
                     }
                 `}
                 >
@@ -966,8 +966,8 @@ export default function CajeroHome() {
 
           {/* Total del día */}
           {filteredHistorial.length > 0 && (
-            <div className="rounded-2xl px-4 py-3 mb-4 flex justify-between items-center bg-violet-50 border border-violet-200">
-              <span className="text-sm font-semibold text-violet-600">
+            <div className="rounded-2xl px-4 py-3 mb-4 flex justify-between items-center bg-[var(--brand-light)] border border-[var(--brand-border)]">
+              <span className="text-sm font-semibold text-[var(--brand-text)]">
                 Total ({filteredHistorial.length} pagos)
               </span>
               <span className="font-bold text-zinc-900">
@@ -994,7 +994,7 @@ export default function CajeroHome() {
                       ? `Domicilio ${payment.table.number}`
                       : `Mesa ${payment.table?.number} · ${payment.table?.zone?.name}`}
                   </span>
-                  <span className="font-bold text-violet-600">
+                  <span className="font-bold text-[var(--brand-text)]">
                     ${payment.total.toLocaleString('es-CO')}
                   </span>
                 </div>
@@ -1058,7 +1058,7 @@ export default function CajeroHome() {
               </div>
               <button
                 onClick={() => setShowNotifications(false)}
-                className="text-sm font-semibold text-violet-600 hover:text-violet-700 transition-colors"
+                className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
               >
                 ✕ Cerrar
               </button>
@@ -1096,7 +1096,7 @@ export default function CajeroHome() {
                                 ? 'bg-green-50 text-green-600 border-green-200'
                                 : order.status === 'cancelled'
                                   ? 'bg-red-50 text-red-500 border-red-200'
-                                  : 'bg-violet-50 text-violet-600 border-violet-200'
+                                  : 'bg-[var(--brand-light)] text-[var(--brand-text)] border-[var(--brand-border)]'
                               }
                       `}>
                               {order.status === 'paid' ? 'Pagado'

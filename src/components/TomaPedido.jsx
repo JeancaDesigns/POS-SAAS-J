@@ -165,12 +165,12 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
       ">
 
         {/* ── Header ── */}
-        <div className="bg-[#820AD1] border-b border-violet-800/20">
+        <div className="bg-[var(--brand)] border-b border-violet-800/20">
 
           <div className="flex items-center justify-between px-4 pt-6 pb-3">
             <button
               onClick={onClose}
-              className="text-sm cursor-pointer font-semibold text-violet-200 hover:text-white transition-colors"
+              className="text-sm cursor-pointer font-semibold text-white hover:text-white transition-colors"
             >
               ← Volver
             </button>
@@ -183,10 +183,10 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                 className={`
                   text-sm font-semibold cursor-pointer
                   px-3 py-1 rounded-full
-                  border border-violet-400/30
+                  border border-[var(--brand-border)]/30
                   transition-all duration-200
                   ${headerCollapsed
-                    ? 'bg-violet-700/50 text-violet-200'
+                    ? 'bg-[var(--brand-hover)]/50 text-[var(--brand-text)]'
                     : 'bg-white/10 text-white/60 hover:text-white/80'
                   }
                 `}
@@ -208,7 +208,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                 className="
                   w-full rounded-xl px-4 py-2.5
                   text-zinc-800 text-sm outline-none
-                  bg-white border border-violet-200
+                  bg-white border border-[var(--brand-border)]
                   focus:border-white transition-colors
                   placeholder:text-zinc-400
                 "
@@ -221,7 +221,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                 className="
                   w-full rounded-xl px-4 py-2.5
                   text-zinc-800 text-sm outline-none
-                  bg-white border border-violet-200
+                  bg-white border border-[var(--brand-border)]
                   focus:border-white transition-colors
                   placeholder:text-zinc-400
                 "
@@ -239,8 +239,8 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                       text-sm font-semibold
                       border transition-all duration-200
                       ${deliveryType === opt.key
-                        ? 'bg-white text-[#820AD1] border-white'
-                        : 'bg-white/10 text-white/50 border-violet-400/20 hover:bg-white/20 hover:text-white/70'
+                        ? 'bg-white text-[var(--brand)] border-white'
+                        : 'bg-white/10 text-white/50 border-[var(--brand-border)]/20 hover:bg-white/20 hover:text-white/70'
                       }
                     `}
                   >
@@ -253,7 +253,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
 
           {table.is_delivery && headerCollapsed && customerName && (
             <div className="px-4 pb-3">
-              <span className="text-sm text-violet-200">
+              <span className="text-sm text-[var(--brand-text)]">
                 {deliveryType === 'delivery' ? '🛵' : '🏠'} {customerName}
                 {customerPhone && ` · ${customerPhone}`}
               </span>
@@ -270,7 +270,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                   text-sm font-semibold whitespace-nowrap
                   border transition-all duration-200
                   ${displayCategory === cat.id
-                    ? 'bg-white text-[#820AD1] border-white'
+                    ? 'bg-white text-[var(--brand)] border-white'
                     : 'bg-white/10 text-white/60 border-transparent hover:bg-white/20 hover:text-white/80'
                   }
                 `}
@@ -301,7 +301,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-zinc-900 font-semibold">{product.name}</p>
-                        <p className="text-sm font-bold mt-0.5 text-violet-600">
+                        <p className="text-sm font-bold mt-0.5 text-[var(--brand-text)]">
                           ${product.price.toLocaleString('es-CO')}
                         </p>
                       </div>
@@ -331,7 +331,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                             w-8 h-8 rounded-full cursor-pointer
                             flex items-center justify-center
                             font-bold text-white
-                            bg-[#820AD1] hover:bg-violet-700
+                            bg-[var(--brand)] hover:bg-[var(--brand-hover)]
                             transition-colors
                           "
                         >
@@ -353,15 +353,15 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                             className="
                               w-full rounded-xl px-3 py-1.5
                               text-zinc-800 text-sm outline-none
-                              bg-white border border-violet-300
-                              focus:border-violet-500 transition-colors
+                              bg-white border border-[var(--brand-border)]
+                              focus:border-[var(--brand)] transition-colors
                             "
                           />
                         ) : (
                           <button
                             onClick={() => setNoteTarget(product.id)}
                             className={`text-xs cursor-pointer transition-colors ${
-                              item?.note ? 'text-violet-500' : 'text-zinc-300 hover:text-zinc-400'
+                              item?.note ? 'text-[var(--brand-text)]' : 'text-zinc-300 hover:text-zinc-400'
                             }`}
                           >
                             {item?.note ? `📝 ${item.note}` : '+ Agregar nota'}
@@ -380,7 +380,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
         {items.length > 0 && (
           <div className="px-4 pb-24 pt-3 md:pb-4 border-t border-zinc-100 bg-white">
             <div className="mb-3">
-              <p className="text-xs mb-1 text-violet-400 font-medium">
+              <p className="text-xs mb-1 text-[var(--brand-text)] font-medium">
                 ¿Pedido programado? (opcional)
               </p>
               <input
@@ -391,7 +391,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                   w-full rounded-xl px-4 py-2
                   text-zinc-800 text-sm outline-none
                   bg-zinc-50 border border-zinc-200
-                  focus:border-violet-400 transition-colors
+                  focus:border-[var(--brand-border)] transition-colors
                 "
               />
             </div>
@@ -405,13 +405,13 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                         {i.quantity}x {i.product.name}
                       </span>
                       {i.variant && (
-                        <p className="text-xs text-violet-500">→ {i.variant}</p>
+                        <p className="text-xs text-[var(--brand-text)]">→ {i.variant}</p>
                       )}
                       {i.note && (
                         <p className="text-xs text-zinc-400">📝 {i.note}</p>
                       )}
                     </div>
-                    <span className="text-sm font-semibold text-violet-600">
+                    <span className="text-sm font-semibold text-[var(--brand-text)]">
                       ${(i.product.price * i.quantity).toLocaleString('es-CO')}
                     </span>
                   </div>
@@ -422,7 +422,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
             <div className="flex items-center justify-between mb-3">
               <button
                 onClick={() => setShowResumen(prev => !prev)}
-                className="text-sm font-semibold cursor-pointer text-violet-600 hover:text-violet-700 transition-colors"
+                className="text-sm font-semibold cursor-pointer text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
               >
                 {items.reduce((s, i) => s + i.quantity, 0)} ítems {showResumen ? '▲' : '▼'}
               </button>
@@ -437,8 +437,8 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
               className="
                 w-full text-white font-bold cursor-pointer
                 rounded-2xl py-4
-                bg-[#820AD1] hover:bg-violet-700
-                shadow-[0_4px_20px_rgba(130,10,209,0.25)]
+                bg-[var(--brand)] hover:bg-[var(--brand-hover)]
+                shadow-[0_4px_20px_var(--brand-shadow)
                 transition-all duration-200
                 active:scale-[0.98] disabled:opacity-50
               "
@@ -465,7 +465,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
             <div className="flex items-center justify-between mb-6">
               <button
                 onClick={() => setVariantModal(null)}
-                className="text-sm font-semibold text-violet-600 hover:text-violet-700 transition-colors"
+                className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
               >
                 ✕ Cancelar
               </button>
@@ -487,9 +487,9 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                   }}
                   className="
                     w-full py-4 rounded-2xl
-                    font-bold text-violet-700
-                    bg-violet-50 border border-violet-200
-                    hover:bg-violet-100 hover:border-violet-400
+                    font-bold text-[var(--brand-text)]
+                    bg-[var(--brand-light)] border border-[var(--brand-border)]
+                    hover:bg-[var(--brand-light)] hover:border-[var(--brand-border)]
                     transition-all duration-200
                     active:scale-95
                   "

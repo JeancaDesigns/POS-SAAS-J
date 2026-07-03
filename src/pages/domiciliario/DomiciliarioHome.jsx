@@ -179,7 +179,7 @@ export default function DomiciliarioHome() {
           ? 'bg-purple-50 border-purple-200'
           : delivered
             ? 'bg-zinc-50 border-zinc-100 opacity-60'
-            : 'bg-white border-zinc-200 hover:border-violet-200 shadow-sm'
+            : 'bg-white border-zinc-200 hover:border-[var(--brand-border)] shadow-sm'
         }
       `}>
 
@@ -198,7 +198,7 @@ export default function DomiciliarioHome() {
           </div>
           <div className="text-right">
             <p className="text-xs text-zinc-400 mb-0.5">Total</p>
-            <p className={`font-bold text-lg ${inTanda ? 'text-purple-500' : 'text-violet-600'}`}>
+            <p className={`font-bold text-lg ${inTanda ? 'text-purple-500' : 'text-[var(--brand-text)]'}`}>
               ${orderTotal(order).toLocaleString('es-CO')}
             </p>
           </div>
@@ -264,7 +264,7 @@ export default function DomiciliarioHome() {
               onClick={() => openMaps(order)}
               className="
                 absolute bottom-3 right-3 z-[1000]
-                bg-[#820AD1] hover:bg-violet-700
+                bg-[var(--brand)] hover:bg-[var(--brand-hover)]
                 text-white px-4 py-2 rounded-xl
                 text-sm font-bold shadow-lg
                 transition-colors
@@ -340,7 +340,7 @@ export default function DomiciliarioHome() {
               active:scale-[0.98]
               ${inTanda
                 ? 'bg-purple-50 text-purple-600 border-purple-300 hover:bg-purple-100'
-                : 'bg-white text-zinc-600 border-zinc-200 hover:border-violet-300 hover:text-violet-600'
+                : 'bg-white text-zinc-600 border-zinc-200 hover:border-[var(--brand-border)] hover:text-[var(--brand-text)]'
               }
             `}
           >
@@ -389,7 +389,7 @@ export default function DomiciliarioHome() {
       <div className="
         fixed top-0 left-0 right-0 z-50
         sm:left-[92px]
-        bg-[#820AD1] px-4 pt-6 pb-4 shadow-md
+        bg-[var(--brand)] px-4 pt-6 pb-4 shadow-md
       ">
         <div className="flex items-center justify-between">
 

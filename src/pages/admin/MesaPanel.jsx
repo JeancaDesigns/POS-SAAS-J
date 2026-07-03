@@ -6,7 +6,7 @@ const inputClass = `
   w-full rounded-xl px-4 py-3
   text-zinc-800 outline-none
   bg-zinc-50 border border-zinc-200
-  focus:border-violet-400 transition-colors
+  focus:border-[var(--brand-border)] transition-colors
   placeholder:text-zinc-400
 `
 
@@ -119,7 +119,7 @@ export default function MesasPanel() {
       <div className="flex items-center gap-3 mb-6">
         <button
           onClick={() => setShowZoneForm(false)}
-          className="text-sm font-semibold text-violet-600 hover:text-violet-700 transition-colors"
+          className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
         >
           ← Volver
         </button>
@@ -140,9 +140,9 @@ export default function MesasPanel() {
           onClick={saveZone}
           disabled={saving}
           className="
-            bg-[#820AD1] hover:bg-violet-700
+            bg-[var(--brand)] hover:bg-[var(--brand-hover)]
             text-white font-bold rounded-2xl py-4
-            shadow-[0_4px_20px_rgba(130,10,209,0.25)]
+            shadow-[0_4px_20px_var(--brand-shadow)]
             transition-all duration-200 active:scale-[0.98] disabled:opacity-50
           "
         >
@@ -159,7 +159,7 @@ export default function MesasPanel() {
       <div className="flex items-center gap-3 mb-6">
         <button
           onClick={() => setShowTableForm(false)}
-          className="text-sm font-semibold text-violet-600 hover:text-violet-700 transition-colors"
+          className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
         >
           ← Volver
         </button>
@@ -196,8 +196,8 @@ export default function MesasPanel() {
                   px-4 py-2 rounded-full text-sm font-semibold
                   border transition-all duration-200
                   ${tableForm.zone_id === zone.id
-                    ? 'bg-[#820AD1] text-white border-[#820AD1]'
-                    : 'bg-white text-zinc-500 border-zinc-200 hover:border-violet-300'
+                    ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
+                    : 'bg-white text-zinc-500 border-zinc-200 hover:border-[var(--brand-border)]'
                   }
                 `}
               >
@@ -215,7 +215,7 @@ export default function MesasPanel() {
           <button
             onClick={() => setTableForm(p => ({ ...p, is_delivery: !p.is_delivery }))}
             className="w-12 h-6 rounded-full transition-colors relative flex-shrink-0"
-            style={{ background: tableForm.is_delivery ? '#820AD1' : '#E4E4E7' }}
+            style={{ background: tableForm.is_delivery ? 'var(--brand)' : '#E4E4E7' }}
           >
             <div className={`
               absolute top-0.5 w-5 h-5 bg-white rounded-full
@@ -230,9 +230,9 @@ export default function MesasPanel() {
           onClick={saveTable}
           disabled={saving}
           className="
-            bg-[#820AD1] hover:bg-violet-700
+            bg-[var(--brand)] hover:bg-[var(--brand-hover)]
             text-white font-bold rounded-2xl py-4
-            shadow-[0_4px_20px_rgba(130,10,209,0.25)]
+            shadow-[0_4px_20px_var(--brand-shadow)]
             transition-all duration-200 active:scale-[0.98] disabled:opacity-50
           "
         >
@@ -251,13 +251,13 @@ export default function MesasPanel() {
         shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
 
         <div className="flex items-center justify-between mb-4">
-          <p className="text-xs font-semibold text-violet-400 tracking-wide">
+          <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">
             ZONAS
           </p>
           <button
             onClick={openNewZone}
             className="
-              bg-[#820AD1] hover:bg-violet-700
+              bg-[var(--brand)] hover:bg-[var(--brand-hover)]
               text-white rounded-xl px-3 py-1.5
               text-xs font-semibold
               transition-all duration-200 active:scale-95
@@ -278,14 +278,14 @@ export default function MesasPanel() {
                 cursor-pointer border
                 transition-all duration-200
                 ${activeZone === zone.id
-                  ? 'bg-violet-50 border-violet-200'
-                  : 'bg-zinc-50 border-zinc-100 hover:border-violet-200'
+                  ? 'bg-[var(--brand-light)] border-[var(--brand-border)]'
+                  : 'bg-zinc-50 border-zinc-100 hover:border-[var(--brand-border)]'
                 }
               `}
             >
               <div>
                 <p className={`font-semibold text-sm ${
-                  activeZone === zone.id ? 'text-violet-700' : 'text-zinc-800'
+                  activeZone === zone.id ? 'text-[var(--brand-text)]' : 'text-zinc-800'
                 }`}>
                   {zone.name}
                 </p>
@@ -328,13 +328,13 @@ export default function MesasPanel() {
           shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
 
           <div className="flex items-center justify-between mb-4">
-            <p className="text-xs font-semibold text-violet-400 tracking-wide">
+            <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">
               MESAS — {zones.find(z => z.id === activeZone)?.name?.toUpperCase()}
             </p>
             <button
               onClick={openNewTable}
               className="
-                bg-[#820AD1] hover:bg-violet-700
+                bg-[var(--brand)] hover:bg-[var(--brand-hover)]
                 text-white rounded-xl px-3 py-1.5
                 text-xs font-semibold
                 transition-all duration-200 active:scale-95
@@ -369,7 +369,7 @@ export default function MesasPanel() {
                     <span className={`text-xs font-semibold ${
                       table.status === 'free'            ? 'text-green-600'  :
                       table.status === 'occupied'        ? 'text-orange-500' :
-                      table.status === 'waiting_payment' ? 'text-violet-600' : 'text-zinc-400'
+                      table.status === 'waiting_payment' ? 'text-[var(--brand-text)]' : 'text-zinc-400'
                     }`}>
                       {table.status === 'free'            ? 'Libre'     :
                        table.status === 'occupied'        ? 'Ocupada'   :

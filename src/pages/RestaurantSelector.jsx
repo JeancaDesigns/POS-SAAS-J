@@ -59,8 +59,8 @@ export default function RestaurantSelector() {
                 rounded-3xl
                 bg-white border border-zinc-200
                 shadow-[0_2px_8px_rgba(0,0,0,0.05)]
-                hover:border-violet-300
-                hover:shadow-[0_8px_30px_rgba(130,10,209,0.12)]
+                hover:border-[var(--brand-border)]
+                hover:shadow-[0_8px_30px_var(--brand-soft)]
                 hover:-translate-y-1
                 transition-all duration-300
                 active:scale-[0.97]
@@ -70,11 +70,11 @@ export default function RestaurantSelector() {
                 w-20 h-20 rounded-2xl
                 flex items-center justify-center
                 text-4xl
-                bg-violet-50 border border-violet-100
-                group-hover:bg-violet-100
+                bg-[var(--brand-light)] border border-violet-100
+                group-hover:bg-[var(--brand-light)]
                 group-hover:scale-110
                 transition-all duration-300
-                shadow-[0_4px_12px_rgba(130,10,209,0.10)]
+                shadow-[0_4px_12px_var(--brand-soft)]
               ">
                 {getEmoji(r.slug)}
               </div>

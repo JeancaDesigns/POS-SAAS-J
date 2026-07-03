@@ -85,7 +85,7 @@ export default function NavBar() {
                 transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]
                 active:scale-[0.96] cursor-pointer border
                 ${isActive
-                  ? 'bg-[#820AD1]/10 border-[#820AD1]/25 text-[#820AD1] shadow-[0_8px_20px_rgba(130,10,209,0.12)]'
+                  ? 'bg-[var(--brand)]/10 border-[var(--brand)]/25 text-[var(--brand)] shadow-[0_8px_20px_var(--brand-soft)]'
                   : 'bg-white border-[#ECECF0] text-[#71717A] hover:bg-[#FAFAFA] hover:text-[#111113]'
                 }
               `}

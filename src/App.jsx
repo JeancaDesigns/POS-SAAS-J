@@ -49,7 +49,7 @@ function SlugGuard({ children }) {
         onClick={() => window.location.href = '/'}
         className="
           mt-2 px-6 py-3 rounded-2xl
-          bg-[#820AD1] hover:bg-violet-700
+          bg-[var(--brand)] hover:bg-[var(--brand-hover)]
           text-white font-semibold text-sm
           transition-all active:scale-95
         "
@@ -243,8 +243,8 @@ export default function App() {
                 className="
                   w-full py-4 rounded-2xl
                   font-bold text-white
-                  bg-[#820AD1] hover:bg-violet-700
-                  shadow-[0_4px_20px_rgba(130,10,209,0.25)]
+                  bg-[var(--brand)] hover:bg-[var(--brand-hover)]
+                  shadow-[0_4px_20px_var(--brand-shadow)]
                   transition-all duration-200
                   active:scale-[0.98]
                 "

@@ -174,7 +174,7 @@ export default function StatusDrawer() {
 
           {/* Info usuario */}
           <div className="rounded-2xl p-4 bg-zinc-50 border border-zinc-100">
-            <p className="text-xs font-semibold text-violet-400 tracking-wide mb-2">
+            <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-2">
               SESIÓN ACTIVA
             </p>
             <p className="font-bold text-zinc-900">{user.name}</p>
@@ -183,7 +183,7 @@ export default function StatusDrawer() {
               {user.roles.map(r => (
                 <span
                   key={r}
-                  className="text-xs px-2 py-0.5 rounded-full bg-violet-50 border border-violet-200 text-violet-700 font-semibold capitalize"
+                  className="text-xs px-2 py-0.5 rounded-full bg-[var(--brand-light)] border border-[var(--brand-border)] text-[var(--brand-text)] font-semibold capitalize"
                 >
                   {r}
                 </span>
@@ -200,15 +200,15 @@ export default function StatusDrawer() {
               w-full py-3 rounded-2xl
               flex items-center justify-center gap-2
               text-sm font-semibold
-              text-violet-700
-              bg-violet-50 border border-violet-200
-              hover:bg-violet-100
+              text-[var(--brand-text)]
+              bg-[var(--brand-light)] border border-[var(--brand-border)]
+              hover:bg-[var(--brand-light)]
               transition-all duration-200
               active:scale-[0.98]
               mb-3
             "
           >
-            <span className="text-xs font-black bg-violet-200 text-violet-700 px-1.5 py-0.5 rounded-md">DEV</span>
+            <span className="text-xs font-black bg-violet-200 text-[var(--brand-text)] px-1.5 py-0.5 rounded-md">DEV</span>
             Panel de desarrollo
           </button>
         )}

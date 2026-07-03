@@ -151,7 +151,7 @@ export default function ReportesPanel() {
   }, [orders])
 
   const cards = [
-    { title: 'Ventas hoy',         value: `$${stats.totalSales.toLocaleString('es-CO')}`,              icon: DollarSign,  accent: 'text-violet-600',  bg: 'bg-violet-50',  border: 'border-violet-200'  },
+    { title: 'Ventas hoy',         value: `$${stats.totalSales.toLocaleString('es-CO')}`,              icon: DollarSign,  accent: 'text-[var(--brand-text)]',  bg: 'bg-[var(--brand-light)]',  border: 'border-[var(--brand-border)]'  },
     { title: 'Pedidos',            value: stats.totalOrders,                                            icon: ShoppingBag, accent: 'text-blue-600',    bg: 'bg-blue-50',    border: 'border-blue-200'    },
     { title: 'Domicilios',         value: stats.deliveryOrders,                                         icon: Bike,        accent: 'text-orange-500',  bg: 'bg-orange-50',  border: 'border-orange-200'  },
     { title: 'Ticket promedio',    value: `$${Math.round(stats.averageTicket).toLocaleString('es-CO')}`, icon: TrendingUp,  accent: 'text-green-600',   bg: 'bg-green-50',   border: 'border-green-200'   },
@@ -213,7 +213,7 @@ export default function ReportesPanel() {
             <div className="rounded-2xl bg-white border border-zinc-200 p-5
               shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
               <div className="flex items-center gap-2 mb-4">
-                <Package size={18} className="text-violet-500" />
+                <Package size={18} className="text-[var(--brand-text)]" />
                 <h2 className="font-bold text-zinc-900">Productos más vendidos</h2>
               </div>
               <div className="space-y-2">
@@ -226,12 +226,12 @@ export default function ReportesPanel() {
                       className="flex items-center justify-between rounded-xl bg-zinc-50 border border-zinc-100 px-4 py-3"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-7 h-7 rounded-lg bg-violet-50 border border-violet-200 flex items-center justify-center text-xs font-bold text-violet-600">
+                        <div className="w-7 h-7 rounded-lg bg-[var(--brand-light)] border border-[var(--brand-border)] flex items-center justify-center text-xs font-bold text-[var(--brand-text)]">
                           #{index + 1}
                         </div>
                         <p className="font-semibold text-zinc-800 text-sm">{product.name}</p>
                       </div>
-                      <span className="text-violet-600 font-bold text-sm">x{product.quantity}</span>
+                      <span className="text-[var(--brand-text)] font-bold text-sm">x{product.quantity}</span>
                     </div>
                   ))
                 )}
@@ -311,7 +311,7 @@ export default function ReportesPanel() {
       <div className="rounded-2xl bg-white border border-zinc-200 p-5
         shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
         <div className="flex items-center gap-2 mb-4">
-          <TrendingUp size={18} className="text-violet-500" />
+          <TrendingUp size={18} className="text-[var(--brand-text)]" />
           <h2 className="font-bold text-zinc-900">Reportes mensuales</h2>
         </div>
 
@@ -326,7 +326,7 @@ export default function ReportesPanel() {
                 className="
                   w-full flex items-center justify-between
                   rounded-xl bg-zinc-50 border border-zinc-100
-                  hover:border-violet-200 hover:bg-violet-50/50
+                  hover:border-[var(--brand-border)] hover:bg-[var(--brand-light)]/50
                   px-4 py-3 transition-all duration-200
                 "
               >
@@ -340,7 +340,7 @@ export default function ReportesPanel() {
                     {report.payments.length} pagos · {report.deliveries} domicilios
                   </p>
                 </div>
-                <span className="font-black text-violet-600">
+                <span className="font-black text-[var(--brand-text)]">
                   ${report.total.toLocaleString('es-CO')}
                 </span>
               </button>
@@ -377,9 +377,9 @@ export default function ReportesPanel() {
                 onClick={() => { setSelectedMonth(null); setMonthlyDetail(null) }}
                 className="
                   px-4 py-2 rounded-2xl text-sm font-semibold
-                  text-violet-600 hover:text-violet-700
-                  bg-violet-50 hover:bg-violet-100
-                  border border-violet-200
+                  text-[var(--brand-text)] hover:text-[var(--brand-text)]
+                  bg-[var(--brand-light)] hover:bg-[var(--brand-light)]
+                  border border-[var(--brand-border)]
                   transition-colors
                 "
               >
@@ -392,7 +392,7 @@ export default function ReportesPanel() {
               {/* Resumen */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
-                  { label: 'Total ingresos', value: `$${selectedMonth.total.toLocaleString('es-CO')}`,    color: 'text-violet-600',  bg: 'bg-violet-50  border-violet-200'  },
+                  { label: 'Total ingresos', value: `$${selectedMonth.total.toLocaleString('es-CO')}`,    color: 'text-[var(--brand-text)]',  bg: 'bg-[var(--brand-light)]  border-[var(--brand-border)]'  },
                   { label: 'Efectivo',        value: `$${selectedMonth.cash.toLocaleString('es-CO')}`,     color: 'text-green-600',   bg: 'bg-green-50   border-green-200'   },
                   { label: 'Transferencia',   value: `$${selectedMonth.transfer.toLocaleString('es-CO')}`, color: 'text-blue-600',    bg: 'bg-blue-50    border-blue-200'    },
                   { label: 'Domicilios',      value: selectedMonth.deliveries,                             color: 'text-orange-500',  bg: 'bg-orange-50  border-orange-200'  },
@@ -429,7 +429,7 @@ export default function ReportesPanel() {
 
                   {/* Por categoría */}
                   <div>
-                    <p className="text-xs font-semibold text-violet-400 tracking-wide mb-3">
+                    <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-3">
                       POR CATEGORÍA
                     </p>
                     <div className="space-y-2">
@@ -440,7 +440,7 @@ export default function ReportesPanel() {
                         >
                           <span className="text-zinc-800 text-sm">{cat.name}</span>
                           <div className="text-right">
-                            <span className="text-violet-600 font-bold text-sm">
+                            <span className="text-[var(--brand-text)] font-bold text-sm">
                               ${cat.total.toLocaleString('es-CO')}
                             </span>
                             <span className="text-zinc-400 text-xs ml-2">x{cat.quantity}</span>
@@ -452,7 +452,7 @@ export default function ReportesPanel() {
 
                   {/* Productos más vendidos */}
                   <div>
-                    <p className="text-xs font-semibold text-violet-400 tracking-wide mb-3">
+                    <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-3">
                       PRODUCTOS MÁS VENDIDOS
                     </p>
                     <div className="space-y-2">
@@ -469,7 +469,7 @@ export default function ReportesPanel() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="text-violet-600 font-bold text-sm">
+                            <p className="text-[var(--brand-text)] font-bold text-sm">
                               ${prod.total.toLocaleString('es-CO')}
                             </p>
                             <p className="text-zinc-400 text-xs">x{prod.quantity}</p>
