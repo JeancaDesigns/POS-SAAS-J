@@ -50,12 +50,16 @@ export default function CajaPanel() {
 
   // Cargar ventas desde que se abrió la caja
   async function loadSales(openedAt) {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const todayISO = today.toISOString()
+
     const { data, error } = await supabase
       .from('payments')
       .select('total')
       .eq('restaurant_id', user.restaurant_id)
       .eq('voided', false)
-      .gte('created_at', openedAt)
+      .gte('created_at', todayISO) // ← mismo filtro que Dashboard
     if (error) { console.error(error); return }
     const total = (data || []).reduce((sum, p) => sum + Number(p.total), 0)
     setSalesTotal(total)
@@ -324,9 +328,8 @@ export default function CajaPanel() {
                       {new Date(movement.created_at).toLocaleString('es-CO')}
                     </p>
                   </div>
-                  <span className={`font-black text-lg ${
-                    movement.type === 'income' ? 'text-green-600' : 'text-red-500'
-                  }`}>
+                  <span className={`font-black text-lg ${movement.type === 'income' ? 'text-green-600' : 'text-red-500'
+                    }`}>
                     {movement.type === 'income' ? '+' : '−'}
                     ${Number(movement.amount).toLocaleString('es-CO')}
                   </span>
@@ -377,14 +380,12 @@ export default function CajaPanel() {
 
               {/* Preview diferencia */}
               {closingAmount && (
-                <div className={`mt-3 rounded-xl px-4 py-3 border ${
-                  Number(closingAmount) >= computedExpected
+                <div className={`mt-3 rounded-xl px-4 py-3 border ${Number(closingAmount) >= computedExpected
                     ? 'bg-green-50 border-green-200'
                     : 'bg-red-50 border-red-200'
-                }`}>
-                  <p className={`text-sm font-bold ${
-                    Number(closingAmount) >= computedExpected ? 'text-green-600' : 'text-red-500'
                   }`}>
+                  <p className={`text-sm font-bold ${Number(closingAmount) >= computedExpected ? 'text-green-600' : 'text-red-500'
+                    }`}>
                     Diferencia: {Number(closingAmount) - computedExpected >= 0 ? '+' : ''}
                     ${(Number(closingAmount) - computedExpected).toLocaleString('es-CO')}
                   </p>
@@ -434,9 +435,8 @@ export default function CajaPanel() {
                     Real: ${Number(item.closing_amount || 0).toLocaleString('es-CO')}
                   </p>
                 </div>
-                <span className={`text-lg font-black ${
-                  Number(item.difference_amount) >= 0 ? 'text-green-600' : 'text-red-500'
-                }`}>
+                <span className={`text-lg font-black ${Number(item.difference_amount) >= 0 ? 'text-green-600' : 'text-red-500'
+                  }`}>
                   {Number(item.difference_amount) >= 0 ? '+' : ''}
                   ${Number(item.difference_amount || 0).toLocaleString('es-CO')}
                 </span>
