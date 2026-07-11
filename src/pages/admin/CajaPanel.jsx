@@ -54,15 +54,39 @@ export default function CajaPanel() {
     today.setHours(0, 0, 0, 0)
     const todayISO = today.toISOString()
 
-    const { data, error } = await supabase
+    // Traer los pedidos pagados hoy con sus items reales
+    const { data: paidOrders, error } = await supabase
       .from('payments')
-      .select('total')
+      .select('order_id, is_delivery')
       .eq('restaurant_id', user.restaurant_id)
       .eq('voided', false)
-      .gte('created_at', todayISO) // ← mismo filtro que Dashboard
+      .gte('created_at', todayISO)
+
     if (error) { console.error(error); return }
-    const total = (data || []).reduce((sum, p) => sum + Number(p.total), 0)
-    setSalesTotal(total)
+
+    const orderIds = (paidOrders || []).map(p => p.order_id).filter(Boolean)
+    if (orderIds.length === 0) { setSalesTotal(0); return }
+
+    const { data: items } = await supabase
+      .from('order_items')
+      .select('order_id, quantity, product:products(price)')
+      .in('order_id', orderIds)
+      .neq('status', 'cancelled')
+
+    const itemsTotal = (items || []).reduce((sum, i) =>
+      sum + (Number(i.product?.price || 0) * Number(i.quantity)), 0
+    )
+
+    // Sumar domicilios de los pedidos marcados como delivery
+    const { data: restaurant } = await supabase
+      .from('restaurants').select('delivery_fee')
+      .eq('id', user.restaurant_id).single()
+
+    const deliveryFee = restaurant?.delivery_fee || 0
+    const deliveryCount = (paidOrders || []).filter(p => p.is_delivery).length
+    const deliveryTotal = deliveryFee * deliveryCount
+
+    setSalesTotal(itemsTotal + deliveryTotal)
   }
 
   async function loadHistory() {
@@ -381,8 +405,8 @@ export default function CajaPanel() {
               {/* Preview diferencia */}
               {closingAmount && (
                 <div className={`mt-3 rounded-xl px-4 py-3 border ${Number(closingAmount) >= computedExpected
-                    ? 'bg-green-50 border-green-200'
-                    : 'bg-red-50 border-red-200'
+                  ? 'bg-green-50 border-green-200'
+                  : 'bg-red-50 border-red-200'
                   }`}>
                   <p className={`text-sm font-bold ${Number(closingAmount) >= computedExpected ? 'text-green-600' : 'text-red-500'
                     }`}>
