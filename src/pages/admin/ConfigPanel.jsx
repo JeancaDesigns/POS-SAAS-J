@@ -114,11 +114,12 @@ export default function ConfigPanel() {
 
         <div>
           <p className="text-sm text-zinc-500 mb-3">Tema de color</p>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             {[
               { key: 'purple', label: 'Morado', color: '#820AD1' },
               { key: 'orange', label: 'Naranja', color: '#EA580C' },
               { key: 'blue', label: 'Azul', color: '#2563EB' },
+              { key: 'coffee', label: 'Café',    color: '#4A332C' },
             ].map(t => (
               <button
                 key={t.key}

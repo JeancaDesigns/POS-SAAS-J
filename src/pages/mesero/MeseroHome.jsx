@@ -467,12 +467,12 @@ export default function MeseroHome() {
     w-14 h-14
     rounded-2xl
 
-    bg-violet-600
+    bg-[var(--brand)]
     hover:bg-[var(--brand-hover)]
 
     text-white text-2xl font-medium
 
-    border border-violet-500
+    border border-[var(--brand-border)]
 
     shadow-[0_10px_30px_var(--brand-shadow)]
 

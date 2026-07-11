@@ -30,3 +30,13 @@
   --brand-soft:     rgba(37,99,235,0.25);
   --brand-shadow:   rgba(37,99,235,0.25);
 }
+
+[data-theme="coffee"] {
+  --brand:          #4A332C;
+  --brand-hover:    #3a2620;
+  --brand-light:    #f5f0ee;
+  --brand-border:   #d9c7c0;
+  --brand-text:     #5c4038;
+  --brand-soft:     rgba(74,51,44,0.25);
+  --brand-shadow:   rgba(74,51,44,0.25);
+}
