@@ -10,6 +10,7 @@ export default function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [visible, setVisible] = useState(false)
+  const [restaurantInfo, setRestaurantInfo] = useState(null)
   const { slug } = useParams()
   const setSlug = useAuthStore(s => s.setSlug)
   const setUser = useAuthStore((s) => s.setUser)
@@ -18,6 +19,24 @@ export default function Login() {
   useEffect(() => {
     setTimeout(() => setVisible(true), 100)
   }, [])
+
+  // Cargar info del restaurante (logo + tema) para mostrar en la pantalla,
+  // sin esperar al login
+  useEffect(() => {
+    async function loadRestaurantInfo() {
+      const { data } = await supabase
+        .from('restaurants')
+        .select('name, logo_url, theme')
+        .eq('slug', slug)
+        .single()
+
+      if (data) {
+        setRestaurantInfo(data)
+        document.documentElement.setAttribute('data-theme', data.theme || 'purple')
+      }
+    }
+    if (slug) loadRestaurantInfo()
+  }, [slug])
 
   async function handleLogin() {
     setLoading(true)
@@ -52,7 +71,6 @@ export default function Login() {
       return
     }
 
-    // ── Verificar que el usuario pertenece a este restaurante ──
     const { data: restaurant } = await supabase
       .from('restaurants')
       .select('id')
@@ -65,17 +83,13 @@ export default function Login() {
       setLoading(false)
       return
     }
-    // ──────────────────────────────────────────────────────────
 
-    // Después de verificar que el usuario pertenece al restaurante
-    // Después de verificar que el usuario pertenece al restaurante
     const { data: restaurantData } = await supabase
       .from('restaurants')
       .select('slug, modules, theme')
       .eq('slug', slug)
       .single()
 
-    // Aplicar tema
     const theme = restaurantData?.theme || 'purple'
     document.documentElement.setAttribute('data-theme', theme)
 
@@ -84,6 +98,7 @@ export default function Login() {
       slug,
       modules: restaurantData?.modules || [],
       theme,
+      logoUrl: restaurantInfo?.logo_url || null, // ← nuevo
     })
 
     if (profile.roles.includes('cocina')) navigate(`/${slug}/cocina`)
@@ -142,12 +157,22 @@ export default function Login() {
               py-3 px-4
               bg-white/10 border border-[var(--brand-border)]/30
             " style={{ minHeight: '120px' }}>
-              <img
-                src="/BP-Logo-R.png"
-                alt="Restaurante"
-                className="w-full object-contain flex-1 scale-250"
-                style={{ maxHeight: '140px' }}
-              />
+
+              {restaurantInfo?.logo_url ? (
+                <img
+                  src={restaurantInfo.logo_url}
+                  alt={restaurantInfo.name || 'Restaurante'}
+                  className="w-full object-contain flex-1"
+                  style={{ maxHeight: '140px' }}
+                />
+              ) : (
+                <div className="flex-1 flex items-center justify-center">
+                  <p className="text-white/40 text-sm">
+                    {restaurantInfo?.name || 'Cargando...'}
+                  </p>
+                </div>
+              )}
+
               <div className="flex flex-col items-center gap-1.5 -mt-9">
                 <span className="text-xs text-[var(--brand-text)]/40">×</span>
                 <img
@@ -181,7 +206,6 @@ export default function Login() {
 
           <div className="flex flex-col gap-5">
 
-            {/* Email */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-white uppercase tracking-wider ml-1">
                 Correo electrónico
@@ -202,7 +226,6 @@ export default function Login() {
               />
             </div>
 
-            {/* Password */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-white uppercase tracking-wider ml-1">
                 Contraseña
@@ -224,14 +247,12 @@ export default function Login() {
               />
             </div>
 
-            {/* Error */}
             {error && (
               <div className="bg-red-500/10 border border-red-500/20 rounded-xl py-3 px-4">
                 <p className="text-red-400 text-xs text-center font-medium">{error}</p>
               </div>
             )}
 
-            {/* Botón */}
             <button
               onClick={handleLogin}
               disabled={loading}
@@ -240,8 +261,8 @@ export default function Login() {
                 text-white font-bold
                 rounded-2xl py-4
                 bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-                shadow-[0_10px_25px_-5px_rgba(130,10,209,0.5)]
-                hover:shadow-[0_10px_25px_-5px_rgba(130,10,209,0.7)]
+                shadow-[0_10px_25px_-5px_var(--brand-shadow)]
+                hover:shadow-[0_10px_25px_-5px_var(--brand-shadow)]
                 transition-all duration-300
                 active:scale-[0.98] disabled:opacity-50
               "
@@ -253,7 +274,6 @@ export default function Login() {
         </div>
       </div>
 
-      {/* Footer */}
       <p className="absolute bottom-6 text-white text-xs tracking-widest uppercase font-bold">
         Designed by Jeanca
       </p>

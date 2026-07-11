@@ -22,7 +22,7 @@ export default function RestaurantSelector() {
   // Emoji placeholder por restaurante mientras llegan los logos
   function getEmoji(slug) {
     if (slug === 'benditas-papas') return '🍟'
-    if (slug === 'nativos') return '☕'
+    if (slug === 'entre-horas') return '☕'
     return '🍽️'
   }
 
