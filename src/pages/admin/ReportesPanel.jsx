@@ -4,8 +4,10 @@ import {
   TrendingUp, ShoppingBag, DollarSign, Bike,
   Package, AlertTriangle, Users, Clock3,
 } from 'lucide-react'
+import { useAuthStore } from '../../store/authStore'
 
 export default function ReportesPanel() {
+  const { user } = useAuthStore()
   const [monthlyReports, setMonthlyReports] = useState([])
   const [selectedMonth, setSelectedMonth] = useState(null)
   const [monthlyDetail, setMonthlyDetail] = useState(null)
@@ -13,6 +15,9 @@ export default function ReportesPanel() {
   const [todayOrders, setTodayOrders] = useState([])
   const [todayItems, setTodayItems] = useState([])
   const [orders, setOrders] = useState([])
+  const [todayPaidOrders, setTodayPaidOrders] = useState([])
+  const [expandedPayment, setExpandedPayment] = useState(null)
+  const [paymentItems, setPaymentItems] = useState({})
   const [orderItems, setOrderItems] = useState([])
   const [products, setProducts] = useState([])
   const [stats, setStats] = useState({
@@ -20,14 +25,16 @@ export default function ReportesPanel() {
     averageTicket: 0, productsSold: 0, activeOrders: 0, cancelledOrders: 0,
   })
 
-  useEffect(() => { fetchData(); fetchMonthlyReports() }, [])
+  useEffect(() => { fetchData(); fetchMonthlyReports(); fetchTodayPaymentsDetail() }, [])
 
   async function loadMonthDetail(report) {
     setSelectedMonth(report)
     const start = new Date(report.year, report.month, 1).toISOString()
     const end = new Date(report.year, report.month + 1, 1).toISOString()
     const { data: ordersData } = await supabase
-      .from('orders').select('id, status').gte('created_at', start).lt('created_at', end)
+      .from('orders').select('id, status')
+      .eq('restaurant_id', user.restaurant_id) // ← agregar
+      .gte('created_at', start).lt('created_at', end)
     const orderIds = (ordersData || []).map(o => o.id)
     const cancelledCount = (ordersData || []).filter(o => o.status === 'cancelled').length
     const { data: itemsData } = await supabase
@@ -63,35 +70,92 @@ export default function ReportesPanel() {
     })
   }
 
+  async function toggleExpandPayment(payment) {
+    if (expandedPayment === payment.id) {
+      setExpandedPayment(null)
+      return
+    }
+    setExpandedPayment(payment.id)
+
+    if (paymentItems[payment.id]) return // ya cargado, no repetir
+
+    const { data } = await supabase
+      .from('order_items')
+      .select('quantity, note, product:products(name, price)')
+      .eq('order_id', payment.order_id)
+      .neq('status', 'cancelled')
+
+    setPaymentItems(prev => ({ ...prev, [payment.id]: data || [] }))
+  }
+
+  async function fetchTodayPaymentsDetail() {
+    const today = new Date()
+    today.setHours(3, 0, 0, 0)
+
+    const { data } = await supabase
+      .from('payments')
+      .select('*, order:orders(started_at, customer_name, table:tables(number, is_delivery))')
+      .eq('restaurant_id', user.restaurant_id)
+      .eq('voided', false)
+      .gte('created_at', today.toISOString())
+      .order('created_at', { ascending: true })
+
+    setTodayPaidOrders(data || [])
+  }
+
   async function fetchData() {
     setLoading(true)
-    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const today = new Date(); today.setHours(3, 0, 0, 0)
     const todayISO = today.toISOString()
+
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    const thirtyDaysAgoISO = thirtyDaysAgo.toISOString()
+
     const { data: todayOrdersData } = await supabase
-      .from('orders').select('*').gte('created_at', todayISO).order('created_at', { ascending: false })
+      .from('orders').select('*')
+      .eq('restaurant_id', user.restaurant_id)
+      .gte('created_at', todayISO)
+      .order('created_at', { ascending: false })
+
     const { data: allOrdersData } = await supabase
-      .from('orders').select('*').order('created_at', { ascending: false })
+      .from('orders').select('*')
+      .eq('restaurant_id', user.restaurant_id)
+      .gte('created_at', thirtyDaysAgoISO)
+      .order('created_at', { ascending: false })
+
     const todayOrderIds = (todayOrdersData || []).map(o => o.id)
     const { data: todayItemsData } = await supabase
       .from('order_items').select('*, product:products(*)')
       .in('order_id', todayOrderIds.length ? todayOrderIds : ['00000000-0000-0000-0000-000000000000'])
+
     const allOrderIds = (allOrdersData || []).map(o => o.id)
     const { data: allItemsData } = await supabase
       .from('order_items').select('*, product:products(*)')
       .in('order_id', allOrderIds.length ? allOrderIds : ['00000000-0000-0000-0000-000000000000'])
-    const { data: productsData } = await supabase.from('products').select('*')
+
+    const { data: productsData } = await supabase
+      .from('products').select('*')
+      .eq('restaurant_id', user.restaurant_id)
+
+    // Traer delivery_fee del restaurante para sumarlo a las ventas
+    const { data: restaurantData } = await supabase
+      .from('restaurants').select('delivery_fee')
+      .eq('id', user.restaurant_id).single()
+
     setTodayOrders(todayOrdersData || [])
     setTodayItems(todayItemsData || [])
     setOrders(allOrdersData || [])
     setOrderItems(allItemsData || [])
     setProducts(productsData || [])
-    calculateStats(todayOrdersData || [], todayItemsData || [])
+    calculateStats(todayOrdersData || [], todayItemsData || [], restaurantData?.delivery_fee || 0)
     setLoading(false)
   }
 
   async function fetchMonthlyReports() {
     const { data: paymentsData } = await supabase
       .from('payments').select('*, table:tables(number, is_delivery)')
+      .eq('restaurant_id', user.restaurant_id)
       .eq('voided', false).order('created_at', { ascending: false })
     if (!paymentsData) return
     const monthMap = {}
@@ -112,18 +176,25 @@ export default function ReportesPanel() {
     setMonthlyReports(Object.values(monthMap).sort((a, b) => b.key.localeCompare(a.key)))
   }
 
-  function calculateStats(ordersData, itemsData) {
+  function calculateStats(ordersData, itemsData, deliveryFee = 0) {
     const validOrders = ordersData.filter(o => o.status !== 'cancelled')
     const activeOrders = ordersData.filter(o => o.status === 'confirmed').length
     const cancelledOrders = ordersData.filter(o => o.status === 'cancelled').length
-    const deliveryOrders = validOrders.filter(o => o.delivery_type === 'delivery').length
-    const totalSales = itemsData.reduce((sum, item) => {
+    const deliveryOrders = validOrders.filter(o => o.delivery_type === 'delivery')
+
+    const productsTotal = itemsData.reduce((sum, item) => {
       if (!item.product?.price) return sum
       return sum + (Number(item.product.price) * Number(item.quantity))
     }, 0)
+
+    // Sumar el costo de domicilio por cada pedido tipo delivery pagado
+    const deliveryTotal = deliveryOrders.length * deliveryFee
+
+    const totalSales = productsTotal + deliveryTotal
     const productsSold = itemsData.reduce((sum, item) => sum + Number(item.quantity), 0)
+
     setStats({
-      totalSales, totalOrders: validOrders.length, deliveryOrders,
+      totalSales, totalOrders: validOrders.length, deliveryOrders: deliveryOrders.length,
       averageTicket: validOrders.length > 0 ? totalSales / validOrders.length : 0,
       productsSold, activeOrders, cancelledOrders,
     })
@@ -151,12 +222,12 @@ export default function ReportesPanel() {
   }, [orders])
 
   const cards = [
-    { title: 'Ventas hoy',         value: `$${stats.totalSales.toLocaleString('es-CO')}`,              icon: DollarSign,  accent: 'text-[var(--brand-text)]',  bg: 'bg-[var(--brand-light)]',  border: 'border-[var(--brand-border)]'  },
-    { title: 'Pedidos',            value: stats.totalOrders,                                            icon: ShoppingBag, accent: 'text-blue-600',    bg: 'bg-blue-50',    border: 'border-blue-200'    },
-    { title: 'Domicilios',         value: stats.deliveryOrders,                                         icon: Bike,        accent: 'text-orange-500',  bg: 'bg-orange-50',  border: 'border-orange-200'  },
-    { title: 'Ticket promedio',    value: `$${Math.round(stats.averageTicket).toLocaleString('es-CO')}`, icon: TrendingUp,  accent: 'text-green-600',   bg: 'bg-green-50',   border: 'border-green-200'   },
-    { title: 'Productos vendidos', value: stats.productsSold,                                           icon: Package,     accent: 'text-pink-500',    bg: 'bg-pink-50',    border: 'border-pink-200'    },
-    { title: 'Pedidos activos',    value: stats.activeOrders,                                           icon: Clock3,      accent: 'text-indigo-600',  bg: 'bg-indigo-50',  border: 'border-indigo-200'  },
+    { title: 'Ventas hoy', value: `$${stats.totalSales.toLocaleString('es-CO')}`, icon: DollarSign, accent: 'text-[var(--brand-text)]', bg: 'bg-[var(--brand-light)]', border: 'border-[var(--brand-border)]' },
+    { title: 'Pedidos', value: stats.totalOrders, icon: ShoppingBag, accent: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' },
+    { title: 'Domicilios', value: stats.deliveryOrders, icon: Bike, accent: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-200' },
+    { title: 'Ticket promedio', value: `$${Math.round(stats.averageTicket).toLocaleString('es-CO')}`, icon: TrendingUp, accent: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200' },
+    { title: 'Productos vendidos', value: stats.productsSold, icon: Package, accent: 'text-pink-500', bg: 'bg-pink-50', border: 'border-pink-200' },
+    { title: 'Pedidos activos', value: stats.activeOrders, icon: Clock3, accent: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-200' },
   ]
 
   return (
@@ -292,7 +363,7 @@ export default function ReportesPanel() {
                     📦 Hay productos marcados como no disponibles
                   </p>
 
-                  </div>
+                </div>
               )}
 
               {stats.cancelledOrders === 0 &&
@@ -306,6 +377,103 @@ export default function ReportesPanel() {
           </div>
         </>
       )}
+
+      {/* ── Desglose de ventas del día ── */}
+      <div className="rounded-2xl bg-white border border-zinc-200 p-5
+        shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">
+            DESGLOSE DE VENTAS — HOY
+          </p>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500 font-semibold">
+            {todayPaidOrders.length} pagos
+          </span>
+        </div>
+
+        {todayPaidOrders.length === 0 ? (
+          <p className="text-zinc-400 text-sm text-center py-6">Sin pagos registrados hoy</p>
+        ) : (
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {todayPaidOrders.map(payment => (
+              <div key={payment.id}>
+                <button
+                  onClick={() => toggleExpandPayment(payment)}
+                  className="
+              w-full flex items-center justify-between
+              rounded-xl bg-zinc-50 border border-zinc-100
+              hover:border-[var(--brand-border)]
+              px-4 py-3 transition-all duration-200 text-left
+            "
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-zinc-800">
+                      {payment.order?.table?.is_delivery
+                        ? `Domicilio ${payment.order.table.number}`
+                        : `Mesa ${payment.order?.table?.number || '—'}`}
+                      {payment.order?.customer_name && ` · ${payment.order.customer_name}`}
+                    </p>
+                    <p className="text-xs text-zinc-400">
+                      {new Date(payment.created_at).toLocaleTimeString('es-CO', {
+                        hour: '2-digit', minute: '2-digit'
+                      })}
+                      {' · '}
+                      {payment.cash > 0 && `Efectivo $${payment.cash.toLocaleString('es-CO')}`}
+                      {payment.cash > 0 && payment.transfer > 0 && ' + '}
+                      {payment.transfer > 0 && `Transf. $${payment.transfer.toLocaleString('es-CO')}`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-[var(--brand-text)]">
+                      ${Number(payment.total).toLocaleString('es-CO')}
+                    </span>
+                    <span className={`text-zinc-400 transition-transform duration-200 ${expandedPayment === payment.id ? 'rotate-180' : ''
+                      }`}>
+                      ▾
+                    </span>
+                  </div>
+                </button>
+
+                {/* Detalle expandido */}
+                {expandedPayment === payment.id && (
+                  <div className="mt-1 rounded-xl bg-zinc-50/60 border border-zinc-100 p-3 space-y-2">
+                    {!paymentItems[payment.id] ? (
+                      <p className="text-xs text-zinc-400 text-center py-2">Cargando...</p>
+                    ) : paymentItems[payment.id].length === 0 ? (
+                      <p className="text-xs text-zinc-400 text-center py-2">Sin productos</p>
+                    ) : (
+                      <>
+                        {paymentItems[payment.id].map((item, i) => (
+                          <div key={i} className="flex justify-between items-start text-xs">
+                            <div>
+                              <span className="text-zinc-700 font-medium">
+                                {item.quantity}x {item.product?.name}
+                              </span>
+                              {item.note && (
+                                <p className="text-zinc-400 mt-0.5">📝 {item.note}</p>
+                              )}
+                            </div>
+                            <span className="text-zinc-500 font-semibold">
+                              ${((item.product?.price || 0) * item.quantity).toLocaleString('es-CO')}
+                            </span>
+                          </div>
+                        ))}
+                        <div className="pt-2 mt-2 border-t border-zinc-200 flex justify-between text-xs">
+                          <span className="text-zinc-500 font-semibold">Método de pago</span>
+                          <span className="text-zinc-700 font-semibold">
+                            {payment.cash > 0 && `Efectivo: $${payment.cash.toLocaleString('es-CO')}`}
+                            {payment.cash > 0 && payment.transfer > 0 && ' · '}
+                            {payment.transfer > 0 && `Transf: $${payment.transfer.toLocaleString('es-CO')}`}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* ── Reportes mensuales ── */}
       <div className="rounded-2xl bg-white border border-zinc-200 p-5
@@ -392,10 +560,10 @@ export default function ReportesPanel() {
               {/* Resumen */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
-                  { label: 'Total ingresos', value: `$${selectedMonth.total.toLocaleString('es-CO')}`,    color: 'text-[var(--brand-text)]',  bg: 'bg-[var(--brand-light)]  border-[var(--brand-border)]'  },
-                  { label: 'Efectivo',        value: `$${selectedMonth.cash.toLocaleString('es-CO')}`,     color: 'text-green-600',   bg: 'bg-green-50   border-green-200'   },
-                  { label: 'Transferencia',   value: `$${selectedMonth.transfer.toLocaleString('es-CO')}`, color: 'text-blue-600',    bg: 'bg-blue-50    border-blue-200'    },
-                  { label: 'Domicilios',      value: selectedMonth.deliveries,                             color: 'text-orange-500',  bg: 'bg-orange-50  border-orange-200'  },
+                  { label: 'Total ingresos', value: `$${selectedMonth.total.toLocaleString('es-CO')}`, color: 'text-[var(--brand-text)]', bg: 'bg-[var(--brand-light)]  border-[var(--brand-border)]' },
+                  { label: 'Efectivo', value: `$${selectedMonth.cash.toLocaleString('es-CO')}`, color: 'text-green-600', bg: 'bg-green-50   border-green-200' },
+                  { label: 'Transferencia', value: `$${selectedMonth.transfer.toLocaleString('es-CO')}`, color: 'text-blue-600', bg: 'bg-blue-50    border-blue-200' },
+                  { label: 'Domicilios', value: selectedMonth.deliveries, color: 'text-orange-500', bg: 'bg-orange-50  border-orange-200' },
                 ].map(item => (
                   <div
                     key={item.label}

@@ -50,17 +50,13 @@ export default function CajaPanel() {
 
   // Cargar ventas desde que se abrió la caja
   async function loadSales(openedAt) {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const todayISO = today.toISOString()
-
-    // Traer los pedidos pagados hoy con sus items reales
+    // Traer pagos desde que se abrió ESTA caja específica, sin importar si cruza medianoche
     const { data: paidOrders, error } = await supabase
       .from('payments')
       .select('order_id, is_delivery')
       .eq('restaurant_id', user.restaurant_id)
       .eq('voided', false)
-      .gte('created_at', todayISO)
+      .gte('created_at', openedAt) // ← hora real de apertura, no medianoche
 
     if (error) { console.error(error); return }
 
@@ -77,7 +73,6 @@ export default function CajaPanel() {
       sum + (Number(i.product?.price || 0) * Number(i.quantity)), 0
     )
 
-    // Sumar domicilios de los pedidos marcados como delivery
     const { data: restaurant } = await supabase
       .from('restaurants').select('delivery_fee')
       .eq('id', user.restaurant_id).single()
