@@ -11,7 +11,7 @@ export function useActiveOrder(tableId) {
       .from('orders')
       .select('*')
       .eq('table_id', tableId)
-      .in('status', ['draft', 'confirmed', 'delivered', 'dispatched'])
+      .in('status', ['draft', 'confirmed', 'inDelivery', 'delivered', 'dispatched'])
       .order('created_at', { ascending: false })
       .limit(1)
       .single()
