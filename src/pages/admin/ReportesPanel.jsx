@@ -154,10 +154,15 @@ export default function ReportesPanel() {
 
   async function fetchMonthlyReports() {
     const { data: paymentsData } = await supabase
-      .from('payments').select('*, table:tables(number, is_delivery)')
+      .from('payments')
+      .select('*, table:tables(number, is_delivery)')
       .eq('restaurant_id', user.restaurant_id)
-      .eq('voided', false).order('created_at', { ascending: false })
+      .eq('voided', false)
+      .order('created_at', { ascending: false })
+
     if (!paymentsData) return
+
+    // Agrupar pagos por mes primero
     const monthMap = {}
     paymentsData.forEach(payment => {
       const date = new Date(payment.created_at)
@@ -167,12 +172,44 @@ export default function ReportesPanel() {
         payments: [], total: 0, cash: 0, transfer: 0, deliveries: 0,
       }
       monthMap[key].payments.push(payment)
-      monthMap[key].total += payment.total
-      const realCash = payment.total - (payment.transfer || 0)
-      monthMap[key].cash += realCash > 0 ? realCash : 0
+      monthMap[key].cash += payment.cash || 0
       monthMap[key].transfer += payment.transfer || 0
       if (payment.is_delivery) monthMap[key].deliveries++
     })
+
+    const { data: restaurantData } = await supabase
+      .from('restaurants').select('delivery_fee')
+      .eq('id', user.restaurant_id).single()
+    const deliveryFee = restaurantData?.delivery_fee || 0
+
+    // Por cada mes, calcular el total real con SU PROPIA consulta de items
+    for (const key of Object.keys(monthMap)) {
+      const month = monthMap[key]
+      const orderIds = month.payments.map(p => p.order_id).filter(Boolean)
+
+      if (orderIds.length === 0) continue
+
+      const { data: itemsData } = await supabase
+        .from('order_items')
+        .select('order_id, quantity, product:products(price)')
+        .in('order_id', orderIds)
+        .neq('status', 'cancelled')
+
+      const orderTotals = {}
+        ; (itemsData || []).forEach(item => {
+          const val = Number(item.product?.price || 0) * Number(item.quantity)
+          orderTotals[item.order_id] = (orderTotals[item.order_id] || 0) + val
+        })
+
+      let monthTotal = 0
+      month.payments.forEach(payment => {
+        const itemsReal = orderTotals[payment.order_id] || 0
+        monthTotal += itemsReal + (payment.is_delivery ? deliveryFee : 0)
+      })
+
+      month.total = monthTotal
+    }
+
     setMonthlyReports(Object.values(monthMap).sort((a, b) => b.key.localeCompare(a.key)))
   }
 

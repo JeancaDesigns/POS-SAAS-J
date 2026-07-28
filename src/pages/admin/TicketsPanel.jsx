@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import { Printer, Receipt, Clock3, ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
+import { useAuthStore } from '../../store/authStore'
 
 const DELETE_PASSWORD = 'BP1612'
 
@@ -11,6 +12,7 @@ export default function TicketsPanel() {
   const [deliveryFee, setDeliveryFee] = useState(0)
   const [expandedMonths, setExpandedMonths] = useState({})
   const [deletingId, setDeletingId] = useState(null)
+  const { user } = useAuthStore()
 
   useEffect(() => {
     loadOrders()
@@ -23,6 +25,7 @@ export default function TicketsPanel() {
     const { data } = await supabase
       .from('orders')
       .select(`*, table:tables(number, is_delivery), order_items(*, products(name, price))`)
+      .eq('restaurant_id', user.restaurant_id)
       .order('created_at', { ascending: false })
     setOrders(data || [])
     setLoading(false)
@@ -34,7 +37,7 @@ export default function TicketsPanel() {
       acc + (Number(item.products?.price || 0) * Number(item.quantity)), 0)
     const isDelivery = order.delivery_type === 'delivery' && order.table?.is_delivery
     return itemsTotal + (isDelivery ? deliveryFee : 0)
-  }
+  } 
 
   function getMonthKey(dateStr) {
     const d = new Date(dateStr)
