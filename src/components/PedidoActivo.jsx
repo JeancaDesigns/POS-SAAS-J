@@ -3,6 +3,7 @@ import { useActiveOrder } from '../hooks/useActiveOrder'
 import { useProducts } from '../hooks/useProducts'
 import { supabase } from '../supabaseClient'
 import { useAuthStore } from '../store/authStore'
+import { useCartPersistence } from '../hooks/useCartPersistence'
 
 export default function PedidoActivo({ table, onClose }) {
   const { user } = useAuthStore()
@@ -22,6 +23,7 @@ export default function PedidoActivo({ table, onClose }) {
   const [zonaSeleccionada, setZonaSeleccionada] = useState(null)
   const [moviendoMesa, setMoviendoMesa] = useState(false)
   const [variantModal, setVariantModal] = useState(null)
+  useCartPersistence(`cart-mesa-${table.id}`, newItems, setNewItems)
 
   const displayCategory = activeCategory || categories[0]?.id
   const categoryProducts = products.filter(p => p.category_id === displayCategory && p.available)

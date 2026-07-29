@@ -132,7 +132,7 @@ export default function App() {
 
   return (
     <>
-      <StatusDrawer />
+      {!isPublicRoute && <StatusDrawer />}
       <div className={
         user && !isPublicRoute
           ? 'pb-[80px] lg:pb-0 lg:pl-[92px]'

@@ -153,7 +153,7 @@ export default function Login() {
           <div className="flex flex-col items-center gap-2 mb-4">
             <div className="
               flex flex-col items-center justify-between
-              sm:w-120 w-80 rounded-2xl overflow-hidden
+              sm:w-100 w-80 rounded-2xl overflow-hidden
               py-3 px-4
               bg-white/10 border border-[var(--brand-border)]/30
             " style={{ minHeight: '120px' }}>
@@ -173,7 +173,7 @@ export default function Login() {
                 </div>
               )}
 
-              <div className="flex flex-col items-center gap-1.5 -mt-9">
+              <div className="flex flex-col items-center gap-1.5">
                 <span className="text-xs text-[var(--brand-text)]/40">×</span>
                 <img
                   src="/logotipo.svg"

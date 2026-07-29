@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useParams } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
+import { useCartPersistence } from '../../hooks/useCartPersistence'
 
 const markerIcon = new L.Icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -20,10 +22,19 @@ function LocationPicker({ selectedLocation, setSelectedLocation }) {
   return <Marker position={[selectedLocation.lat, selectedLocation.lng]} icon={markerIcon} />
 }
 
+const CLOSED_STATUSES = ['delivered', 'inDelivery', 'cancelled', 'paid', 'closed']
+
+function getEstimatedTime(pendingCount) {
+  if (pendingCount <= 5) return 15
+  if (pendingCount <= 10) return 25
+  if (pendingCount <= 19) return 40
+  return 60
+}
+
 export default function PedidoPublico() {
+  const { slug } = useParams()
   const [variantModal, setVariantModal] = useState(null)
   const [restaurant, setRestaurant] = useState(null)
-  const [deliveryUser, setDeliveryUser] = useState(null)
   const [orderSuccess, setOrderSuccess] = useState(false)
   const [createdOrder, setCreatedOrder] = useState(null)
   const [categories, setCategories] = useState([])
@@ -40,10 +51,36 @@ export default function PedidoPublico() {
   const [selectedLocation, setSelectedLocation] = useState(null)
   const [confirming, setConfirming] = useState(false)
   const [activeSection, setActiveSection] = useState('menu')
+  const [notFound, setNotFound] = useState(false)
+
+  // ── Modal de entrada + búsqueda de estado ────────────────────────────────────
+  const [showEntryModal, setShowEntryModal] = useState(true)
+  const [checkingCart, setCheckingCart] = useState(true)
+  const [showOrderSearch, setShowOrderSearch] = useState(false)
+  const [searchOrderNumber, setSearchOrderNumber] = useState('')
+  const [searching, setSearching] = useState(false)
+  const [searchError, setSearchError] = useState('')
+  const [searchResult, setSearchResult] = useState(null)
+
+  useCartPersistence(`cart-${slug}`, items, setItems)
+
+  // Si ya había un carrito guardado con productos, saltamos el modal de entrada
+  useEffect(() => {
+    const saved = sessionStorage.getItem(`cart-${slug}`)
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        if (parsed.length > 0) setShowEntryModal(false)
+      } catch {
+        // ignorar, se limpia solo en useCartPersistence
+      }
+    }
+    setCheckingCart(false)
+  }, [slug])
 
   // ── Horario ──────────────────────────────────────────────────────────────────
   function isOpen(restaurant) {
-    if (!restaurant?.opening_time || !restaurant?.closing_time) return true // sin horario = siempre abierto
+    if (!restaurant?.opening_time || !restaurant?.closing_time) return true
 
     const now = new Date()
     const [openH, openM] = restaurant.opening_time.split(':').map(Number)
@@ -53,7 +90,6 @@ export default function PedidoPublico() {
     const openMinutes = openH * 60 + openM
     const closeMinutes = closeH * 60 + closeM
 
-    // Maneja horarios que cruzan medianoche (ej: 20:00 - 02:00)
     if (closeMinutes < openMinutes) {
       return nowMinutes >= openMinutes || nowMinutes < closeMinutes
     }
@@ -66,27 +102,53 @@ export default function PedidoPublico() {
   useEffect(() => {
     function check() { setOpen(isOpen(restaurant)) }
     check()
-    const interval = setInterval(check, 60000) // revisa cada minuto
+    const interval = setInterval(check, 60000)
     return () => clearInterval(interval)
   }, [restaurant])
 
-  useEffect(() => { fetchData(); fetchDomiciliario() }, [])
+  useEffect(() => {
+    if (slug) fetchData()
+  }, [slug])
+
+  // Revalida el carrito guardado contra los productos actuales
+  useEffect(() => {
+    if (products.length === 0) return
+    setItems(prev => {
+      const revalidated = prev
+        .filter(i => products.some(p => p.id === i.product.id))
+        .map(i => {
+          const fresh = products.find(p => p.id === i.product.id)
+          return { ...i, product: fresh }
+        })
+      return revalidated.length !== prev.length || revalidated.some((r, idx) => r.product !== prev[idx].product)
+        ? revalidated
+        : prev
+    })
+  }, [products])
 
   async function fetchData() {
-    const restaurantId = '94393adb-b409-42f5-bf8d-6650e0e2d6d6'
     const { data: restaurantData } = await supabase
-      .from('restaurants').select('*').eq('id', restaurantId).single()
+      .from('restaurants').select('*').eq('slug', slug).single()
+
+    if (!restaurantData) {
+      setNotFound(true)
+      return
+    }
+
     setRestaurant(restaurantData)
+
     const { data: categoriesData } = await supabase
       .from('categories').select('*')
-      .eq('restaurant_id', restaurantId).eq('active', true).order('name')
+      .eq('restaurant_id', restaurantData.id).eq('active', true).order('name')
     const { data: productsData } = await supabase
       .from('products').select('*')
-      .eq('restaurant_id', restaurantId).eq('active', true).eq('available', true)
+      .eq('restaurant_id', restaurantData.id).eq('active', true).eq('available', true)
       .order('price', { ascending: true })
     setCategories(categoriesData || [])
     setProducts(productsData || [])
     if (categoriesData?.length > 0) setActiveCategory(categoriesData[0].id)
+
+    fetchDomiciliario(restaurantData.id)
   }
 
   async function fetchPedidosAnteriores(orderId, startedAt) {
@@ -96,10 +158,10 @@ export default function PedidoPublico() {
     return count || 0
   }
 
-  async function fetchDomiciliario() {
+  async function fetchDomiciliario(restaurantId) {
     const { data } = await supabase
       .from('active_shifts').select('user_id')
-      .eq('restaurant_id', '94393adb-b409-42f5-bf8d-6650e0e2d6d6')
+      .eq('restaurant_id', restaurantId)
       .eq('active', true).order('started_at', { ascending: false }).limit(1)
     if (data && data.length > 0) {
       const { data: userData } = await supabase
@@ -150,18 +212,38 @@ export default function PedidoPublico() {
       alert('La dirección es obligatoria'); return
     }
     setConfirming(true)
-    const restaurantId = '94393adb-b409-42f5-bf8d-6650e0e2d6d6'
+
     const { data: table } = await supabase
       .from('tables').select('*')
-      .eq('restaurant_id', restaurantId).eq('is_delivery', true).limit(1).single()
+      .eq('restaurant_id', restaurant.id).eq('is_delivery', true).limit(1).maybeSingle()
+
+    if (!table) {
+      alert('Error: no hay una mesa de domicilio configurada para este restaurante')
+      setConfirming(false)
+      return
+    }
+
+    // ── Código de pedido diario ──────────────────────────────
+    const startOfDay = new Date()
+    startOfDay.setHours(0, 0, 0, 0)
+
+    const { count: todayCount } = await supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('restaurant_id', restaurant.id)
+      .gte('created_at', startOfDay.toISOString())
+
+    const orderNumber = (todayCount || 0) + 1
+
     const { data: order, error } = await supabase
       .from('orders').insert({
-        restaurant_id: restaurantId,
+        restaurant_id: restaurant.id,
         table_id: table.id,
         status: 'confirmed',
         confirmed_at: new Date().toISOString(),
         started_at: new Date().toISOString(),
         source: 'online',
+        order_number: orderNumber,
         customer_name: customerName.trim(),
         customer_phone: customerPhone.trim() || null,
         delivery_type: deliveryType,
@@ -170,9 +252,16 @@ export default function PedidoPublico() {
         delivery_lat: deliveryType === 'delivery' ? selectedLocation?.lat || null : null,
         delivery_lng: deliveryType === 'delivery' ? selectedLocation?.lng || null : null,
       }).select().single()
+
+    if (error) {
+      alert('Error creando pedido')
+      setConfirming(false)
+      return
+    }
+
     const count = await fetchPedidosAnteriores(order.id, order.started_at)
     setPedidosAnteriores(count)
-    if (error) { alert('Error creando pedido'); setConfirming(false); return }
+
     await supabase.from('order_items').insert(
       items.map(i => ({
         order_id: order.id, product_id: i.product.id,
@@ -187,6 +276,60 @@ export default function PedidoPublico() {
     setDeliveryAddress(''); setDeliveryReference('')
     setSelectedLocation(null)
     setConfirming(false)
+  }
+
+  // ── Búsqueda de estado de pedido ──────────────────────────────────────────────
+  async function handleSearchOrder() {
+    if (!searchOrderNumber.trim()) return
+    setSearching(true)
+    setSearchError('')
+    setSearchResult(null)
+
+    const startOfDay = new Date()
+    startOfDay.setHours(0, 0, 0, 0)
+
+    const { data: order } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('restaurant_id', restaurant.id)
+      .eq('order_number', Number(searchOrderNumber))
+      .gte('created_at', startOfDay.toISOString())
+      .maybeSingle()
+
+    if (!order) {
+      setSearchError('No encontramos un pedido con ese código hoy')
+      setSearching(false)
+      return
+    }
+
+    if (order.status === 'cancelled') {
+      setSearchResult({ order, cancelled: true })
+      setSearching(false)
+      return
+    }
+
+    if (CLOSED_STATUSES.includes(order.status)) {
+      setSearchResult({ order, done: true })
+      setSearching(false)
+      return
+    }
+
+    const { count } = await supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('restaurant_id', restaurant.id)
+      .eq('status', 'confirmed')
+      .lt('started_at', order.started_at)
+
+    setSearchResult({ order, pendingCount: count || 0, done: false })
+    setSearching(false)
+  }
+
+  function resetSearch() {
+    setShowOrderSearch(false)
+    setSearchOrderNumber('')
+    setSearchError('')
+    setSearchResult(null)
   }
 
   function getCurrentLocation() {
@@ -219,6 +362,167 @@ export default function PedidoPublico() {
     placeholder:text-zinc-400 text-sm
   `
 
+  // ── Restaurante no encontrado ────────────────────────────────────────────────
+  if (notFound) return (
+    <div className="min-h-screen bg-[#F6F6F8] flex flex-col items-center justify-center gap-4 px-4">
+      <p className="text-5xl">🍽️</p>
+      <h1 className="text-zinc-900 font-bold text-xl tracking-tight">
+        Restaurante no encontrado
+      </h1>
+      <p className="text-zinc-400 text-sm text-center">
+        El enlace que usaste no corresponde a ningún restaurante registrado.
+      </p>
+    </div>
+  )
+
+  // ── Modal de entrada ─────────────────────────────────────────────────────────
+  if (showEntryModal && !checkingCart) return (
+    <div className="min-h-screen flex items-center justify-center p-6 bg-[#F6F6F8]">
+      <div className="
+        w-full max-w-md
+        bg-white rounded-3xl
+        border border-zinc-200
+        shadow-[0_20px_60px_var(--brand-soft)]
+        p-8 text-center
+      ">
+        <div className="
+          w-20 h-20 rounded-full mx-auto mb-6
+          flex items-center justify-center
+          overflow-hidden
+          bg-[var(--brand)] border border-violet-100
+        ">
+          {restaurant?.logo_url ? (
+            <img
+              src={restaurant.logo_url}
+              alt={restaurant.name || 'Restaurante'}
+              className="w-full h-full object-contain p-2"
+            />
+          ) : (
+            <span className="text-4xl">🍽️</span>
+          )}
+        </div>
+        <h1 className="text-2xl font-bold text-zinc-900 mb-1 tracking-tight">
+          {restaurant?.name || 'Bienvenido'}
+        </h1>
+        <p className="text-zinc-400 text-sm mb-8">
+          ¿Ya tienes un pedido hecho hoy?
+        </p>
+
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={() => { setShowEntryModal(false); setShowOrderSearch(true) }}
+            className="
+              w-full py-4 rounded-2xl
+              font-bold text-[var(--brand-text)]
+              bg-[var(--brand-light)] border border-[var(--brand-border)]
+              hover:bg-[var(--brand-light)]
+              transition-all duration-200 active:scale-[0.98]
+            "
+          >
+            Sí, quiero ver el estado
+          </button>
+          <button
+            onClick={() => setShowEntryModal(false)}
+            className="
+              w-full py-4 rounded-2xl
+              font-bold text-white
+              bg-[var(--brand)] hover:bg-[var(--brand-hover)]
+              shadow-[0_4px_20px_var(--brand-shadow)]
+              transition-all duration-200 active:scale-[0.98]
+            "
+          >
+            No, quiero hacer un pedido
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
+  // ── Pantalla de búsqueda de estado ──────────────────────────────────────────
+  if (showOrderSearch) return (
+    <div className="min-h-screen flex items-center justify-center p-6 bg-[#F6F6F8]">
+      <div className="
+        w-full max-w-md
+        bg-white rounded-3xl
+        border border-zinc-200
+        shadow-[0_20px_60px_var(--brand-soft)]
+        p-8
+      ">
+        <button
+          onClick={resetSearch}
+          className="text-sm font-semibold text-zinc-400 hover:text-zinc-600 transition-colors mb-6"
+        >
+          ← Volver
+        </button>
+
+        <h2 className="text-xl font-bold text-zinc-900 mb-1 tracking-tight text-center">
+          Buscar mi pedido
+        </h2>
+        <p className="text-zinc-400 text-sm mb-6 text-center">
+          Ingresa el código que te dimos al confirmar
+        </p>
+
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-zinc-400 font-bold text-lg">#</span>
+          <input
+            type="number"
+            placeholder="000"
+            value={searchOrderNumber}
+            onChange={e => setSearchOrderNumber(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+
+        <button
+          onClick={handleSearchOrder}
+          disabled={searching || !searchOrderNumber.trim()}
+          className="
+            w-full py-4 rounded-2xl
+            font-bold text-white
+            bg-[var(--brand)] hover:bg-[var(--brand-hover)]
+            shadow-[0_4px_20px_var(--brand-shadow)]
+            transition-all duration-200 active:scale-[0.98]
+            disabled:opacity-50
+          "
+        >
+          {searching ? 'Buscando...' : 'Buscar'}
+        </button>
+
+        {searchError && (
+          <p className="text-red-500 text-sm text-center mt-4 font-medium">
+            {searchError}
+          </p>
+        )}
+
+        {searchResult && (
+          <div className="mt-6 rounded-2xl bg-zinc-50 border border-zinc-100 p-5 text-center">
+            <p className="text-zinc-400 text-xs font-semibold mb-1">
+              Pedido #{String(searchResult.order.order_number).padStart(3, '0')}
+            </p>
+
+            {searchResult.cancelled ? (
+              <p className="text-red-500 font-bold">Este pedido fue cancelado</p>
+            ) : searchResult.done ? (
+              <p className="text-emerald-600 font-bold">¡Tu pedido ya está en camino o entregado! 🎉</p>
+            ) : (
+              <>
+                <p className="text-zinc-700 font-semibold">
+                  {searchResult.pendingCount > 0
+                    ? <>Hay <span className="text-[var(--brand-text)] font-bold">{searchResult.pendingCount}</span> pedido{searchResult.pendingCount !== 1 ? 's' : ''} antes que el tuyo</>
+                    : 'Tu pedido es el siguiente en prepararse 🎉'
+                  }
+                </p>
+                <p className="text-zinc-400 text-xs mt-2">
+                  Tiempo estimado: ~{getEstimatedTime(searchResult.pendingCount)} minutos
+                </p>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
   // ── Pantalla de éxito ────────────────────────────────────────────────────────
   if (orderSuccess) return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-[#F6F6F8]">
@@ -240,9 +544,15 @@ export default function PedidoPublico() {
           ✅
         </div>
 
-        <h2 className="text-2xl font-bold text-zinc-900 mb-2">
+        <h2 className="text-2xl font-bold text-zinc-900 mb-1">
           ¡Pedido enviado!
         </h2>
+
+        {createdOrder?.order_number && (
+          <p className="text-zinc-400 text-sm font-semibold mb-4">
+            Tu código es <span className="text-[var(--brand-text)] font-bold">#{String(createdOrder.order_number).padStart(3, '0')}</span>
+          </p>
+        )}
 
         {pedidosAnteriores > 0 ? (
           <p className="text-zinc-500 text-sm">
@@ -253,6 +563,10 @@ export default function PedidoPublico() {
             Tu pedido es el siguiente en prepararse 🎉
           </p>
         )}
+
+        <p className="text-zinc-400 text-xs mt-2">
+          Tiempo estimado: ~{getEstimatedTime(pedidosAnteriores)} minutos
+        </p>
 
         {domiciliarioActivo && (
           <p className="text-sm mt-2 text-[var(--brand-text)] font-medium">
@@ -287,13 +601,21 @@ export default function PedidoPublico() {
           {/* Info restaurante */}
           <div className="flex items-center gap-4 mb-4">
             <div className="
-              w-14 h-14 rounded-2xl
+              w-20 h-20 rounded-4xl
               flex items-center justify-center
-              text-2xl font-black
-              bg-white/20 border border-white/30
+              overflow-hidden
+              bg-[var(--brand)] border border-white/30
               shadow-[0_4px_15px_rgba(0,0,0,0.15)]
             ">
-              🍟
+              {restaurant?.logo_url ? (
+                <img
+                  src={restaurant.logo_url}
+                  alt={restaurant.name || 'Restaurante'}
+                  className="w-full h-full object-contain p-1.5"
+                />
+              ) : (
+                <span className="text-2xl font-black">🍽️</span>
+              )}
             </div>
             <div className="min-w-0">
               <h1 className="text-xl font-bold text-white tracking-tight truncate">
@@ -385,7 +707,7 @@ export default function PedidoPublico() {
                 {categories.map(cat => (
                   <button
                     key={cat.id}
-                    onClick={() => !open && setActiveCategory(cat.id)} // permite navegar pero no añadir
+                    onClick={() => setActiveCategory(cat.id)}
                     className={`
                       px-4 py-2 rounded-full text-sm font-semibold
                       whitespace-nowrap border transition-all duration-200
@@ -624,7 +946,7 @@ export default function PedidoPublico() {
                     w-full rounded-2xl py-4
                     font-black text-lg text-white
                     bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-                    shadow-[0_8px_30px_var(--brand-shadow)]]
+                    shadow-[0_8px_30px_var(--brand-shadow)]
                     transition-all duration-200
                     active:scale-[0.98] disabled:opacity-50
                   "
@@ -650,7 +972,7 @@ export default function PedidoPublico() {
                 w-full rounded-2xl py-4
                 font-black text-lg text-white
                 bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-                shadow-[0_8px_30px_var(--brand-shadow)]]
+                shadow-[0_8px_30px_var(--brand-shadow)]
                 transition-all duration-200
                 active:scale-[0.98]
               "

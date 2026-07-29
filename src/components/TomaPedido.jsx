@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient'
 import { useAuthStore } from '../store/authStore'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import { db } from '../db/localDB'
+import { useCartPersistence } from '../hooks/useCartPersistence'
 
 export default function TomaPedido({ table, onClose, onConfirmed }) {
   const { user } = useAuthStore()
@@ -20,6 +21,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
   const [variantModal, setVariantModal] = useState(null)
   const [headerCollapsed, setHeaderCollapsed] = useState(false)
   const isOnline = useOnlineStatus()
+  useCartPersistence(`cart-mesa-${table.id}`, items, setItems)
 
   const displayCategory = activeCategory || categories[0]?.id
   const categoryProducts = products.filter(
