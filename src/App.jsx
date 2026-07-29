@@ -86,7 +86,9 @@ function ProtectedRoute({ children, roles }) {
   if (!user) return <Navigate to={`/${urlSlug}/login`} />
   if (!storeSlug) return <div className="min-h-screen bg-[#F6F6F8]" />
 
-  if (storeSlug !== urlSlug) {
+  const isDev = user.roles.includes('dev')
+
+  if (!isDev && storeSlug !== urlSlug) {
     return <Navigate to={`/${storeSlug}/${user.roles.includes('cocina') ? 'cocina' :
       user.roles.includes('cajero') ? 'caja' :
         user.roles.includes('mesero') ? 'mesero' :
@@ -95,7 +97,7 @@ function ProtectedRoute({ children, roles }) {
       }`} />
   }
 
-  if (roles && !roles.some(r => user.roles.includes(r))) {
+  if (roles && !roles.some(r => user.roles.includes(r)) && !isDev) {
     return <Navigate to={`/${urlSlug}`} />
   }
 

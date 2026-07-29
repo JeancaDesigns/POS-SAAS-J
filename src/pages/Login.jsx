@@ -77,12 +77,16 @@ export default function Login() {
       .eq('slug', slug)
       .single()
 
-    if (!restaurant || profile.restaurant_id !== restaurant.id) {
+    if (!restaurant || (profile.restaurant_id !== restaurant.id && !profile.roles.includes('dev'))) {
       setError('Este usuario no existe en este restaurante')
       await supabase.auth.signOut()
       setLoading(false)
       return
     }
+
+    const effectiveProfile = profile.roles.includes('dev') && profile.restaurant_id !== restaurant.id
+      ? { ...profile, restaurant_id: restaurant.id }
+      : profile
 
     const { data: restaurantData } = await supabase
       .from('restaurants')
@@ -93,7 +97,7 @@ export default function Login() {
     const theme = restaurantData?.theme || 'purple'
     document.documentElement.setAttribute('data-theme', theme)
 
-    setUser(profile)
+    setUser(effectiveProfile)
     useAuthStore.setState({
       slug,
       modules: restaurantData?.modules || [],
