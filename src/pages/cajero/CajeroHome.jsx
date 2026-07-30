@@ -330,6 +330,23 @@ export default function CajeroHome() {
     setOnlineOrders(data || [])
   }
 
+  async function sendManualReport(order) {
+    const { count } = await supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('restaurant_id', user.restaurant_id)
+      .eq('status', 'confirmed')
+      .lt('started_at', order.started_at)
+
+    const pendingCount = count || 0
+    const message = pendingCount > 0
+      ? `¡Hola ${order.customer_name}! Tu pedido #${String(order.order_number).padStart(3, '0')} sigue en preparación. Hay ${pendingCount} pedido${pendingCount !== 1 ? 's' : ''} antes que el tuyo, tiempo estimado ~${getEstimatedTime(pendingCount)} minutos.`
+      : `¡Hola ${order.customer_name}! Tu pedido #${String(order.order_number).padStart(3, '0')} es el siguiente en prepararse 🎉`
+
+    const link = buildWhatsappLink(order.customer_phone, message)
+    if (link) window.open(link, '_blank')
+  }
+
   useEffect(() => {
     if (!user?.restaurant_id || !isOnline) return
     fetchOnlineOrders()
@@ -1112,6 +1129,12 @@ export default function CajeroHome() {
                                 : order.status === 'cancelled' ? 'Cancelado'
                                   : 'Activo'}
                             </span>
+                            <button
+                              onClick={e => { e.stopPropagation(); sendManualReport(order) }}
+                              className="text-xs font-semibold text-green-600 hover:text-green-700 mt-2"
+                            >
+                              📲 Enviar reporte
+                            </button>
                           </div>
                           <p className="text-xs text-zinc-400">
                             {order.delivery_type === 'delivery' ? '🛵 Domicilio' : '🏠 Recoger'}

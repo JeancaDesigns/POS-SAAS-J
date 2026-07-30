@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/authStore'
 import { useOnlineStatus } from '../../hooks/useOnlineStatus'
 import { db } from '../../db/localDB'
 import { cacheOrders, getCachedOrders } from '../../db/cacheHelpers'
+import { buildWhatsappLink } from '../../utils/whatsapp'
 
 const PASTEL_COLORS = [
   { bg: '#FFFDE7', border: '#FFF176', shadow: 'rgba(249,224,71,0.3)' },
@@ -189,6 +190,7 @@ export default function CocinaHome() {
   const [flashing, setFlashing] = useState(false)
   const prevItemsRef = useRef({})
   const isOnline = useOnlineStatus()
+  const [readyToNotify, setReadyToNotify] = useState(null)
 
   const activeOrder = orders.find(o => o.id === activeOrderId) || null
 
@@ -465,6 +467,10 @@ export default function CocinaHome() {
 
     setActiveOrderId(null)
     fetchOrders()
+
+    if (order.source === 'online' && order.customer_phone) {
+      setReadyToNotify(order)
+    }
   }
 
   async function discardCancelledOrder(order) {
@@ -634,6 +640,43 @@ export default function CocinaHome() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {readyToNotify && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.5)' }}
+        >
+          <div className="w-full max-w-sm bg-white rounded-3xl p-6 text-center shadow-2xl">
+            <p className="text-3xl mb-3">✅</p>
+            <p className="font-bold text-zinc-900 mb-1">
+              Pedido de {readyToNotify.customer_name} listo
+            </p>
+            <p className="text-zinc-400 text-sm mb-6">
+              ¿Le avisamos por WhatsApp?
+            </p>
+            <div className="flex flex-col gap-2">
+              <a
+                href={buildWhatsappLink(
+                  readyToNotify.customer_phone,
+                  `¡Hola ${readyToNotify.customer_name}! Tu pedido #${String(readyToNotify.order_number).padStart(3, '0')} ya está listo${readyToNotify.delivery_type === 'delivery' ? ' y va en camino 🛵' : ' para recoger 🏠'}.`
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setReadyToNotify(null)}
+                className="w-full py-3 rounded-2xl font-bold text-white bg-green-500 hover:bg-green-600 transition-all"
+              >
+                📲 Enviar por WhatsApp
+              </a>
+              <button
+                onClick={() => setReadyToNotify(null)}
+                className="w-full py-3 rounded-2xl font-semibold text-zinc-400 hover:text-zinc-600 transition-colors"
+              >
+                Omitir
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
