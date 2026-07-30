@@ -16,6 +16,7 @@ import NavBar from './components/NavBar'
 import StatusDrawer from './components/StatusDrawer'
 import 'leaflet/dist/leaflet.css'
 import { useSyncQueue } from './hooks/useSyncQueue'
+import DevConfig from './pages/dev/DevConfig'
 
 // ── SlugGuard ────────────────────────────────────────────────────────────────
 function SlugGuard({ children }) {
@@ -113,7 +114,8 @@ export default function App() {
   const isPublicRoute =
     location.pathname === '/' ||
     location.pathname.endsWith('/login') ||
-    location.pathname.includes('/pedir')
+    location.pathname.includes('/pedir') ||
+    location.pathname === '/dev'
 
   const handleInactivityLogout = useCallback(async () => {
     await supabase.auth.signOut()
@@ -141,6 +143,8 @@ export default function App() {
           : ''
       }>
         <Routes>
+
+          <Route path="/dev" element={<DevConfig />} />
 
           <Route path="/" element={<RestaurantSelector />} />
 

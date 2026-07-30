@@ -267,6 +267,7 @@ export default function CajeroHome() {
   const [showNotifications, setShowNotifications] = useState(false)
   const [onlineOrders, setOnlineOrders] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
+  const [toastQueue, setToastQueue] = useState([])
   const isOnline = useOnlineStatus()
   const [fiado, setFiado] = useState(false)
   const [debtorName, setDebtorName] = useState('')
@@ -311,6 +312,11 @@ export default function CajeroHome() {
     setHistorial(data || [])
   }
 
+  function dismissToast(orderId) {
+    setToastQueue(prev => prev.filter(o => o.id !== orderId))
+    setShowNotifications(true)
+  }
+
   async function fetchOnlineOrders() {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -333,14 +339,17 @@ export default function CajeroHome() {
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'orders',
           filter: `restaurant_id=eq.${user.restaurant_id}`,
         },
         (payload) => {
-          if (payload.new.source === 'online') {
-            setUnreadCount(prev => prev + 1)
+          if (payload.new?.source === 'online' || payload.old?.source === 'online') {
+            if (payload.eventType === 'INSERT') {
+              setUnreadCount(prev => prev + 1)
+              setToastQueue(prev => [...prev, payload.new])
+            }
             fetchOnlineOrders()
           }
         }
@@ -1039,13 +1048,13 @@ export default function CajeroHome() {
           style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
         >
           <div className="
-      w-full max-w-lg
-      bg-white rounded-t-3xl
-      border border-b-0 border-zinc-200
-      shadow-[0_-8px_40px_rgba(0,0,0,0.10)]
-      p-6 pb-10
-      max-h-[80vh] flex flex-col
-    ">
+            w-full max-w-lg
+            bg-white rounded-t-3xl
+            border border-b-0 border-zinc-200
+            shadow-[0_-8px_40px_rgba(0,0,0,0.10)]
+            p-6 pb-10
+            max-h-[80vh] flex flex-col
+          ">
             {/* Header */}
             <div className="flex items-center justify-between mb-5 shrink-0">
               <div>
@@ -1124,6 +1133,46 @@ export default function CajeroHome() {
           </div>
         </div>
       )}
+
+      {/* ── Toasts de pedidos nuevos ── */}
+      <div className="fixed top-1/2 right-4 -translate-y-1/2 z-[70] flex flex-col gap-3 max-w-xs">
+        {toastQueue.map(order => (
+          <button
+            key={order.id}
+            onClick={() => dismissToast(order.id)}
+            className="
+              text-left
+              rounded-2xl bg-white border border-[var(--brand-border)]
+              shadow-[0_8px_30px_rgba(0,0,0,0.15)]
+              p-4
+              animate-[slidein_0.3s_ease]
+              hover:scale-[1.02] transition-transform
+            "
+          >
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">🛵</span>
+              <div className="min-w-0">
+                <p className="font-bold text-zinc-900 text-sm">
+                  ¡Nuevo pedido online!
+                </p>
+                <p className="text-zinc-500 text-xs mt-0.5 truncate">
+                  {order.customer_name} · {order.delivery_type === 'delivery' ? 'Domicilio' : 'Recoger'}
+                </p>
+                <p className="text-[var(--brand-text)] text-xs font-semibold mt-1">
+                  Toca para ver detalles →
+                </p>
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      <style>{`
+        @keyframes slidein {
+          from { transform: translateX(120%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      `}</style>
 
     </div>
   )

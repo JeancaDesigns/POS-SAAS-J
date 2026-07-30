@@ -12,6 +12,8 @@ export default function ConfigPanel() {
     closing_time: '',
     delivery_fee: '1000',
     theme: 'purple',
+    nequi_number: '',
+    bre_b_key: '',
   })
 
   useEffect(() => {
@@ -27,6 +29,8 @@ export default function ConfigPanel() {
         closing_time: data.closing_time || '',
         delivery_fee: String(data.delivery_fee || 1000),
         theme: data.theme || 'purple',
+        nequi_number: data.nequi_number || '',
+        bre_b_key: data.bre_b_key || '',
       })
     }
     fetch()
@@ -42,6 +46,8 @@ export default function ConfigPanel() {
         closing_time: form.closing_time || null,
         delivery_fee: parseInt(form.delivery_fee) || 1000,
         theme: form.theme,
+        nequi_number: form.nequi_number.trim() || null,
+        bre_b_key: form.bre_b_key.trim() || null,
       })
       .eq('id', user.restaurant_id)
 
@@ -113,13 +119,35 @@ export default function ConfigPanel() {
         </div>
 
         <div>
+          <p className="text-sm text-zinc-500 mb-1.5">Número de Nequi</p>
+          <input
+            type="text"
+            placeholder="Ej: 3001234567"
+            value={form.nequi_number}
+            onChange={e => setForm(p => ({ ...p, nequi_number: e.target.value }))}
+            className={inputClass}
+          />
+        </div>
+
+        <div>
+          <p className="text-sm text-zinc-500 mb-1.5">Llave Bre-B</p>
+          <input
+            type="text"
+            placeholder="Ej: correo, número de cuenta o celular registrado"
+            value={form.bre_b_key}
+            onChange={e => setForm(p => ({ ...p, bre_b_key: e.target.value }))}
+            className={inputClass}
+          />
+        </div>
+
+        <div>
           <p className="text-sm text-zinc-500 mb-3">Tema de color</p>
           <div className="grid grid-cols-4 gap-3">
             {[
               { key: 'purple', label: 'Morado', color: '#820AD1' },
               { key: 'orange', label: 'Naranja', color: '#EA580C' },
               { key: 'blue', label: 'Azul', color: '#2563EB' },
-              { key: 'coffee', label: 'Café',    color: '#4A332C' },
+              { key: 'coffee', label: 'Café', color: '#4A332C' },
             ].map(t => (
               <button
                 key={t.key}

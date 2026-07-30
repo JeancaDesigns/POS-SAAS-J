@@ -52,6 +52,8 @@ export default function PedidoPublico() {
   const [confirming, setConfirming] = useState(false)
   const [activeSection, setActiveSection] = useState('menu')
   const [notFound, setNotFound] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState('cash')
+  const [cashAmount, setCashAmount] = useState('')
 
   // ── Modal de entrada + búsqueda de estado ────────────────────────────────────
   const [showEntryModal, setShowEntryModal] = useState(true)
@@ -251,6 +253,8 @@ export default function PedidoPublico() {
         delivery_reference: deliveryType === 'delivery' ? deliveryReference.trim() : null,
         delivery_lat: deliveryType === 'delivery' ? selectedLocation?.lat || null : null,
         delivery_lng: deliveryType === 'delivery' ? selectedLocation?.lng || null : null,
+        payment_method: paymentMethod,
+        cash_amount: paymentMethod === 'cash' && cashAmount ? Number(cashAmount) : null,
       }).select().single()
 
     if (error) {
@@ -275,6 +279,7 @@ export default function PedidoPublico() {
     setCustomerName(''); setCustomerPhone('')
     setDeliveryAddress(''); setDeliveryReference('')
     setSelectedLocation(null)
+    setPaymentMethod('cash'); setCashAmount('')
     setConfirming(false)
   }
 
@@ -914,6 +919,61 @@ export default function PedidoPublico() {
                   </div>
                 )}
 
+                {/* Método de pago — solo aplica a domicilio */}
+                {deliveryType === 'delivery' && (
+                  <div className="mb-5">
+                    <p className="text-zinc-700 font-semibold text-sm mb-2">¿Cómo vas a pagar?</p>
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      {[
+                        { key: 'cash', label: '💵 Efectivo' },
+                        { key: 'transfer', label: '📲 Transferencia' },
+                      ].map(opt => (
+                        <button
+                          key={opt.key}
+                          onClick={() => { setPaymentMethod(opt.key); setCashAmount('') }}
+                          className={`
+                            rounded-xl py-3 font-semibold text-sm
+                            border transition-all duration-200
+                            ${paymentMethod === opt.key
+                              ? 'bg-[var(--brand)] text-white border-[var(--brand)] shadow-[0_4px_12px_var(--brand-shadow)]'
+                              : 'bg-zinc-50 text-zinc-500 border-zinc-200 hover:border-[var(--brand-border)]'
+                            }
+                          `}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {paymentMethod === 'cash' && (
+                      <input
+                        type="number"
+                        placeholder="¿Con cuánto pagas?"
+                        value={cashAmount}
+                        onChange={e => setCashAmount(e.target.value)}
+                        className={inputClass}
+                      />
+                    )}
+
+                    {paymentMethod === 'transfer' && (restaurant?.nequi_number || restaurant?.bre_b_key) && (
+                      <div className="rounded-xl bg-blue-50 border border-blue-200 p-4 space-y-1.5">
+                        {restaurant?.nequi_number && (
+                          <p className="text-sm text-blue-700">
+                            <span className="font-semibold">Nequi:</span> {restaurant.nequi_number}
+                          </p>
+                        )}
+                        {restaurant?.bre_b_key && (
+                          <p className="text-sm text-blue-700">
+                            <span className="font-semibold">Llave Bre-B:</span> {restaurant.bre_b_key}
+                          </p>
+                        )}
+                        <p className="text-blue-500 text-xs mt-1">
+                          Envía el comprobante al numero del restaurante.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {/* Resumen items */}
                 {items.length > 0 && (
                   <div className="rounded-xl bg-zinc-50 border border-zinc-100 p-4 mb-5 space-y-2">
