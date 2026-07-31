@@ -17,6 +17,8 @@ export default function DevConfig() {
   const [editingId, setEditingId] = useState(null)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleting, setDeleting] = useState(false)
 
   const [form, setForm] = useState({
     name: '',
@@ -131,52 +133,65 @@ export default function DevConfig() {
 
     // 2. Subir el logo si se seleccionó uno
     if (logoFile) {
+      const { data: sessionCheck } = await supabase.auth.getSession()
+      console.log('sesión activa al subir logo:', sessionCheck?.session?.user?.id)
+
       const ext = logoFile.name.split('.').pop()
       const path = `${restaurant.slug}/logo.${ext}`
 
-      const { error: uploadError } = await supabase
+      const { data: uploadData, error: uploadError } = await supabase
         .storage
-        .from('restaurant_logos')
-        .upload(path, logoFile, { upsert: true })
+        .from('restaurant-logos')
+        .upload(path, logoFile)
 
-      if (!uploadError) {
+      console.log('uploadData:', uploadData, 'uploadError:', uploadError)
+
+      if (uploadError) {
+        setCreateError('El restaurante se creó, pero el logo falló: ' + uploadError.message)
+      } else {
         const { data: publicUrlData } = supabase
           .storage
-          .from('restaurant_logos')
+          .from('restaurant-logos')
           .getPublicUrl(path)
 
-        await supabase
+        console.log('publicUrl:', publicUrlData.publicUrl)
+
+        const { data: updateData, error: logoUpdateError } = await supabase
           .from('restaurants')
           .update({ logo_url: publicUrlData.publicUrl })
           .eq('id', restaurant.id)
+          .select()
+
+        console.log('updateData:', updateData, 'logoUpdateError:', logoUpdateError)
       }
     }
 
     // 3. Crear el usuario admin vía Edge Function
     const { data: { session } } = await supabase.auth.getSession()
 
-    const res = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-restaurant-admin`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          email: form.admin_email.trim(),
-          password: form.admin_password,
-          name: form.admin_name.trim(),
-          restaurant_id: restaurant.id,
-          roles: ['admin'],
-        }),
-      }
-    )
-
-    const result = await res.json()
-
-    if (!res.ok) {
-      setCreateError('Restaurante creado, pero falló crear el admin: ' + result.error)
+    let result
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-restaurant-admin`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            email: form.admin_email.trim(),
+            password: form.admin_password,
+            name: form.admin_name.trim(),
+            restaurant_id: restaurant.id,
+            roles: ['admin'],
+          }),
+        }
+      )
+      result = await res.json()
+      if (!res.ok) throw new Error(result.error)
+    } catch (err) {
+      setCreateError('Restaurante creado, pero falló crear el admin: ' + err.message)
       setCreating(false)
       fetchRestaurants()
       return
@@ -211,6 +226,25 @@ export default function DevConfig() {
     })
     setLogoFile(null)
     setShowCreateForm(true)
+  }
+
+  async function toggleActive(restaurant) {
+    await supabase
+      .from('restaurants')
+      .update({ active: !restaurant.active })
+      .eq('id', restaurant.id)
+    fetchRestaurants()
+  }
+
+  async function confirmDelete() {
+    setDeleting(true)
+    const { error } = await supabase.rpc('delete_restaurant_cascade', { target_id: deleteTarget.id })
+    if (error) {
+      alert('Error eliminando: ' + error.message)
+    }
+    setDeleting(false)
+    setDeleteTarget(null)
+    fetchRestaurants()
   }
 
   async function handleUpdateRestaurant() {
@@ -250,6 +284,11 @@ export default function DevConfig() {
         .storage
         .from('restaurant_logos')
         .upload(path, logoFile, { upsert: true })
+
+      if (uploadError) {
+        console.error('Error subiendo logo:', uploadError)
+        setCreateError('El restaurante se creó, pero el logo falló: ' + uploadError.message)
+      }
 
       if (!uploadError) {
         const { data: publicUrlData } = supabase
@@ -410,6 +449,35 @@ export default function DevConfig() {
               </div>
             )}
 
+            {deleteTarget && (
+              <div className="fixed inset-0 z-[90] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
+                <div className="w-full max-w-sm bg-white rounded-3xl p-6 text-center shadow-2xl">
+                  <p className="text-3xl mb-3">⚠️</p>
+                  <p className="font-bold text-zinc-900 mb-1">
+                    ¿Eliminar {deleteTarget.name}?
+                  </p>
+                  <p className="text-zinc-400 text-sm mb-6">
+                    Esto borra TODOS sus datos (pedidos, productos, usuarios) de forma permanente. No se puede deshacer.
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={confirmDelete}
+                      disabled={deleting}
+                      className="w-full py-3 rounded-2xl font-bold text-white bg-red-500 hover:bg-red-600 disabled:opacity-50"
+                    >
+                      {deleting ? 'Eliminando...' : 'Sí, eliminar todo'}
+                    </button>
+                    <button
+                      onClick={() => setDeleteTarget(null)}
+                      className="w-full py-3 rounded-2xl font-semibold text-zinc-400 hover:text-zinc-600"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <button
               onClick={editingId ? handleUpdateRestaurant : handleCreateRestaurant}
               disabled={creating}
@@ -437,6 +505,21 @@ export default function DevConfig() {
                 <p className="font-bold text-zinc-900">{r.name}</p>
                 <p className="text-xs text-zinc-400">/{r.slug}</p>
               </div>
+              <button
+                onClick={e => { e.stopPropagation(); toggleActive(r) }}
+                className={`text-xs font-bold px-3 py-1.5 rounded-full ${r.active === false
+                  ? 'bg-red-50 text-red-500 border border-red-200'
+                  : 'bg-green-50 text-green-600 border border-green-200'
+                  }`}
+              >
+                {r.active === false ? 'Inactivo' : 'Activo'}
+              </button>
+              <button
+                onClick={e => { e.stopPropagation(); setDeleteTarget(r) }}
+                className="text-xs font-bold px-3 py-1.5 rounded-full bg-zinc-100 text-zinc-500 hover:bg-red-50 hover:text-red-500 transition-colors"
+              >
+                🗑️
+              </button>
             </div>
           ))}
         </div>

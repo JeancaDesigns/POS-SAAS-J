@@ -84,6 +84,13 @@ export default function Login() {
       return
     }
 
+    if (restaurant.active === false && !profile.roles.includes('dev')) {
+      setError('Este restaurante está desactivado. Contacta al soporte.')
+      await supabase.auth.signOut()
+      setLoading(false)
+      return
+    }
+
     const effectiveProfile = profile.roles.includes('dev') && profile.restaurant_id !== restaurant.id
       ? { ...profile, restaurant_id: restaurant.id }
       : profile

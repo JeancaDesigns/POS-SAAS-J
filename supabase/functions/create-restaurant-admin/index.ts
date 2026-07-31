@@ -1,6 +1,15 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   try {
     const { email, password, name, restaurant_id, roles } = await req.json()
 
@@ -14,7 +23,10 @@ Deno.serve(async (req) => {
 
     const { data: { user: callerUser } } = await supabaseAdmin.auth.getUser(jwt)
     if (!callerUser) {
-      return new Response(JSON.stringify({ error: 'No autorizado' }), { status: 401 })
+      return new Response(JSON.stringify({ error: 'No autorizado' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
     const { data: callerProfile } = await supabaseAdmin
@@ -24,10 +36,12 @@ Deno.serve(async (req) => {
       .single()
 
     if (!callerProfile?.roles?.includes('dev')) {
-      return new Response(JSON.stringify({ error: 'No autorizado' }), { status: 403 })
+      return new Response(JSON.stringify({ error: 'No autorizado' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
-    // 1. Crear el usuario en Supabase Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -37,11 +51,10 @@ Deno.serve(async (req) => {
     if (authError) {
       return new Response(JSON.stringify({ error: authError.message }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    // 2. Crear el perfil en la tabla users
     const { error: profileError } = await supabaseAdmin
       .from('users')
       .insert({
@@ -54,22 +67,21 @@ Deno.serve(async (req) => {
       })
 
     if (profileError) {
-      // Si falla el perfil, revierte el usuario de Auth para no dejar huérfanos
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
       return new Response(JSON.stringify({ error: profileError.message }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
     return new Response(JSON.stringify({ success: true, user_id: authData.user.id }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 })

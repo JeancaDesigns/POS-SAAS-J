@@ -23,7 +23,7 @@ export default function RestaurantSelector() {
   function getEmoji(slug) {
     if (slug === 'benditas-papas') return '🍟'
     if (slug === 'entre-horas') return '☕'
-    return '🍽️'
+    return '🍔'
   }
 
   return (
@@ -41,13 +41,13 @@ export default function RestaurantSelector() {
 
       {/* Grid */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-lg">
+        <div className="grid grid-cols-2 sm:grid-cols-2 gap-4 w-full max-w-lg">
           {[...Array(2)].map((_, i) => (
             <div key={i} className="h-40 rounded-3xl bg-zinc-200 animate-pulse" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-lg">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 w-full max-w-lg">
           {restaurants.map(r => (
             <button
               key={r.id}
@@ -91,7 +91,7 @@ export default function RestaurantSelector() {
         </div>
       )}
 
-      <p className="absolute bottom-8 text-zinc-300 text-xs tracking-widest uppercase font-bold">
+      <p className="absolute bottom-1 sm:pb-5 text-zinc-300 text-xs tracking-widest uppercase font-bold">
         Powered by Jeanca
       </p>
 
