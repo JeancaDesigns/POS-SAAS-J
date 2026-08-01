@@ -269,6 +269,7 @@ export default function CajeroHome() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [toastQueue, setToastQueue] = useState([])
   const isOnline = useOnlineStatus()
+  const [recibido, setRecibido] = useState('')
   const [fiado, setFiado] = useState(false)
   const [debtorName, setDebtorName] = useState('')
   const [debtAmount, setDebtAmount] = useState('')
@@ -316,6 +317,12 @@ export default function CajeroHome() {
     setToastQueue(prev => prev.filter(o => o.id !== orderId))
     setShowNotifications(true)
   }
+
+  function handleRecibidoChange(val) {
+    setRecibido(val)
+  }
+
+  const vuelto = (parseInt(recibido) || 0) - (parseInt(efectivo) || 0)
 
   async function fetchOnlineOrders() {
     const today = new Date()
@@ -505,6 +512,7 @@ export default function CajeroHome() {
 
     setCobrarOrder(null)
     setEfectivo('')
+    setRecibido('')
     setTransferencia('')
     setFiado(false)
     setDebtorName('')
@@ -745,11 +753,11 @@ export default function CajeroHome() {
                   onChange={e => handleEfectivoChange(e.target.value)}
                   placeholder="0"
                   className="
-              flex-1 rounded-xl px-4 py-2
-              text-zinc-800 outline-none
-              bg-zinc-50 border border-zinc-200
-              focus:border-[var(--brand-border)] transition-colors
-            "
+                    flex-1 rounded-xl px-4 py-2
+                    text-zinc-800 outline-none
+                    bg-zinc-50 border border-zinc-200
+                    focus:border-[var(--brand-border)] transition-colors
+                  "
                 />
               </div>
               <div className="flex items-center gap-3">
@@ -760,21 +768,40 @@ export default function CajeroHome() {
                   onChange={e => handleTransferenciaChange(e.target.value)}
                   placeholder="0"
                   className="
-              flex-1 rounded-xl px-4 py-2
-              text-zinc-800 outline-none
-              bg-zinc-50 border border-zinc-200
-              focus:border-[var(--brand-border)] transition-colors
-            "
+                    flex-1 rounded-xl px-4 py-2
+                    text-zinc-800 outline-none
+                    bg-zinc-50 border border-zinc-200
+                    focus:border-[var(--brand-border)] transition-colors
+                  "
                 />
               </div>
+
+              {(parseInt(efectivo) || 0) > 0 && (
+                <div className="flex items-center gap-3 pt-2 border-t border-zinc-100">
+                  <label className="text-zinc-500 text-xs w-28">¿Con cuánto pagó?</label>
+                  <input
+                    type="number"
+                    value={recibido}
+                    onChange={e => setRecibido(e.target.value)}
+                    placeholder="Opcional"
+                    className="
+                      flex-1 rounded-xl px-4 py-2
+                      text-zinc-800 outline-none
+                      bg-zinc-50 border border-zinc-200
+                      focus:border-[var(--brand-border)] transition-colors
+                    "
+                  />
+                </div>
+              )}
             </div>
 
-            {(parseInt(efectivo) || 0) > total && (
-              <div className="mt-3 rounded-xl px-4 py-2 flex justify-between bg-green-50 border border-green-200">
-                <span className="text-sm text-green-600">Cambio</span>
-                <span className="font-bold text-green-600">${cambio.toLocaleString('es-CO')}</span>
+            {recibido && vuelto > 0 && (
+              <div className="mt-3 rounded-xl px-4 py-2 flex justify-between bg-blue-50 border border-blue-200">
+                <span className="text-sm text-blue-600">Vuelto a entregar</span>
+                <span className="font-bold text-blue-600">${vuelto.toLocaleString('es-CO')}</span>
               </div>
             )}
+
             {descuadre && sumaPagos > 0 && (
               <div className="mt-3 rounded-xl px-4 py-2 flex justify-between bg-yellow-50 border border-yellow-200">
                 <span className="text-sm text-yellow-600">
