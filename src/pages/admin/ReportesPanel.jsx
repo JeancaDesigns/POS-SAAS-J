@@ -128,11 +128,13 @@ export default function ReportesPanel() {
     const { data: todayItemsData } = await supabase
       .from('order_items').select('*, product:products(*)')
       .in('order_id', todayOrderIds.length ? todayOrderIds : ['00000000-0000-0000-0000-000000000000'])
+      .neq('status', 'cancelled')
 
     const allOrderIds = (allOrdersData || []).map(o => o.id)
     const { data: allItemsData } = await supabase
       .from('order_items').select('*, product:products(*)')
       .in('order_id', allOrderIds.length ? allOrderIds : ['00000000-0000-0000-0000-000000000000'])
+      .neq('status', 'cancelled')
 
     const { data: productsData } = await supabase
       .from('products').select('*')
@@ -219,16 +221,20 @@ export default function ReportesPanel() {
     const cancelledOrders = ordersData.filter(o => o.status === 'cancelled').length
     const deliveryOrders = validOrders.filter(o => o.delivery_type === 'delivery')
 
-    const productsTotal = itemsData.reduce((sum, item) => {
-      if (!item.product?.price) return sum
-      return sum + (Number(item.product.price) * Number(item.quantity))
-    }, 0)
+    const productsTotal = itemsData
+      .filter(item => item.status !== 'cancelled')
+      .reduce((sum, item) => {
+        if (!item.product?.price) return sum
+        return sum + (Number(item.product.price) * Number(item.quantity))
+      }, 0)
 
     // Sumar el costo de domicilio por cada pedido tipo delivery pagado
     const deliveryTotal = deliveryOrders.length * deliveryFee
 
     const totalSales = productsTotal + deliveryTotal
-    const productsSold = itemsData.reduce((sum, item) => sum + Number(item.quantity), 0)
+    const productsSold = itemsData
+      .filter(item => item.status !== 'cancelled')
+      .reduce((sum, item) => sum + Number(item.quantity), 0)
 
     setStats({
       totalSales, totalOrders: validOrders.length, deliveryOrders: deliveryOrders.length,

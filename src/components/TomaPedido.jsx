@@ -104,6 +104,8 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
       )
 
       await supabase.from('tables').update({ status: 'occupied' }).eq('id', table.id)
+      sessionStorage.removeItem(`cart-mesa-${table.id}`)
+      setItems([])
       setConfirming(false)
       onConfirmed(order)
 
@@ -140,7 +142,8 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
         payload: { tableId: table.id, status: 'occupied' },
         created_at: new Date().toISOString(),
       })
-
+      sessionStorage.removeItem(`cart-mesa-${table.id}`)
+      setItems([])
       setConfirming(false)
       onConfirmed(null)
     }
@@ -231,7 +234,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
               <div className="flex gap-2">
                 {[
                   { key: 'delivery', label: '🛵 A domicilio' },
-                  { key: 'pickup',   label: '🏠 Recoger'    },
+                  { key: 'pickup', label: '🏠 Recoger' },
                 ].map(opt => (
                   <button
                     key={opt.key}
@@ -362,9 +365,8 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                         ) : (
                           <button
                             onClick={() => setNoteTarget(product.id)}
-                            className={`text-xs cursor-pointer transition-colors ${
-                              item?.note ? 'text-[var(--brand-text)]' : 'text-zinc-300 hover:text-zinc-400'
-                            }`}
+                            className={`text-xs cursor-pointer transition-colors ${item?.note ? 'text-[var(--brand-text)]' : 'text-zinc-300 hover:text-zinc-400'
+                              }`}
                           >
                             {item?.note ? `📝 ${item.note}` : '+ Agregar nota'}
                           </button>
