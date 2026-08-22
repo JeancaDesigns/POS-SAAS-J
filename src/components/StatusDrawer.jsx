@@ -5,6 +5,7 @@ import { supabase } from '../supabaseClient'
 import { db } from '../db/localDB'
 import DevPanel from './DevPanel'
 import DebtPanel from './DebtPanel'
+import ReportsPanel from './ReportsPanel'
 import { useNavigate } from 'react-router-dom'
 import { LogOut, Wifi, WifiOff, Clock } from 'lucide-react'
 
@@ -19,6 +20,7 @@ export default function StatusDrawer() {
   const [showDevPanel, setShowDevPanel] = useState(false)
   const isDev = user?.roles?.includes('dev')
   const [showDebtPanel, setShowDebtPanel] = useState(false)
+  const [showReportsPanel, setShowReportsPanel] = useState(false)
   const isAdminOrCajero = user?.roles?.some(r => ['admin', 'cajero', 'dev'].includes(r))
 
   // Auto-abrir cuando se va la conexión
@@ -225,9 +227,28 @@ export default function StatusDrawer() {
               hover:bg-red-100
               transition-all duration-200
               active:scale-[0.98]
+              mb-3
             "
           >
             💳 Gestión de deudas
+          </button>
+        )}
+
+        {isAdminOrCajero && (
+          <button
+            onClick={() => { setOpen(false); setShowReportsPanel(true) }}
+            className="
+              w-full py-3 rounded-2xl
+              flex items-center justify-center gap-2
+              text-sm font-semibold
+              text-[var(--brand-text)]
+              bg-[var(--brand-light)] border border-[var(--brand-border)]
+              hover:bg-[var(--brand-light)]
+              transition-all duration-200
+              active:scale-[0.98]
+            "
+          >
+            📊 Desglose de ventas
           </button>
         )}
 
@@ -254,6 +275,7 @@ export default function StatusDrawer() {
       </div>
       {showDevPanel && <DevPanel onClose={() => setShowDevPanel(false)} />}
       {showDebtPanel && <DebtPanel onClose={() => setShowDebtPanel(false)} />}
+      {showReportsPanel && <ReportsPanel onClose={() => setShowReportsPanel(false)} />}
     </>
   )
 }

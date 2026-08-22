@@ -3,7 +3,7 @@ import { supabase } from '../../supabaseClient'
 import { Printer, Receipt, Clock3, ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 
-const DELETE_PASSWORD = 'BP1612'
+const DELETE_PASSWORD = '2307'
 
 export default function TicketsPanel() {
   const [orders, setOrders] = useState([])
@@ -24,20 +24,48 @@ export default function TicketsPanel() {
     setLoading(true)
     const { data } = await supabase
       .from('orders')
-      .select(`*, table:tables(number, is_delivery), order_items(*, products(name, price))`)
+      .select(`*, table:tables(number, is_delivery), order_items(*, products(name, price)), payments(total, voided)`)
       .eq('restaurant_id', user.restaurant_id)
       .order('created_at', { ascending: false })
     setOrders(data || [])
     setLoading(false)
   }
 
-  function calculateTotal(order) {
+  // Descuento aplicado a una línea de producto
+  function itemDiscount(item, lineTotal) {
+    if (!item.discount_value || !item.discount_type) return 0
+    const val = Number(item.discount_value)
+    return item.discount_type === 'percent'
+      ? Math.round(lineTotal * (Math.min(val, 100) / 100))
+      : Math.min(val, lineTotal)
+  }
+
+  // Total sin descuento general del pedido (subtotal de ítems + domicilio, con descuentos por producto ya restados)
+  function calculateSubtotal(order) {
     const items = (order.order_items || []).filter(i => i.status !== 'cancelled')
-    const itemsTotal = items.reduce((acc, item) =>
-      acc + (Number(item.products?.price || 0) * Number(item.quantity)), 0)
+    const itemsTotal = items.reduce((acc, item) => {
+      const lineTotal = Number(item.products?.price || 0) * Number(item.quantity)
+      return acc + (lineTotal - itemDiscount(item, lineTotal))
+    }, 0)
     const isDelivery = order.delivery_type === 'delivery' && order.table?.is_delivery
     return itemsTotal + (isDelivery ? deliveryFee : 0)
-  } 
+  }
+
+  function calculateTotal(order) {
+    // Si el pedido ya tiene un pago registrado, ese es el monto real cobrado (ya con todo descuento aplicado)
+    const validPayments = (order.payments || []).filter(p => !p.voided)
+    if (validPayments.length > 0) {
+      return validPayments.reduce((sum, p) => sum + Number(p.total), 0)
+    }
+    // Pedido aún no pagado: se calcula con los descuentos que tenga guardados
+    const subtotal = calculateSubtotal(order)
+    if (!order.discount_value || !order.discount_type) return subtotal
+    const val = Number(order.discount_value)
+    const discount = order.discount_type === 'percent'
+      ? Math.round(subtotal * (Math.min(val, 100) / 100))
+      : Math.min(val, subtotal)
+    return subtotal - discount
+  }
 
   function getMonthKey(dateStr) {
     const d = new Date(dateStr)
@@ -275,7 +303,8 @@ export default function TicketsPanel() {
                 {selectedOrder.order_items
                   ?.filter(i => i.status !== 'cancelled')
                   .map(item => {
-                    const subtotal = Number(item.products?.price || 0) * Number(item.quantity)
+                    const lineTotal = Number(item.products?.price || 0) * Number(item.quantity)
+                    const netTotal = lineTotal - itemDiscount(item, lineTotal)
                     return (
                       <div key={item.id} className="text-sm">
                         <div className="flex justify-between gap-3">
@@ -285,7 +314,7 @@ export default function TicketsPanel() {
                               <p className="text-xs text-zinc-400 mt-0.5">📝 {item.note}</p>
                             )}
                           </div>
-                          <span className="font-bold">${subtotal.toLocaleString('es-CO')}</span>
+                          <span className="font-bold">${netTotal.toLocaleString('es-CO')}</span>
                         </div>
                       </div>
                     )
@@ -295,6 +324,17 @@ export default function TicketsPanel() {
                   <div className="text-sm flex justify-between gap-3">
                     <p className="font-bold">Domicilio</p>
                     <span className="font-bold">${deliveryFee.toLocaleString('es-CO')}</span>
+                  </div>
+                )}
+
+                {selectedOrder.discount_value > 0 && (
+                  <div className="text-sm flex justify-between gap-3 text-red-600">
+                    <p className="font-bold">
+                      Descuento{selectedOrder.discount_type === 'percent' ? ` (${selectedOrder.discount_value}%)` : ''}
+                    </p>
+                    <span className="font-bold">
+                      -${(calculateSubtotal(selectedOrder) - calculateTotal(selectedOrder)).toLocaleString('es-CO')}
+                    </span>
                   </div>
                 )}
               </div>

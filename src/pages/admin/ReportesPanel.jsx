@@ -8,6 +8,20 @@ import { useAuthStore } from '../../store/authStore'
 
 export default function ReportesPanel() {
   const { user } = useAuthStore()
+
+  // Descuento por producto (order_items.discount_type/value) — sí se puede prorratear exacto por línea.
+  // El descuento general del pedido (orders.discount_type/value) no se reparte aquí porque no hay una forma
+  // única de prorratearlo entre productos; por eso este desglose por producto/categoría es aproximado
+  // cuando se usó descuento general — el total real y exacto de ventas ya sale de payments.total.
+  function itemNetTotal(item) {
+    const lineTotal = Number(item.product?.price || 0) * Number(item.quantity)
+    if (!item.discount_value || !item.discount_type) return lineTotal
+    const val = Number(item.discount_value)
+    const discount = item.discount_type === 'percent'
+      ? Math.round(lineTotal * (Math.min(val, 100) / 100))
+      : Math.min(val, lineTotal)
+    return lineTotal - discount
+  }
   const [monthlyReports, setMonthlyReports] = useState([])
   const [selectedMonth, setSelectedMonth] = useState(null)
   const [monthlyDetail, setMonthlyDetail] = useState(null)
@@ -52,14 +66,14 @@ export default function ReportesPanel() {
         quantity: 0, total: 0,
       }
       productMap[id].quantity += item.quantity
-      productMap[id].total += item.product.price * item.quantity
+      productMap[id].total += itemNetTotal(item)
     })
     const categoryMap = {}
     itemsData?.forEach(item => {
       if (!item.product) return
       const cat = item.product.category?.name || 'Sin categoría'
       if (!categoryMap[cat]) categoryMap[cat] = { name: cat, total: 0, quantity: 0 }
-      categoryMap[cat].total += item.product.price * item.quantity
+      categoryMap[cat].total += itemNetTotal(item)
       categoryMap[cat].quantity += item.quantity
     })
     setMonthlyDetail({
@@ -140,17 +154,20 @@ export default function ReportesPanel() {
       .from('products').select('*')
       .eq('restaurant_id', user.restaurant_id)
 
-    // Traer delivery_fee del restaurante para sumarlo a las ventas
-    const { data: restaurantData } = await supabase
-      .from('restaurants').select('delivery_fee')
-      .eq('id', user.restaurant_id).single()
+    // Ventas de hoy: se leen directo de payments.total (ya incluye descuentos y
+    // solo cuenta lo que de verdad se cobró, no pedidos sin pagar)
+    const { data: todayPaymentsData } = await supabase
+      .from('payments').select('total')
+      .eq('restaurant_id', user.restaurant_id)
+      .eq('voided', false)
+      .gte('created_at', todayISO)
 
     setTodayOrders(todayOrdersData || [])
     setTodayItems(todayItemsData || [])
     setOrders(allOrdersData || [])
     setOrderItems(allItemsData || [])
     setProducts(productsData || [])
-    calculateStats(todayOrdersData || [], todayItemsData || [], restaurantData?.delivery_fee || 0)
+    calculateStats(todayOrdersData || [], todayItemsData || [], todayPaymentsData || [])
     setLoading(false)
   }
 
@@ -164,7 +181,8 @@ export default function ReportesPanel() {
 
     if (!paymentsData) return
 
-    // Agrupar pagos por mes primero
+    // Agrupar pagos por mes — payment.total ya es el monto real cobrado (con descuentos incluidos),
+    // no hace falta volver a consultar order_items para "recalcular" nada
     const monthMap = {}
     paymentsData.forEach(payment => {
       const date = new Date(payment.created_at)
@@ -174,71 +192,31 @@ export default function ReportesPanel() {
         payments: [], total: 0, cash: 0, transfer: 0, deliveries: 0,
       }
       monthMap[key].payments.push(payment)
+      monthMap[key].total += Number(payment.total)
       monthMap[key].cash += payment.cash || 0
       monthMap[key].transfer += payment.transfer || 0
       if (payment.is_delivery) monthMap[key].deliveries++
     })
 
-    const { data: restaurantData } = await supabase
-      .from('restaurants').select('delivery_fee')
-      .eq('id', user.restaurant_id).single()
-    const deliveryFee = restaurantData?.delivery_fee || 0
-
-    // Por cada mes, calcular el total real con SU PROPIA consulta de items
-    for (const key of Object.keys(monthMap)) {
-      const month = monthMap[key]
-      const orderIds = month.payments.map(p => p.order_id).filter(Boolean)
-
-      if (orderIds.length === 0) continue
-
-      const { data: itemsData } = await supabase
-        .from('order_items')
-        .select('order_id, quantity, product:products(price)')
-        .in('order_id', orderIds)
-        .neq('status', 'cancelled')
-
-      const orderTotals = {}
-        ; (itemsData || []).forEach(item => {
-          const val = Number(item.product?.price || 0) * Number(item.quantity)
-          orderTotals[item.order_id] = (orderTotals[item.order_id] || 0) + val
-        })
-
-      let monthTotal = 0
-      month.payments.forEach(payment => {
-        const itemsReal = orderTotals[payment.order_id] || 0
-        monthTotal += itemsReal + (payment.is_delivery ? deliveryFee : 0)
-      })
-
-      month.total = monthTotal
-    }
-
     setMonthlyReports(Object.values(monthMap).sort((a, b) => b.key.localeCompare(a.key)))
   }
 
-  function calculateStats(ordersData, itemsData, deliveryFee = 0) {
+  function calculateStats(ordersData, itemsData, todayPaymentsData = []) {
     const validOrders = ordersData.filter(o => o.status !== 'cancelled')
     const activeOrders = ordersData.filter(o => o.status === 'confirmed').length
     const cancelledOrders = ordersData.filter(o => o.status === 'cancelled').length
     const deliveryOrders = validOrders.filter(o => o.delivery_type === 'delivery')
 
-    const productsTotal = itemsData
-      .filter(item => item.status !== 'cancelled')
-      .reduce((sum, item) => {
-        if (!item.product?.price) return sum
-        return sum + (Number(item.product.price) * Number(item.quantity))
-      }, 0)
+    // Ventas: lo que realmente entró (payments.total ya incluye descuentos y solo cuenta pedidos pagados)
+    const totalSales = todayPaymentsData.reduce((sum, p) => sum + Number(p.total), 0)
 
-    // Sumar el costo de domicilio por cada pedido tipo delivery pagado
-    const deliveryTotal = deliveryOrders.length * deliveryFee
-
-    const totalSales = productsTotal + deliveryTotal
     const productsSold = itemsData
       .filter(item => item.status !== 'cancelled')
       .reduce((sum, item) => sum + Number(item.quantity), 0)
 
     setStats({
       totalSales, totalOrders: validOrders.length, deliveryOrders: deliveryOrders.length,
-      averageTicket: validOrders.length > 0 ? totalSales / validOrders.length : 0,
+      averageTicket: todayPaymentsData.length > 0 ? totalSales / todayPaymentsData.length : 0,
       productsSold, activeOrders, cancelledOrders,
     })
   }

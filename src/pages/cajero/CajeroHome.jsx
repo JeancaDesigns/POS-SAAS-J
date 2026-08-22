@@ -111,12 +111,34 @@ function DentedEdge({ flipped = false }) {
   )
 }
 
+// ─── Descuentos ──────────────────────────────────────────────────────────────
+// discount_type: 'percent' | 'fixed'. Aplica sobre un monto base y nunca deja el resultado negativo.
+function calcDiscount(baseAmount, discountType, discountValue) {
+  const val = Number(discountValue) || 0
+  if (!val || !discountType) return 0
+  if (discountType === 'percent') return Math.round(baseAmount * (Math.min(val, 100) / 100))
+  return Math.min(val, baseAmount) // fixed
+}
+
+// Total de un pedido incluyendo descuentos por producto (order_items) y descuento general (orders)
+function orderTotal(order, deliveryFee) {
+  const itemsTotal = order.items.filter(i => i.status !== 'cancelled')
+    .reduce((sum, i) => {
+      const lineTotal = i.product.price * i.quantity
+      const lineDiscount = calcDiscount(lineTotal, i.discount_type, i.discount_value)
+      return sum + (lineTotal - lineDiscount)
+    }, 0)
+  const isDelivery = order.delivery_type === 'delivery' && order.table?.is_delivery
+  const subtotal = itemsTotal + (isDelivery ? deliveryFee : 0)
+  const orderDiscount = calcDiscount(subtotal, order.discount_type, order.discount_value)
+  return subtotal - orderDiscount
+}
+
 // ─── Ticket ──────────────────────────────────────────────────────────────────
 function TicketActivo({ order, deliveryFee, onVerPedido, onCobrar }) {
   const activeItems = order.items.filter(i => i.status !== 'cancelled')
-  const itemsTotal = activeItems.reduce((sum, i) => sum + i.product.price * i.quantity, 0)
   const isDelivery = order.delivery_type === 'delivery' && order.table?.is_delivery
-  const total = itemsTotal + (isDelivery ? deliveryFee : 0)
+  const total = orderTotal(order, deliveryFee)
   const hasDraft = order.status === 'draft'
   const isReady = ['delivered', 'inDelivery', 'dispatched'].includes(order.status)
   const canPay = !order.table?.is_delivery ||
@@ -254,6 +276,9 @@ export default function CajeroHome() {
   const { user } = useAuthStore()
   const { orders, refetch } = useCajaOrders(user?.restaurant_id)
   const { count: deliveryCount } = useDeliveryCount(user?.restaurant_id)
+  const canDiscount = user?.roles?.some(r => ['admin', 'dev'].includes(r))
+  const [discountType, setDiscountType] = useState('percent')
+  const [discountValue, setDiscountValue] = useState('')
   const [deliveryFee, setDeliveryFee] = useState(0)
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [view, setView] = useState('mesas')
@@ -292,13 +317,6 @@ export default function CajeroHome() {
     supabase.from('restaurants').select('delivery_fee').eq('id', user.restaurant_id).single()
       .then(({ data }) => { if (data) setDeliveryFee(data.delivery_fee || 0) })
   }, [user?.restaurant_id, isOnline])
-
-  function orderTotal(order) {
-    const itemsTotal = order.items.filter(i => i.status !== 'cancelled')
-      .reduce((sum, i) => sum + i.product.price * i.quantity, 0)
-    const isDelivery = order.delivery_type === 'delivery' && order.table?.is_delivery
-    return itemsTotal + (isDelivery ? deliveryFee : 0)
-  }
 
   async function fetchHistorial() {
     const today = new Date()
@@ -388,10 +406,16 @@ export default function CajeroHome() {
   }, [view, isOnline])
 
 
+  // El pedido con el descuento tal como está escrito en el modal (aún no guardado en la base).
+  // Solo admin/dev pueden editarlo; para los demás roles se respeta el descuento ya guardado en el pedido.
+  const cobrarOrderConDescuento = cobrarOrder && canDiscount
+    ? { ...cobrarOrder, discount_type: discountType, discount_value: Number(discountValue) || 0 }
+    : cobrarOrder
+
   function handleEfectivoChange(val) {
     setEfectivo(val)
     if (fiado) return // ← si hay fiado, no auto-completar
-    const t = orderTotal(cobrarOrder)
+    const t = orderTotal(cobrarOrderConDescuento, deliveryFee)
     const ef = parseInt(val) || 0
     setTransferencia(Math.max(0, t - ef) > 0 ? String(Math.max(0, t - ef)) : '0')
   }
@@ -399,11 +423,16 @@ export default function CajeroHome() {
   function handleTransferenciaChange(val) {
     setTransferencia(val)
     if (fiado) return // ← si hay fiado, no auto-completar
-    const t = orderTotal(cobrarOrder)
+    const t = orderTotal(cobrarOrderConDescuento, deliveryFee)
     const tr = parseInt(val) || 0
     setEfectivo(Math.max(0, t - tr) > 0 ? String(Math.max(0, t - tr)) : '0')
   }
-  const total = cobrarOrder ? orderTotal(cobrarOrder) : 0
+  const total = cobrarOrder ? orderTotal(cobrarOrderConDescuento, deliveryFee) : 0
+  // Subtotal sin el descuento general del pedido (pero sí con descuentos por producto ya guardados), para mostrar cuánto resta el descuento en vivo
+  const subtotalSinDescuentoGeneral = cobrarOrder
+    ? orderTotal({ ...cobrarOrder, discount_type: null, discount_value: 0 }, deliveryFee)
+    : 0
+  const discountAmount = subtotalSinDescuentoGeneral - total
   const sumaPagos = (parseInt(efectivo) || 0) + (parseInt(transferencia) || 0)
   const cambio = (parseInt(efectivo) || 0) - total
   const descuadre = sumaPagos !== total
@@ -417,6 +446,13 @@ export default function CajeroHome() {
     setProcesando(true)
 
     if (isOnline) {
+      // Guardar el descuento en el pedido (solo si el usuario es admin/dev; la BD también lo valida vía trigger)
+      if (canDiscount && Number(discountValue) > 0) {
+        await supabase.from('orders')
+          .update({ discount_type: discountType, discount_value: Number(discountValue) })
+          .eq('id', cobrarOrder.id)
+      }
+
       // Registrar pago normal
       await supabase.from('payments').insert({
         restaurant_id: user.restaurant_id,
@@ -518,6 +554,8 @@ export default function CajeroHome() {
     setDebtorName('')
     setDebtAmount('')
     setSelectedDebtor(null)
+    setDiscountType('percent')
+    setDiscountValue('')
     setProcesando(false)
     if (isOnline) refetch()
   }
@@ -664,6 +702,8 @@ export default function CajeroHome() {
                     setDebtAmount('')
                     setSelectedDebtor(null)
                     setDebtorSuggestions([])
+                    setDiscountType(o.discount_type || 'percent')
+                    setDiscountValue(o.discount_value ? String(o.discount_value) : '')
                   }}
                 />
               ))}
@@ -724,6 +764,16 @@ export default function CajeroHome() {
                   </span>
                 </div>
               )}
+              {discountAmount > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#C62828' }}>
+                    Descuento{discountType === 'percent' && discountValue ? ` (${discountValue}%)` : ''}
+                  </span>
+                  <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#C62828' }}>
+                    -${discountAmount.toLocaleString('es-CO')}
+                  </span>
+                </div>
+              )}
               <div style={{
                 borderTop: '1px dashed #C4B89A', marginTop: '8px', paddingTop: '8px',
                 display: 'flex', justifyContent: 'space-between'
@@ -738,6 +788,49 @@ export default function CajeroHome() {
             </div>
             <DentedEdge />
           </div>
+
+          {/* Descuento — solo admin/dev */}
+          {canDiscount && (
+            <div className="rounded-2xl p-4 mb-4 bg-white border border-zinc-100 shadow-sm">
+              <p className="text-xs font-semibold mb-3 text-[var(--brand-text)] tracking-wide">
+                DESCUENTO
+              </p>
+              <div className="flex items-center gap-2">
+                <div className="flex rounded-xl border border-zinc-200 overflow-hidden shrink-0">
+                  <button
+                    onClick={() => setDiscountType('percent')}
+                    className={`px-3 py-2 text-sm font-semibold transition-colors ${discountType === 'percent'
+                      ? 'bg-[var(--brand)] text-white'
+                      : 'bg-zinc-50 text-zinc-500'
+                      }`}
+                  >
+                    %
+                  </button>
+                  <button
+                    onClick={() => setDiscountType('fixed')}
+                    className={`px-3 py-2 text-sm font-semibold transition-colors ${discountType === 'fixed'
+                      ? 'bg-[var(--brand)] text-white'
+                      : 'bg-zinc-50 text-zinc-500'
+                      }`}
+                  >
+                    $
+                  </button>
+                </div>
+                <input
+                  type="number"
+                  value={discountValue}
+                  onChange={e => setDiscountValue(e.target.value)}
+                  placeholder={discountType === 'percent' ? '0%' : '$0'}
+                  className="
+                    flex-1 rounded-xl px-4 py-2
+                    text-zinc-800 outline-none
+                    bg-zinc-50 border border-zinc-200
+                    focus:border-[var(--brand-border)] transition-colors
+                  "
+                />
+              </div>
+            </div>
+          )}
 
           {/* Método de pago */}
           <div className="rounded-2xl p-4 mb-4 bg-white border border-zinc-100 shadow-sm">

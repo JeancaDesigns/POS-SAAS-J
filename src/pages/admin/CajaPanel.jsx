@@ -50,38 +50,19 @@ export default function CajaPanel() {
 
   // Cargar ventas desde que se abrió la caja
   async function loadSales(openedAt) {
-    // Traer pagos desde que se abrió ESTA caja específica, sin importar si cruza medianoche
-    const { data: paidOrders, error } = await supabase
+    // El total ya viene correcto (con descuentos aplicados) en payments.total —
+    // ya no hay que recalcular desde order_items ni sumar domicilio aparte.
+    const { data: payments, error } = await supabase
       .from('payments')
-      .select('order_id, is_delivery')
+      .select('total')
       .eq('restaurant_id', user.restaurant_id)
       .eq('voided', false)
       .gte('created_at', openedAt) // ← hora real de apertura, no medianoche
 
     if (error) { console.error(error); return }
 
-    const orderIds = (paidOrders || []).map(p => p.order_id).filter(Boolean)
-    if (orderIds.length === 0) { setSalesTotal(0); return }
-
-    const { data: items } = await supabase
-      .from('order_items')
-      .select('order_id, quantity, product:products(price)')
-      .in('order_id', orderIds)
-      .neq('status', 'cancelled')
-
-    const itemsTotal = (items || []).reduce((sum, i) =>
-      sum + (Number(i.product?.price || 0) * Number(i.quantity)), 0
-    )
-
-    const { data: restaurant } = await supabase
-      .from('restaurants').select('delivery_fee')
-      .eq('id', user.restaurant_id).single()
-
-    const deliveryFee = restaurant?.delivery_fee || 0
-    const deliveryCount = (paidOrders || []).filter(p => p.is_delivery).length
-    const deliveryTotal = deliveryFee * deliveryCount
-
-    setSalesTotal(itemsTotal + deliveryTotal)
+    const total = (payments || []).reduce((sum, p) => sum + Number(p.total), 0)
+    setSalesTotal(total)
   }
 
   async function loadHistory() {
