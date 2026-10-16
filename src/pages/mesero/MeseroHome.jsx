@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { Plus, Bike } from 'lucide-react'
+import { Bike } from 'lucide-react'
 import { useTables } from '../../hooks/useTables'
 import { useAuthStore } from '../../store/authStore'
-import NuevoPedidoModal from '../../components/NuevoPedidoModal'
 import TomaPedido from '../../components/TomaPedido'
 import PedidoActivo from '../../components/PedidoActivo'
 
@@ -34,7 +33,6 @@ export default function MeseroHome() {
   const { user } = useAuthStore()
 
   const [activeZone, setActiveZone] = useState(null)
-  const [showModal, setShowModal] = useState(false)
   const [selectedTable, setSelectedTable] = useState(null)
 
   if (loading) {
@@ -141,34 +139,6 @@ export default function MeseroHome() {
           </div>
         )}
       </main>
-
-      {/* Nuevo pedido */}
-      <button
-        onClick={() => setShowModal(true)}
-        aria-label="Nuevo pedido"
-        className="
-          fixed bottom-24 lg:bottom-6 right-5 z-30
-          h-14 pl-4 pr-5 rounded-2xl
-          flex items-center gap-2
-          bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white
-          font-bold shadow-pop transition-colors active:scale-[0.97]
-        "
-      >
-        <Plus size={20} strokeWidth={2.4} aria-hidden="true" />
-        Nuevo pedido
-      </button>
-
-      {showModal && (
-        <NuevoPedidoModal
-          zones={zones}
-          tables={tables}
-          onClose={() => setShowModal(false)}
-          onTableSelected={(table) => {
-            setShowModal(false)
-            setSelectedTable(table)
-          }}
-        />
-      )}
 
       {selectedTable && selectedTable.status === 'free' && (
         <TomaPedido
