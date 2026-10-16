@@ -1,14 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useAuthStore } from '../../store/authStore'
+import { Plus, Pencil, Trash2, X, Bike } from 'lucide-react'
 
-const inputClass = `
-  w-full rounded-xl px-4 py-3
-  text-zinc-800 outline-none
-  bg-zinc-50 border border-zinc-200
-  focus:border-[var(--brand-border)] transition-colors
-  placeholder:text-zinc-400
-`
 
 export default function MesasPanel() {
   const { user } = useAuthStore()
@@ -111,302 +105,127 @@ export default function MesasPanel() {
   }
 
   const zoneTables = tables.filter(t => t.zone_id === activeZone)
+  const field = 'w-full h-11 rounded-xl px-3.5 bg-surface border border-zinc-300 text-[15px] text-zinc-900 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--brand-soft)] placeholder:text-zinc-400 transition-[border-color,box-shadow]'
+  const STATUS_TXT = { free: 'Libre', occupied: 'Ocupada', waiting_payment: 'Por cobrar' }
+  const formOpen = showZoneForm || showTableForm
+  const closeForms = () => { setShowZoneForm(false); setShowTableForm(false) }
 
-  // ── Form zona ────────────────────────────────────────────────────────────────
-  if (showZoneForm) return (
-    <div className="rounded-2xl bg-surface border border-zinc-200 p-6 max-w-lg
-      shadow-card">
-      <div className="flex items-center gap-3 mb-6">
-        <button
-          onClick={() => setShowZoneForm(false)}
-          className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
-        >
-          ← Volver
-        </button>
-        <h2 className="font-bold text-zinc-900">
-          {editZone ? 'Editar zona' : 'Nueva zona'}
-        </h2>
-      </div>
-      <div className="flex flex-col gap-4">
-        <input
-          type="text"
-          placeholder="Nombre de la zona"
-          value={zoneForm.name}
-          onChange={e => setZoneForm({ name: e.target.value })}
-          className={inputClass}
-        />
-        {error && <p className="text-red-500 text-sm">{error}</p>}
-        <button
-          onClick={saveZone}
-          disabled={saving}
-          className="
-            bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-            text-white font-bold rounded-2xl py-4
-            shadow-[0_4px_20px_var(--brand-shadow)]
-            transition-all duration-200 active:scale-[0.98] disabled:opacity-50
-          "
-        >
-          {saving ? 'Guardando...' : 'Guardar'}
-        </button>
-      </div>
-    </div>
-  )
-
-  // ── Form mesa ────────────────────────────────────────────────────────────────
-  if (showTableForm) return (
-    <div className="rounded-2xl bg-surface border border-zinc-200 p-6 max-w-lg
-      shadow-card">
-      <div className="flex items-center gap-3 mb-6">
-        <button
-          onClick={() => setShowTableForm(false)}
-          className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
-        >
-          ← Volver
-        </button>
-        <h2 className="font-bold text-zinc-900">
-          {editTable ? 'Editar mesa' : 'Nueva mesa'}
-        </h2>
-      </div>
-      <div className="flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-3">
-          <input
-            type="number"
-            placeholder="Número de mesa"
-            value={tableForm.number}
-            onChange={e => setTableForm(p => ({ ...p, number: e.target.value }))}
-            className={inputClass}
-          />
-          <input
-            type="number"
-            placeholder="Capacidad (opcional)"
-            value={tableForm.capacity}
-            onChange={e => setTableForm(p => ({ ...p, capacity: e.target.value }))}
-            className={inputClass}
-          />
-        </div>
-
-        <div>
-          <p className="text-sm text-zinc-500 mb-2">Zona</p>
-          <div className="flex flex-wrap gap-2">
-            {zones.map(zone => (
-              <button
-                key={zone.id}
-                onClick={() => setTableForm(p => ({ ...p, zone_id: zone.id }))}
-                className={`
-                  px-4 py-2 rounded-full text-sm font-semibold
-                  border transition-all duration-200
-                  ${tableForm.zone_id === zone.id
-                    ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
-                    : 'bg-surface text-zinc-500 border-zinc-200 hover:border-[var(--brand-border)]'
-                  }
-                `}
-              >
-                {zone.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3">
-          <div>
-            <p className="text-zinc-800 text-sm font-semibold">Es slot de domicilio</p>
-            <p className="text-zinc-400 text-xs">Aparece como punto de entrega</p>
-          </div>
-          <button
-            onClick={() => setTableForm(p => ({ ...p, is_delivery: !p.is_delivery }))}
-            className="w-12 h-6 rounded-full transition-colors relative flex-shrink-0"
-            style={{ background: tableForm.is_delivery ? 'var(--brand)' : 'var(--color-zinc-300)' }}
-          >
-            <div className={`
-              absolute top-0.5 w-5 h-5 bg-surface rounded-full
-              shadow-sm transition-transform duration-200
-              ${tableForm.is_delivery ? 'translate-x-6' : 'translate-x-0.5'}
-            `} />
-          </button>
-        </div>
-
-        {error && <p className="text-red-500 text-sm">{error}</p>}
-        <button
-          onClick={saveTable}
-          disabled={saving}
-          className="
-            bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-            text-white font-bold rounded-2xl py-4
-            shadow-[0_4px_20px_var(--brand-shadow)]
-            transition-all duration-200 active:scale-[0.98] disabled:opacity-50
-          "
-        >
-          {saving ? 'Guardando...' : 'Guardar'}
-        </button>
-      </div>
-    </div>
-  )
-
-  // ── Vista principal ──────────────────────────────────────────────────────────
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col lg:flex-row gap-5">
 
       {/* Zonas */}
-      <div className="rounded-2xl bg-surface border border-zinc-200 p-6
-        shadow-card">
-
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-xs font-bold text-zinc-500 tracking-wider">
-            ZONAS
-          </p>
-          <button
-            onClick={openNewZone}
-            className="
-              bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-              text-white rounded-xl px-3 py-1.5
-              text-xs font-semibold
-              transition-all duration-200 active:scale-95
-            "
-          >
-            + Nueva zona
+      <section aria-label="Zonas" className="lg:w-[260px] shrink-0 flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Zonas</h3>
+          <button onClick={openNewZone} className="h-8 px-2.5 rounded-lg text-sm font-bold text-[var(--brand-text)] hover:bg-[var(--brand-light)] flex items-center gap-1">
+            <Plus size={15} aria-hidden="true" /> Nueva
           </button>
         </div>
-
-        <div className="flex flex-col gap-2">
-          {zones.map(zone => (
-            <div
-              key={zone.id}
-              onClick={() => setActiveZone(zone.id)}
-              className={`
-                rounded-2xl px-4 py-3
-                flex items-center justify-between
-                cursor-pointer border
-                transition-all duration-200
-                ${activeZone === zone.id
-                  ? 'bg-[var(--brand-light)] border-[var(--brand-border)]'
-                  : 'bg-zinc-50 border-zinc-100 hover:border-[var(--brand-border)]'
-                }
-              `}
-            >
-              <div>
-                <p className={`font-semibold text-sm ${
-                  activeZone === zone.id ? 'text-[var(--brand-text)]' : 'text-zinc-800'
-                }`}>
-                  {zone.name}
-                </p>
-                <p className="text-zinc-400 text-xs">
-                  {tables.filter(t => t.zone_id === zone.id).length} mesas
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={e => { e.stopPropagation(); openEditZone(zone) }}
-                  className="
-                    bg-surface hover:bg-zinc-50
-                    border border-zinc-200
-                    text-zinc-600 rounded-xl px-3 py-1.5
-                    text-xs transition-colors
-                  "
-                >
-                  Editar
+        {zones.length === 0 && <p className="text-sm text-zinc-500 py-2">Crea tu primera zona (ej: Salón, Terraza).</p>}
+        <div className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible pb-1">
+          {zones.map(zone => {
+            const active = activeZone === zone.id
+            const n = tables.filter(t => t.zone_id === zone.id).length
+            return (
+              <div key={zone.id} className={`group shrink-0 h-11 pl-3 pr-1 rounded-xl flex items-center gap-2 transition-colors ${active ? 'bg-[var(--brand-light)] shadow-[inset_3px_0_0_var(--brand)]' : 'hover:bg-surface'}`}>
+                <button onClick={() => setActiveZone(zone.id)} className="flex-1 min-w-0 h-full flex items-center gap-2 text-left">
+                  <span className={`truncate text-sm font-bold ${active ? 'text-zinc-900' : 'text-zinc-600'}`}>{zone.name}</span>
+                  <span className="ml-auto font-mono text-xs text-zinc-400">{n}</span>
                 </button>
-                <button
-                  onClick={e => { e.stopPropagation(); deleteZone(zone) }}
-                  className="
-                    bg-red-50 hover:bg-red-100
-                    border border-red-200
-                    text-red-500 rounded-xl px-3 py-1.5
-                    text-xs transition-colors
-                  "
-                >
-                  Eliminar
-                </button>
+                <span className="hidden lg:flex opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                  <button onClick={() => openEditZone(zone)} aria-label={`Editar ${zone.name}`} className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 hover:bg-zinc-100"><Pencil size={14} /></button>
+                  <button onClick={() => deleteZone(zone)} aria-label={`Eliminar ${zone.name}`} className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 hover:bg-red-50 hover:text-red-600"><Trash2 size={14} /></button>
+                </span>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
-      </div>
+      </section>
 
-      {/* Mesas de la zona activa */}
-      {activeZone && (
-        <div className="rounded-2xl bg-surface border border-zinc-200 p-6
-          shadow-card">
-
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-xs font-bold text-zinc-500 tracking-wider">
-              MESAS — {zones.find(z => z.id === activeZone)?.name?.toUpperCase()}
-            </p>
-            <button
-              onClick={openNewTable}
-              className="
-                bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-                text-white rounded-xl px-3 py-1.5
-                text-xs font-semibold
-                transition-all duration-200 active:scale-95
-              "
-            >
-              + Nueva mesa
-            </button>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            {zoneTables.length === 0 && (
-              <p className="text-zinc-400 text-sm text-center py-8">
-                Sin mesas en esta zona
-              </p>
-            )}
-            {zoneTables.map(table => (
-              <div
-                key={table.id}
-                className="rounded-2xl bg-zinc-50 border border-zinc-100 p-4
-                  flex items-center justify-between"
-              >
-                <div>
-                  <p className="font-semibold text-zinc-900 text-sm">
-                    {table.is_delivery ? `Domicilio ${table.number}` : `Mesa ${table.number}`}
-                  </p>
-                  <div className="flex gap-2 mt-1 items-center">
-                    {table.capacity && (
-                      <span className="text-zinc-400 text-xs">
-                        {table.capacity} personas
-                      </span>
-                    )}
-                    <span className={`text-xs font-semibold ${
-                      table.status === 'free'            ? 'text-green-600'  :
-                      table.status === 'occupied'        ? 'text-orange-500' :
-                      table.status === 'waiting_payment' ? 'text-[var(--brand-text)]' : 'text-zinc-400'
-                    }`}>
-                      {table.status === 'free'            ? 'Libre'     :
-                       table.status === 'occupied'        ? 'Ocupada'   :
-                       table.status === 'waiting_payment' ? 'Por cobrar': table.status}
-                    </span>
-                  </div>
+      {/* Mesas */}
+      <section aria-label="Mesas" className="flex-1 min-w-0 flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-zinc-500">{zoneTables.length} mesa{zoneTables.length !== 1 ? 's' : ''} en {zones.find(z => z.id === activeZone)?.name || '—'}</p>
+          <button onClick={openNewTable} disabled={zones.length === 0} className="h-11 px-4 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white text-sm font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50">
+            <Plus size={16} aria-hidden="true" /> Mesa
+          </button>
+        </div>
+        {zoneTables.length === 0 ? (
+          <div className="bg-surface border border-dashed border-zinc-300 rounded-2xl py-14 text-center text-sm text-zinc-500">Esta zona aún no tiene mesas</div>
+        ) : (
+          <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-6 gap-3">
+            {zoneTables.map(t => (
+              <div key={t.id} className="group relative h-[116px] p-3 rounded-2xl bg-surface border border-zinc-200 shadow-card flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-zinc-500">{t.is_delivery ? 'Domicilio' : 'Mesa'}</span>
+                  {t.is_delivery && <Bike size={14} className="text-zinc-400" aria-hidden="true" />}
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => openEditTable(table)}
-                    className="
-                      bg-surface hover:bg-zinc-50
-                      border border-zinc-200
-                      text-zinc-600 rounded-xl px-3 py-1.5
-                      text-xs transition-colors
-                    "
-                  >
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => deleteTable(table)}
-                    className="
-                      bg-red-50 hover:bg-red-100
-                      border border-red-200
-                      text-red-500 rounded-xl px-3 py-1.5
-                      text-xs transition-colors
-                    "
-                  >
-                    Eliminar
-                  </button>
+                <span className="text-[30px] leading-none font-extrabold tracking-tight text-zinc-900">{String(t.number).padStart(2, '0')}</span>
+                <span className="text-[11px] font-semibold text-zinc-500">{t.capacity ? `${t.capacity} puestos · ` : ''}{STATUS_TXT[t.status] || 'Libre'}</span>
+                <div className="absolute top-1.5 right-1.5 flex gap-0.5 opacity-100 lg:opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity bg-surface rounded-lg">
+                  <button onClick={() => openEditTable(t)} aria-label={`Editar mesa ${t.number}`} className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 hover:bg-zinc-100"><Pencil size={14} /></button>
+                  <button onClick={() => deleteTable(t)} aria-label={`Eliminar mesa ${t.number}`} className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 hover:bg-red-50 hover:text-red-600"><Trash2 size={14} /></button>
                 </div>
               </div>
             ))}
+          </div>
+        )}
+      </section>
+
+      {formOpen && (
+        <div className="fixed inset-0 z-[90] flex justify-end bg-black/40 backdrop-blur-[2px]" onClick={closeForms}>
+          <div role="dialog" aria-label={showZoneForm ? 'Zona' : 'Mesa'} onClick={e => e.stopPropagation()} className="w-full max-w-md h-full bg-surface border-l border-zinc-200 shadow-pop flex flex-col">
+            <div className="px-5 py-4 border-b border-zinc-200 flex items-center justify-between">
+              <h3 className="text-lg font-extrabold tracking-tight text-zinc-900">
+                {showZoneForm ? (editZone ? 'Editar zona' : 'Nueva zona') : (editTable ? `Editar mesa ${editTable.number}` : 'Nueva mesa')}
+              </h3>
+              <button onClick={closeForms} aria-label="Cerrar" className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-500 hover:bg-zinc-100"><X size={18} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4">
+              {showZoneForm && (
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-sm font-bold text-zinc-700">Nombre de la zona</span>
+                  <input value={zoneForm.name} onChange={e => setZoneForm({ name: e.target.value })} placeholder="Ej: Terraza" className={field} />
+                </label>
+              )}
+              {showTableForm && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-sm font-bold text-zinc-700">Número</span>
+                      <input type="number" inputMode="numeric" value={tableForm.number} onChange={e => setTableForm(f => ({ ...f, number: e.target.value }))} className={`${field} font-mono`} />
+                    </label>
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-sm font-bold text-zinc-700">Puestos <span className="font-medium text-zinc-400">(opcional)</span></span>
+                      <input type="number" inputMode="numeric" value={tableForm.capacity} onChange={e => setTableForm(f => ({ ...f, capacity: e.target.value }))} className={`${field} font-mono`} />
+                    </label>
+                  </div>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-bold text-zinc-700">Zona</span>
+                    <select value={tableForm.zone_id} onChange={e => setTableForm(f => ({ ...f, zone_id: e.target.value }))} className={field}>
+                      {zones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
+                    </select>
+                  </label>
+                  <label className="px-3.5 py-3 rounded-xl border border-zinc-200 flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" checked={tableForm.is_delivery} onChange={e => setTableForm(f => ({ ...f, is_delivery: e.target.checked }))} className="w-5 h-5 accent-[var(--brand)]" />
+                    <span>
+                      <span className="block text-sm font-bold text-zinc-800">Es para domicilios</span>
+                      <span className="block text-xs text-zinc-500">Los pedidos de esta mesa piden datos del cliente y van a domicilios</span>
+                    </span>
+                  </label>
+                </>
+              )}
+              {error && <p role="alert" className="text-sm font-semibold text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">{error}</p>}
+            </div>
+            <div className="p-5 border-t border-zinc-200 flex gap-2">
+              <button onClick={closeForms} className="h-12 px-5 rounded-xl border border-zinc-300 text-sm font-bold text-zinc-700 hover:bg-zinc-50">Cancelar</button>
+              <button onClick={showZoneForm ? saveZone : saveTable} disabled={saving} className="flex-1 h-12 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white text-sm font-bold transition-colors disabled:opacity-60">
+                {saving ? 'Guardando…' : 'Guardar'}
+              </button>
+            </div>
           </div>
         </div>
       )}
-
     </div>
   )
 }

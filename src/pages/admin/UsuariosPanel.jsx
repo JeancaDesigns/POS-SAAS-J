@@ -1,17 +1,11 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useAuthStore } from '../../store/authStore'
+import { UserPlus, UserX, UserCheck, Pencil, X } from 'lucide-react'
 
 // 'dev' da acceso a todos los restaurantes: solo un dev puede asignarlo
 const STAFF_ROLES = ['admin', 'cajero', 'mesero', 'cocina', 'domiciliario']
 
-const inputClass = `
-  w-full rounded-xl px-4 py-3
-  text-zinc-800 outline-none
-  bg-zinc-50 border border-zinc-200
-  focus:border-[var(--brand-border)] transition-colors
-  placeholder:text-zinc-400
-`
 
 export default function UsuariosPanel() {
   const { user } = useAuthStore()
@@ -92,193 +86,116 @@ export default function UsuariosPanel() {
     fetchUsuarios()
   }
 
-  if (loading) return <p className="text-zinc-400 text-sm">Cargando...</p>
+  const ROLE_INFO = {
+    admin: 'Todo el sistema de este restaurante',
+    cajero: 'Cobros, caja, mesas y cocina',
+    mesero: 'Tomar y editar pedidos',
+    cocina: 'Tablero de comandas',
+    domiciliario: 'Rutas y entregas',
+    dev: 'Acceso técnico a todos los restaurantes',
+  }
+  const field = 'w-full h-11 rounded-xl px-3.5 bg-surface border border-zinc-300 text-[15px] text-zinc-900 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--brand-soft)] placeholder:text-zinc-400 transition-[border-color,box-shadow]'
+  const activos = usuarios.filter(u => u.active).length
+
+  if (loading) return <p className="text-zinc-500 text-sm">Cargando usuarios…</p>
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-zinc-500"><span className="font-bold text-zinc-800">{activos}</span> activo{activos !== 1 ? 's' : ''} de {usuarios.length}</p>
+        <button onClick={openNew} className="h-11 px-4 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white text-sm font-bold flex items-center gap-1.5 transition-colors">
+          <UserPlus size={16} aria-hidden="true" /> Nuevo usuario
+        </button>
+      </div>
 
-      {/* ── Lista ── */}
-      {!showForm && (
-        <div className="rounded-2xl bg-surface border border-zinc-200 p-6
-          shadow-card">
-
-          <div className="flex justify-between items-center mb-4">
-            <p className="text-xs font-bold text-zinc-500 tracking-wider">
-              {usuarios.length} USUARIOS
-            </p>
-            <button
-              onClick={openNew}
-              className="
-                bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-                text-white rounded-xl px-4 py-2
-                text-sm font-semibold
-                transition-all duration-200 active:scale-95
-              "
-            >
-              + Nuevo usuario
-            </button>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            {usuarios.map(u => (
-              <div
-                key={u.id}
-                className="rounded-2xl bg-zinc-50 border border-zinc-100 p-4"
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <p className="font-semibold text-zinc-900">{u.name}</p>
-                    <p className="text-zinc-400 text-sm">@{u.username}</p>
-                  </div>
-                  <span className={`
-                    text-xs rounded-full px-2 py-0.5 font-semibold border
-                    ${u.active
-                      ? 'bg-green-50 text-green-600 border-green-200'
-                      : 'bg-red-50 text-red-500 border-red-200'
-                    }
-                  `}>
-                    {u.active ? 'Activo' : 'Inactivo'}
-                  </span>
-                </div>
-
-                <div className="flex flex-wrap gap-1 mb-3">
-                  {u.roles.map(r => (
-                    <span
-                      key={r}
-                      className="text-xs bg-[var(--brand-light)] text-[var(--brand-text)] border border-[var(--brand-border)] rounded-full px-2 py-0.5 capitalize"
-                    >
-                      {r}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => openEdit(u)}
-                    className="
-                      flex-1 rounded-xl py-2 text-sm font-semibold
-                      bg-surface hover:bg-zinc-50
-                      border border-zinc-200
-                      text-zinc-600
-                      transition-colors
-                    "
-                  >
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => toggleActive(u)}
-                    className={`
-                      flex-1 rounded-xl py-2 text-sm font-semibold
-                      border transition-colors
-                      ${u.active
-                        ? 'bg-red-50 hover:bg-red-100 text-red-500 border-red-200'
-                        : 'bg-green-50 hover:bg-green-100 text-green-600 border-green-200'
-                      }
-                    `}
-                  >
-                    {u.active ? 'Desactivar' : 'Activar'}
-                  </button>
-                </div>
+      <div className="bg-surface border border-zinc-200 rounded-2xl shadow-card overflow-hidden">
+        <ul className="divide-y divide-zinc-100">
+          {usuarios.map(u => (
+            <li key={u.id} className={`px-4 py-3.5 flex items-center gap-3 ${!u.active ? 'bg-zinc-50' : ''}`}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-extrabold shrink-0 ${u.active ? 'bg-[var(--brand-light)] text-[var(--brand-text)] border border-[var(--brand-border)]' : 'bg-zinc-100 text-zinc-400 border border-zinc-200'}`}>
+                {u.name?.[0]?.toUpperCase()}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Form ── */}
-      {showForm && (
-        <div className="rounded-2xl bg-surface border border-zinc-200 p-6 max-w-lg
-          shadow-card">
-
-          <div className="flex items-center gap-3 mb-6">
-            <button
-              onClick={() => setShowForm(false)}
-              className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
-            >
-              ← Volver
-            </button>
-            <h2 className="font-bold text-zinc-900">
-              {editUser ? 'Editar usuario' : 'Nuevo usuario'}
-            </h2>
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-3">
-              <input
-                type="text"
-                placeholder="Nombre completo"
-                value={form.name}
-                onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-                className={inputClass}
-              />
-              <input
-                type="text"
-                placeholder="Usuario (login)"
-                value={form.username}
-                onChange={e => setForm(p => ({ ...p, username: e.target.value }))}
-                className={inputClass}
-              />
-            </div>
-
-            {!editUser && (
-              <div className="grid grid-cols-2 gap-3">
-                <input
-                  type="email"
-                  placeholder="Email"
-                  value={form.email}
-                  onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
-                  className={inputClass}
-                />
-                <input
-                  type="password"
-                  placeholder="Contraseña"
-                  value={form.password}
-                  onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
-                  className={inputClass}
-                />
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-bold truncate ${u.active ? 'text-zinc-900' : 'text-zinc-500'}`}>{u.name}</p>
+                <p className="text-xs text-zinc-500 truncate">@{u.username}{u.email ? ` · ${u.email}` : ''}</p>
               </div>
-            )}
-
-            <div>
-              <p className="text-sm text-zinc-500 mb-2">Roles</p>
-              <div className="flex flex-wrap gap-2">
-                {ROLES.map(role => (
-                  <button
-                    key={role}
-                    onClick={() => toggleRole(role)}
-                    className={`
-                      px-4 py-2 rounded-full text-sm font-semibold capitalize
-                      border transition-all duration-200
-                      ${form.roles.includes(role)
-                        ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
-                        : 'bg-surface text-zinc-500 border-zinc-200 hover:border-[var(--brand-border)]'
-                      }
-                    `}
-                  >
-                    {role}
-                  </button>
+              <div className="hidden md:flex flex-wrap gap-1 justify-end max-w-[280px]">
+                {u.roles.map(r => (
+                  <span key={r} className="h-6 px-2 rounded-full bg-zinc-100 border border-zinc-200 text-[11px] font-bold text-zinc-600 capitalize flex items-center">{r}</span>
                 ))}
               </div>
+              <span className={`h-6 px-2 rounded-full border text-[11px] font-bold flex items-center shrink-0 ${u.active ? 'bg-green-50 text-green-700 border-green-200' : 'bg-zinc-100 text-zinc-500 border-zinc-200'}`}>
+                {u.active ? 'Activo' : 'Inactivo'}
+              </span>
+              <div className="flex shrink-0">
+                <button onClick={() => openEdit(u)} aria-label={`Editar ${u.name}`} className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-500 hover:bg-zinc-100"><Pencil size={15} /></button>
+                <button
+                  onClick={() => toggleActive(u)}
+                  aria-label={u.active ? `Desactivar ${u.name}` : `Activar ${u.name}`}
+                  className={`w-9 h-9 rounded-lg flex items-center justify-center ${u.active ? 'text-zinc-500 hover:bg-red-50 hover:text-red-600' : 'text-zinc-500 hover:bg-green-50 hover:text-green-700'}`}
+                >
+                  {u.active ? <UserX size={15} /> : <UserCheck size={15} />}
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {showForm && (
+        <div className="fixed inset-0 z-[90] flex justify-end bg-black/40 backdrop-blur-[2px]" onClick={() => setShowForm(false)}>
+          <div role="dialog" aria-label={editUser ? 'Editar usuario' : 'Nuevo usuario'} onClick={e => e.stopPropagation()} className="w-full max-w-md h-full bg-surface border-l border-zinc-200 shadow-pop flex flex-col">
+            <div className="px-5 py-4 border-b border-zinc-200 flex items-center justify-between">
+              <h3 className="text-lg font-extrabold tracking-tight text-zinc-900">{editUser ? 'Editar usuario' : 'Nuevo usuario'}</h3>
+              <button onClick={() => setShowForm(false)} aria-label="Cerrar" className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-500 hover:bg-zinc-100"><X size={18} /></button>
             </div>
-
-            {error && <p className="text-red-500 text-sm">{error}</p>}
-
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="
-                bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-                text-white font-bold rounded-2xl py-4
-                shadow-[0_4px_20px_var(--brand-shadow)]
-                transition-all duration-200 active:scale-[0.98] disabled:opacity-50
-              "
-            >
-              {saving ? 'Guardando...' : 'Guardar'}
-            </button>
+            <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4">
+              <label className="flex flex-col gap-1.5">
+                <span className="text-sm font-bold text-zinc-700">Nombre completo</span>
+                <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} className={field} />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-sm font-bold text-zinc-700">Usuario</span>
+                <input value={form.username} onChange={e => setForm(p => ({ ...p, username: e.target.value }))} placeholder="Ej: laura" className={field} />
+              </label>
+              {!editUser && (
+                <>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-bold text-zinc-700">Correo (para iniciar sesión)</span>
+                    <input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} className={field} />
+                  </label>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-bold text-zinc-700">Contraseña</span>
+                    <input type="password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} placeholder="Mínimo 8 caracteres" className={field} />
+                  </label>
+                </>
+              )}
+              <fieldset className="flex flex-col gap-2">
+                <legend className="text-sm font-bold text-zinc-700 mb-1.5">Roles</legend>
+                {ROLES.map(role => {
+                  const on = form.roles.includes(role)
+                  return (
+                    <label key={role} className={`px-3.5 py-3 rounded-xl border flex items-center gap-3 cursor-pointer transition-colors ${on ? 'border-[var(--brand)] border-[1.5px] bg-[var(--brand-light)]' : 'border-zinc-200 hover:bg-zinc-50'}`}>
+                      <input type="checkbox" checked={on} onChange={() => toggleRole(role)} className="w-5 h-5 accent-[var(--brand)]" />
+                      <span>
+                        <span className="block text-sm font-bold text-zinc-900 capitalize">{role}</span>
+                        <span className="block text-xs text-zinc-500">{ROLE_INFO[role]}</span>
+                      </span>
+                    </label>
+                  )
+                })}
+              </fieldset>
+              {error && <p role="alert" className="text-sm font-semibold text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">{error}</p>}
+            </div>
+            <div className="p-5 border-t border-zinc-200 flex gap-2">
+              <button onClick={() => setShowForm(false)} className="h-12 px-5 rounded-xl border border-zinc-300 text-sm font-bold text-zinc-700 hover:bg-zinc-50">Cancelar</button>
+              <button onClick={handleSave} disabled={saving} className="flex-1 h-12 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white text-sm font-bold transition-colors disabled:opacity-60">
+                {saving ? 'Guardando…' : editUser ? 'Guardar cambios' : 'Crear usuario'}
+              </button>
+            </div>
           </div>
         </div>
       )}
-
     </div>
   )
 }
