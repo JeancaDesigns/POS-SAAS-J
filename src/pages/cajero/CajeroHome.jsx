@@ -7,7 +7,7 @@ import { useOnlineStatus } from '../../hooks/useOnlineStatus'
 import { db } from '../../db/localDB'
 import { cacheOrders, getCachedOrders } from '../../db/cacheHelpers'
 import { buildWhatsappLink, getEstimatedTime } from '../../utils/whatsapp'
-import { precioUnitario } from '../../utils/precio'
+import { orderTotal } from '../../utils/totales'
 import { inicioJornada } from '../../utils/jornada'
 import { useCajaResumen } from '../../hooks/useCajaResumen'
 import { Bell, Search } from 'lucide-react'
@@ -106,29 +106,6 @@ function tableName(order) {
   return `Mesa ${order.table?.number} · ${order.table?.zone?.name}`
 }
 
-// ─── Descuentos ──────────────────────────────────────────────────────────────
-// discount_type: 'percent' | 'fixed'. Aplica sobre un monto base y nunca deja el resultado negativo.
-function calcDiscount(baseAmount, discountType, discountValue) {
-  const val = Number(discountValue) || 0
-  if (!val || !discountType) return 0
-  if (discountType === 'percent') return Math.round(baseAmount * (Math.min(val, 100) / 100))
-  return Math.min(val, baseAmount) // fixed
-}
-
-// Total de un pedido incluyendo descuentos por producto (order_items) y descuento general (orders)
-function orderTotal(order, deliveryFee) {
-  const itemsTotal = order.items.filter(i => i.status !== 'cancelled')
-    .reduce((sum, i) => {
-      const lineTotal = precioUnitario(i) * i.quantity
-      const lineDiscount = calcDiscount(lineTotal, i.discount_type, i.discount_value)
-      return sum + (lineTotal - lineDiscount)
-    }, 0)
-  const isDelivery = order.delivery_type === 'delivery' && order.table?.is_delivery
-  const subtotal = itemsTotal + (isDelivery ? deliveryFee : 0)
-  const orderDiscount = calcDiscount(subtotal, order.discount_type, order.discount_value)
-  return subtotal - orderDiscount
-}
-
 // Un pedido se cobra cuando ya salió de cocina (mesa/recoger) o fue entregado (domicilio).
 // Misma regla para el botón del ticket y para handleCobrar.
 function puedeCobrar(order) {
@@ -216,7 +193,11 @@ export default function CajeroHome() {
   const canDiscount = user?.roles?.some(r => ['admin', 'dev'].includes(r))
   const [discountType, setDiscountType] = useState('percent')
   const [discountValue, setDiscountValue] = useState('')
-  const [deliveryFee, setDeliveryFee] = useState(0)
+  // Se recuerda en el dispositivo para cobrar bien los domicilios sin conexión
+  const feeKey = `delivery-fee-${user?.restaurant_id}`
+  const [deliveryFee, setDeliveryFee] = useState(() => {
+    try { return Number(localStorage.getItem(feeKey)) || 0 } catch { return 0 }
+  })
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [view, setView] = useState('cobrar') // 'cobrar' | 'curso' | 'historial'
   const [payMethod, setPayMethod] = useState('cash') // 'cash' | 'transfer' | 'mixed'
@@ -255,7 +236,9 @@ export default function CajeroHome() {
     if (!user?.restaurant_id || !isOnline) return
     supabase.from('restaurants').select('delivery_fee').eq('id', user.restaurant_id).single()
       .then(({ data }) => {
-        if (data) setDeliveryFee(data.delivery_fee || 0)
+        if (!data) return
+        setDeliveryFee(data.delivery_fee || 0)
+        try { localStorage.setItem(feeKey, String(data.delivery_fee || 0)) } catch { /* sin storage */ }
       })
   }, [user?.restaurant_id, isOnline])
 

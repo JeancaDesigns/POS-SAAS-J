@@ -5,6 +5,7 @@ import { useDeliveryCount } from '../../hooks/useDeliveryCount'
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import { Phone, MessageCircle, Navigation, Map as MapIcon, Check, Banknote } from 'lucide-react'
 import { precioUnitario } from '../../utils/precio'
+import { orderTotal } from '../../utils/totales'
 import L from 'leaflet'
 
 const deliveryIcon = new L.Icon({
@@ -73,7 +74,7 @@ export default function DomiciliarioHome() {
       .select('delivery_fee')
       .eq('id', user.restaurant_id)
       .single()
-    if (restaurant) setDeliveryFee(restaurant.delivery_fee || 1000)
+    if (restaurant) setDeliveryFee(restaurant.delivery_fee ?? 0)
 
     const { data } = await supabase
       .from('orders')
@@ -152,12 +153,8 @@ export default function DomiciliarioHome() {
     fetchData()
   }
 
-  function orderTotal(order) {
-    const itemsTotal = order.items
-      .filter(i => i.status !== 'cancelled')
-      .reduce((sum, i) => sum + precioUnitario(i) * i.quantity, 0)
-    return itemsTotal + deliveryFee
-  }
+  // Mismo cálculo que Caja: con descuentos y el valor real del domicilio (puede ser $0)
+  const totalOf = order => orderTotal(order, deliveryFee)
 
   function orderItems(order) {
     return order.items.filter(i => i.status !== 'cancelled')
@@ -186,7 +183,7 @@ export default function DomiciliarioHome() {
   const porSalir = enRuta ? pendingOrders.filter(o => !tanda.includes(o.id)) : pendingOrders
   const tab = activeTab || (enRuta ? 'ruta' : 'salir')
   const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
-  const aCobrar = list => list.reduce((s, o) => s + orderTotal(o), 0)
+  const aCobrar = list => list.reduce((s, o) => s + totalOf(o), 0)
   const TABS = [
     { key: 'salir', label: 'Por salir', count: porSalir.length },
     { key: 'ruta', label: 'En ruta', count: enRuta ? tandaOrders.length : 0 },
@@ -194,7 +191,7 @@ export default function DomiciliarioHome() {
   ]
 
   function payInfo(order) {
-    const total = orderTotal(order)
+    const total = totalOf(order)
     if (order.payment_method === 'transfer') return { text: 'Paga por transferencia', tone: 'text-blue-700 bg-blue-50 border-blue-200' }
     if (order.cash_amount && Number(order.cash_amount) > total) {
       return { text: `Paga con ${money(order.cash_amount)} · llevar ${money(Number(order.cash_amount) - total)} de cambio`, tone: 'text-orange-700 bg-orange-50 border-orange-200' }
@@ -217,7 +214,7 @@ export default function DomiciliarioHome() {
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-3">
               <h3 className="text-lg font-extrabold tracking-tight text-zinc-900 truncate">{order.customer_name}</h3>
-              <span className="font-mono text-lg font-semibold text-zinc-900 tabular shrink-0">{money(orderTotal(order))}</span>
+              <span className="font-mono text-lg font-semibold text-zinc-900 tabular shrink-0">{money(totalOf(order))}</span>
             </div>
             {order.delivery_address && <p className="text-base font-semibold text-zinc-800 leading-snug mt-1">{order.delivery_address}</p>}
             {order.delivery_reference && <p className="text-sm text-zinc-500 mt-0.5">{order.delivery_reference}</p>}
@@ -348,7 +345,7 @@ export default function DomiciliarioHome() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-3">
                         <p className="text-base font-extrabold text-zinc-900 truncate">{order.customer_name}</p>
-                        <span className="font-mono text-base font-semibold text-zinc-900 tabular shrink-0">{money(orderTotal(order))}</span>
+                        <span className="font-mono text-base font-semibold text-zinc-900 tabular shrink-0">{money(totalOf(order))}</span>
                       </div>
                       <p className="text-sm text-zinc-600 mt-0.5 line-clamp-2">{order.delivery_address || 'Sin dirección'}</p>
                       <p className="text-xs text-zinc-500 mt-1">
@@ -391,7 +388,7 @@ export default function DomiciliarioHome() {
                 <p className="text-xs text-zinc-500 truncate">{order.delivery_address}</p>
               </div>
               <div className="text-right shrink-0">
-                <p className="font-mono text-sm font-semibold text-zinc-900 tabular">{money(orderTotal(order))}</p>
+                <p className="font-mono text-sm font-semibold text-zinc-900 tabular">{money(totalOf(order))}</p>
                 <p className="text-xs text-zinc-500">{order.delivered_at ? new Date(order.delivered_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : ''}</p>
               </div>
             </div>
