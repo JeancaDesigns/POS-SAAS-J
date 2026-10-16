@@ -45,19 +45,19 @@ export default function AdminHome() {
       {/* ── Header fijo ── */}
       <div className="
         fixed top-0 left-0 right-0 z-50
-        sm:left-[92px]
-        bg-[var(--brand)] px-4 pt-6 pb-4 shadow-md
+        lg:left-[92px]
+        bg-surface/95 backdrop-blur border-b border-zinc-200 px-5 pt-5 pb-4
       ">
         <div className="text-center mb-4">
-          <h1 className="text-2xl font-semibold tracking-tight text-white">
+          <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900">
             Administración
           </h1>
-          <p className="text-sm text-white/70 mt-0.5">
+          <p className="text-sm text-zinc-500 mt-0.5">
             Configuración y control general
           </p>
         </div>
 
-        {/* Grupos — dentro del morado, estilo tab blanco activo */}
+        {/* Grupos */}
         <div className="flex gap-2 overflow-x-auto pb-1 justify-center">
           {Object.entries(sectionGroups).map(([key, group]) => (
             <button
@@ -73,8 +73,8 @@ export default function AdminHome() {
                 border transition-all duration-200
                 active:scale-95
                 ${activeGroup === key
-                  ? 'bg-surface text-[var(--brand)] border-surface'
-                  : 'bg-white/10 text-white/70 border-white/20 hover:bg-white/20'
+                  ? 'bg-zinc-900 text-surface border-zinc-900'
+                  : 'bg-surface text-zinc-600 border-zinc-200 hover:bg-zinc-50'
                 }
               `}
             >
@@ -84,7 +84,7 @@ export default function AdminHome() {
         </div>
       </div>
 
-      {/* ── Subsecciones — fuera del morado, no fijas ── */}
+      {/* ── Subsecciones ── */}
       <div className="pt-[175px] px-4 py-3 flex gap-2 overflow-x-auto justify-center">
         {sectionGroups[activeGroup].items.map(item => (
           <button

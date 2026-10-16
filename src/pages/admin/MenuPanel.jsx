@@ -442,7 +442,7 @@ export default function MenuPanel() {
               <button
                 onClick={() => setProdForm(p => ({ ...p, local_only: !p.local_only }))}
                 className="w-12 h-6 rounded-full transition-colors relative flex-shrink-0"
-                style={{ background: prodForm.local_only ? 'var(--brand)' : '#E4E4E7' }}
+                style={{ background: prodForm.local_only ? 'var(--brand)' : 'var(--color-zinc-300)' }}
               >
                 <div className={`
                   absolute top-0.5 w-5 h-5 bg-surface rounded-full

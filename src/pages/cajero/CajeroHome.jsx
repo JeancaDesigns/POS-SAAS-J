@@ -104,23 +104,6 @@ function tableName(order) {
   return `Mesa ${order.table?.number} · ${order.table?.zone?.name}`
 }
 
-// ─── Borde dentado ───────────────────────────────────────────────────────────
-function DentedEdge({ flipped = false }) {
-  return (
-    <svg
-      width="100%" height="12"
-      viewBox="0 0 300 12"
-      preserveAspectRatio="none"
-      style={{ display: 'block', transform: flipped ? 'rotate(180deg)' : 'none' }}
-    >
-      <path
-        d="M0,0 L0,6 L7.5,0 L15,6 L22.5,0 L30,6 L37.5,0 L45,6 L52.5,0 L60,6 L67.5,0 L75,6 L82.5,0 L90,6 L97.5,0 L105,6 L112.5,0 L120,6 L127.5,0 L135,6 L142.5,0 L150,6 L157.5,0 L165,6 L172.5,0 L180,6 L187.5,0 L195,6 L202.5,0 L210,6 L217.5,0 L225,6 L232.5,0 L240,6 L247.5,0 L255,6 L262.5,0 L270,6 L277.5,0 L285,6 L292.5,0 L300,6 L300,0 Z"
-        fill="#F5F0E8"
-      />
-    </svg>
-  )
-}
-
 // ─── Descuentos ──────────────────────────────────────────────────────────────
 // discount_type: 'percent' | 'fixed'. Aplica sobre un monto base y nunca deja el resultado negativo.
 function calcDiscount(baseAmount, discountType, discountValue) {
@@ -151,137 +134,87 @@ function puedeCobrar(order) {
 }
 
 // ─── Ticket ──────────────────────────────────────────────────────────────────
-function TicketActivo({ order, deliveryFee, restaurantName, onVerPedido, onCobrar }) {
+const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
+
+function TicketActivo({ order, deliveryFee, onVerPedido, onCobrar }) {
   const activeItems = order.items.filter(i => i.status !== 'cancelled')
   const isDelivery = order.delivery_type === 'delivery' && order.table?.is_delivery
   const total = orderTotal(order, deliveryFee)
   const hasDraft = order.status === 'draft'
-  const isReady = ['delivered', 'inDelivery', 'dispatched'].includes(order.status)
   const canPay = puedeCobrar(order)
+  const minutes = order.started_at ? Math.max(0, Math.round((Date.now() - new Date(order.started_at)) / 60000)) : null
 
-  const now = new Date()
-  const timeStr = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
-  const dateStr = now.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: '2-digit' })
+  const title = order.table?.is_delivery
+    ? `Domicilio ${String(order.table.number).padStart(2, '0')}`
+    : `Mesa ${String(order.table?.number ?? '').padStart(2, '0')}`
+  const subtitle = [
+    order.table?.is_delivery ? order.customer_name : order.table?.zone?.name,
+    minutes != null ? `${minutes} min` : null,
+  ].filter(Boolean).join(' · ')
+
+  const badge = hasDraft
+    ? { text: 'Por confirmar', cls: 'bg-orange-50 text-orange-700 border-orange-200' }
+    : canPay
+      ? { text: 'Listo para cobrar', cls: 'bg-[var(--brand-light)] text-[var(--brand-text)] border-[var(--brand-border)]' }
+      : { text: order.status === 'inDelivery' ? 'En camino' : 'En cocina', cls: 'bg-zinc-100 text-zinc-600 border-zinc-200' }
 
   return (
-    <div className="
-      mx-auto w-full max-w-sm md:max-w-md
-      rounded-sm
-      border border-[#C4B89A]
-      drop-shadow-[0_6px_20px_rgba(0,0,0,0.13)]
-    ">
-      <DentedEdge flipped />
-
-      <div style={{ background: '#F5F0E8', padding: '12px 16px' }}>
-
-        {/* Header ticket */}
-        <div style={{
-          textAlign: 'center',
-          borderBottom: '1px dashed #C4B89A',
-          paddingBottom: '8px',
-          marginBottom: '8px'
-        }}>
-          <p style={{ fontFamily: 'monospace', fontSize: '13px', fontWeight: 'bold', color: '#2D1B0E' }}>
-            {(restaurantName || '').toUpperCase()}
-          </p>
-          <p style={{ fontFamily: 'monospace', fontSize: '10px', color: '#795548' }}>
-            {dateStr} · {timeStr}
-          </p>
+    <article className={`
+      bg-surface rounded-2xl border shadow-card overflow-hidden flex flex-col
+      ${canPay ? 'border-[var(--brand)] border-[1.5px]' : 'border-zinc-200'}
+    `}>
+      <header className="px-4 pt-4 pb-3 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-base font-extrabold tracking-tight text-zinc-900 truncate">{title}</h3>
+          {subtitle && <p className="text-xs text-zinc-500 mt-0.5 truncate">{subtitle}</p>}
         </div>
+        <span className={`shrink-0 h-6 px-2 inline-flex items-center rounded-full border text-[11px] font-bold ${badge.cls}`}>
+          {badge.text}
+        </span>
+      </header>
 
-        {/* Mesa / domicilio */}
-        <div style={{ marginBottom: '8px' }}>
-          <p style={{ fontFamily: 'monospace', fontSize: '13px', fontWeight: 'bold', color: '#2D1B0E' }}>
-            {order.table?.is_delivery
-              ? `DOMICILIO #${order.table.number}`
-              : `MESA #${order.table?.number} — ${order.table?.zone?.name?.toUpperCase()}`}
-          </p>
-          {order.customer_name && (
-            <p style={{ fontFamily: 'monospace', fontSize: '11px', color: '#795548' }}>
-              Cliente: {order.customer_name}
-            </p>
-          )}
-          {hasDraft && (
-            <p style={{ fontFamily: 'monospace', fontSize: '10px', color: '#E65100', marginTop: '2px' }}>
-              ⚠ PENDIENTE DE CONFIRMAR
-            </p>
-          )}
-          {isReady && (
-            <p style={{ fontFamily: 'monospace', fontSize: '12px', color: '#2E7D32', marginTop: '2px' }}>
-              ✓ LISTO PARA COBRAR
-            </p>
-          )}
-        </div>
+      <ul className="px-4 flex flex-col">
+        {activeItems.map(item => (
+          <li key={item.id} className="flex items-baseline gap-3 py-1.5 border-t border-zinc-100 first:border-t-0">
+            <span className="font-mono text-xs font-semibold text-zinc-500 w-6 shrink-0">{item.quantity}×</span>
+            <span className="flex-1 text-sm font-semibold text-zinc-800 truncate">{item.product.name}</span>
+            <span className="font-mono text-xs font-semibold text-zinc-700 tabular">{money(precioUnitario(item) * item.quantity)}</span>
+          </li>
+        ))}
+        {isDelivery && (
+          <li className="flex items-baseline gap-3 py-1.5 border-t border-zinc-100">
+            <span className="w-6 shrink-0" />
+            <span className="flex-1 text-sm text-zinc-500">Domicilio</span>
+            <span className="font-mono text-xs font-semibold text-zinc-500 tabular">{money(deliveryFee)}</span>
+          </li>
+        )}
+      </ul>
 
-        {/* Ítems */}
-        <div style={{
-          borderTop: '1px dashed #C4B89A',
-          borderBottom: '1px dashed #C4B89A',
-          padding: '8px 0',
-          marginBottom: '8px'
-        }}>
-          {activeItems.map(item => (
-            <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-              <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#2D1B0E' }}>
-                {item.quantity}x {item.product.name}
-              </span>
-              <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#2D1B0E' }}>
-                ${(precioUnitario(item) * item.quantity).toLocaleString('es-CO')}
-              </span>
-            </div>
-          ))}
-          {isDelivery && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
-              <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#795548' }}>Domicilio</span>
-              <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#795548' }}>
-                ${deliveryFee.toLocaleString('es-CO')}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Total */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-          <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 'bold', color: '#2D1B0E' }}>
-            TOTAL
-          </span>
-          <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 'bold', color: '#2D1B0E' }}>
-            ${total.toLocaleString('es-CO')}
-          </span>
-        </div>
-
-        {/* Botones */}
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={() => onVerPedido(order)}
-            style={{
-              flex: 1, padding: '8px', borderRadius: '6px',
-              fontFamily: 'monospace', fontSize: '11px', fontWeight: 'bold',
-              cursor: 'pointer', background: 'transparent',
-              border: '1px solid #C4B89A', color: '#795548',
-            }}
-          >
-            VER PEDIDO
-          </button>
-          <button
-            onClick={() => canPay && onCobrar(order)}
-            disabled={!canPay}
-            style={{
-              flex: 1, padding: '8px', borderRadius: '6px',
-              fontFamily: 'monospace', fontSize: '11px', fontWeight: 'bold',
-              cursor: canPay ? 'pointer' : 'not-allowed',
-              background: canPay ? 'var(--brand)' : '#E0D6C8',
-              color: canPay ? 'white' : '#9E9E9E',
-              border: 'none',
-            }}
-          >
-            {canPay ? 'COBRAR' : 'ESPERANDO'}
-          </button>
-        </div>
-
+      <div className="mt-3 px-4 py-3 bg-surface-2 border-t border-zinc-200 flex items-center justify-between">
+        <span className="text-sm font-bold text-zinc-700">Total</span>
+        <span className="font-mono text-xl font-semibold tracking-tight text-zinc-900 tabular">{money(total)}</span>
       </div>
-      <DentedEdge />
-    </div>
+
+      <div className="px-4 pb-4 pt-1 bg-surface-2 flex gap-2">
+        <button
+          onClick={() => onVerPedido(order)}
+          className="h-11 px-4 rounded-xl border border-zinc-300 bg-surface text-sm font-bold text-zinc-700 hover:bg-zinc-50 transition-colors"
+        >
+          Ver pedido
+        </button>
+        <button
+          onClick={() => canPay && onCobrar(order)}
+          disabled={!canPay}
+          className="
+            flex-1 h-11 rounded-xl text-sm font-bold transition-colors
+            bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white
+            disabled:bg-zinc-100 disabled:text-zinc-400 disabled:cursor-not-allowed
+          "
+        >
+          {canPay ? `Cobrar ${money(total)}` : 'Esperando'}
+        </button>
+      </div>
+    </article>
   )
 }
 
@@ -294,7 +227,6 @@ export default function CajeroHome() {
   const [discountType, setDiscountType] = useState('percent')
   const [discountValue, setDiscountValue] = useState('')
   const [deliveryFee, setDeliveryFee] = useState(0)
-  const [restaurantName, setRestaurantName] = useState('')
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [view, setView] = useState('mesas')
   const [cobrarOrder, setCobrarOrder] = useState(null)
@@ -329,9 +261,9 @@ export default function CajeroHome() {
 
   useEffect(() => {
     if (!user?.restaurant_id || !isOnline) return
-    supabase.from('restaurants').select('delivery_fee, name').eq('id', user.restaurant_id).single()
+    supabase.from('restaurants').select('delivery_fee').eq('id', user.restaurant_id).single()
       .then(({ data }) => {
-        if (data) { setDeliveryFee(data.delivery_fee || 0); setRestaurantName(data.name || '') }
+        if (data) setDeliveryFee(data.delivery_fee || 0)
       })
   }, [user?.restaurant_id, isOnline])
 
@@ -622,19 +554,19 @@ export default function CajeroHome() {
   return (
     <div className="min-h-screen flex flex-col bg-canvas relative overflow-hidden pt-[88px]">
 
-      {/* ── Header fijo — SOLO bloque morado ── */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-[var(--brand)] sm:left-[92px] px-4 pt-6 pb-4 shadow-md">
+      {/* ── Header fijo ── */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-surface/95 backdrop-blur lg:left-[92px] border-b border-zinc-200 px-5 pt-5 pb-4">
         <div className="flex items-center justify-between">
 
           <div className="w-10" />
 
           <div className="text-center">
-            <h1 className="text-2xl font-semibold tracking-tight text-white">
+            <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900">
               Caja
             </h1>
-            <p className="text-sm text-white/70 mt-0.5">
+            <p className="text-sm text-zinc-500 mt-0.5">
               {deliveryCount > 0
-                ? `🛵 ${deliveryCount} domicilios esta semana`
+                ? `${deliveryCount} domicilios esta semana`
                 : 'Gestión de cobros'
               }
             </p>
@@ -649,8 +581,8 @@ export default function CajeroHome() {
             className="
               w-10 h-10 rounded-2xl
               flex items-center justify-center
-              bg-white/10 hover:bg-white/20
-              border border-white/20
+              bg-surface hover:bg-zinc-50
+              border border-zinc-200
               transition-all duration-200
               active:scale-95
               relative
@@ -658,7 +590,7 @@ export default function CajeroHome() {
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5 text-white"
+              className="w-5 h-5 text-zinc-700"
               fill="none" viewBox="0 0 24 24"
               stroke="currentColor" strokeWidth={2}
             >
@@ -729,7 +661,6 @@ export default function CajeroHome() {
                   key={order.id}
                   order={order}
                   deliveryFee={deliveryFee}
-                  restaurantName={restaurantName}
                   onVerPedido={o => setSelectedOrder(o)}
                   onCobrar={o => {
                     setCobrarOrder(o)
@@ -774,57 +705,37 @@ export default function CajeroHome() {
             <h2 className="text-zinc-900 font-bold">{tableName(cobrarOrder)}</h2>
           </div>
 
-          {/* Ticket cobro */}
-          <div className="mx-auto w-full max-w-xs mb-4 drop-shadow-[0_4px_16px_rgba(0,0,0,0.10)]">
-            <DentedEdge flipped />
-            <div style={{ background: '#F5F0E8', padding: '16px' }}>
-              <p style={{
-                fontFamily: 'monospace', fontSize: '13px', fontWeight: 'bold',
-                textAlign: 'center', marginBottom: '12px', color: '#2D1B0E'
-              }}>
-                CUENTA
-              </p>
+          {/* Cuenta */}
+          <div className="mx-auto w-full max-w-md mb-4 bg-surface border border-zinc-200 rounded-2xl shadow-card overflow-hidden">
+            <ul className="px-4 pt-2">
               {cobrarOrder.items.filter(i => i.status !== 'cancelled').map(item => (
-                <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                  <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#2D1B0E' }}>
-                    {item.quantity}x {item.product.name}
-                  </span>
-                  <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#2D1B0E' }}>
-                    ${(precioUnitario(item) * item.quantity).toLocaleString('es-CO')}
-                  </span>
-                </div>
+                <li key={item.id} className="flex items-baseline gap-3 py-2.5 border-b border-zinc-100">
+                  <span className="font-mono text-xs font-semibold text-zinc-500 w-6 shrink-0">{item.quantity}×</span>
+                  <span className="flex-1 text-sm font-semibold text-zinc-800">{item.product.name}</span>
+                  <span className="font-mono text-sm font-semibold text-zinc-800 tabular">{money(precioUnitario(item) * item.quantity)}</span>
+                </li>
               ))}
               {cobrarOrder.delivery_type === 'delivery' && cobrarOrder.table?.is_delivery && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                  <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#795548' }}>Domicilio</span>
-                  <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#795548' }}>
-                    ${deliveryFee.toLocaleString('es-CO')}
-                  </span>
-                </div>
+                <li className="flex items-baseline gap-3 py-2.5 border-b border-zinc-100">
+                  <span className="w-6 shrink-0" />
+                  <span className="flex-1 text-sm text-zinc-500">Domicilio</span>
+                  <span className="font-mono text-sm font-semibold text-zinc-500 tabular">{money(deliveryFee)}</span>
+                </li>
               )}
               {discountAmount > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                  <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#C62828' }}>
+                <li className="flex items-baseline gap-3 py-2.5 border-b border-zinc-100">
+                  <span className="w-6 shrink-0" />
+                  <span className="flex-1 text-sm font-semibold text-red-600">
                     Descuento{discountType === 'percent' && discountValue ? ` (${discountValue}%)` : ''}
                   </span>
-                  <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#C62828' }}>
-                    -${discountAmount.toLocaleString('es-CO')}
-                  </span>
-                </div>
+                  <span className="font-mono text-sm font-semibold text-red-600 tabular">−{money(discountAmount)}</span>
+                </li>
               )}
-              <div style={{
-                borderTop: '1px dashed #C4B89A', marginTop: '8px', paddingTop: '8px',
-                display: 'flex', justifyContent: 'space-between'
-              }}>
-                <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 'bold', color: '#2D1B0E' }}>
-                  TOTAL
-                </span>
-                <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 'bold', color: '#2D1B0E' }}>
-                  ${total.toLocaleString('es-CO')}
-                </span>
-              </div>
+            </ul>
+            <div className="px-4 py-4 bg-surface-2 flex items-center justify-between">
+              <span className="text-sm font-bold text-zinc-700">Total a cobrar</span>
+              <span className="font-mono text-3xl font-semibold tracking-tight text-zinc-900 tabular">{money(total)}</span>
             </div>
-            <DentedEdge />
           </div>
 
           {/* Descuento — solo admin/dev */}
@@ -958,7 +869,7 @@ export default function CajeroHome() {
                   setTransferencia('')   // ← limpiar al activar/desactivar
                 }}
                 className="w-12 h-6 rounded-full transition-colors relative flex-shrink-0"
-                style={{ background: fiado ? 'var(--brand)' : '#E4E4E7' }}
+                style={{ background: fiado ? 'var(--brand)' : 'var(--color-zinc-300)' }}
               >
                 <div className={`
                   absolute top-0.5 w-5 h-5 bg-surface rounded-full

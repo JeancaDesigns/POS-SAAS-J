@@ -175,16 +175,16 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
       ">
 
         {/* ── Header ── */}
-        <div className="bg-[var(--brand)] border-b border-violet-800/20">
+        <div className="bg-surface border-b border-zinc-200">
 
           <div className="flex items-center justify-between px-4 pt-6 pb-3">
             <button
               onClick={onClose}
-              className="text-sm cursor-pointer font-semibold text-white hover:text-white transition-colors"
+              className="h-10 px-3 -ml-3 rounded-xl text-sm cursor-pointer font-semibold text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 transition-colors"
             >
               ← Volver
             </button>
-            <h2 className="text-white font-bold text-lg tracking-tight">
+            <h2 className="text-zinc-900 font-extrabold text-lg tracking-tight">
               {table.is_delivery ? `Domicilio ${table.number}` : `Mesa ${table.number}`}
             </h2>
             {table.is_delivery ? (
@@ -193,11 +193,11 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                 className={`
                   text-sm font-semibold cursor-pointer
                   px-3 py-1 rounded-full
-                  border border-[var(--brand-border)]/30
+                  border border-zinc-200
                   transition-all duration-200
                   ${headerCollapsed
-                    ? 'bg-[var(--brand-hover)]/50 text-[var(--brand-text)]'
-                    : 'bg-white/10 text-white/60 hover:text-white/80'
+                    ? 'bg-[var(--brand-light)] text-[var(--brand-text)]'
+                    : 'bg-surface text-zinc-600 hover:text-zinc-900'
                   }
                 `}
               >
@@ -218,8 +218,8 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                 className="
                   w-full rounded-xl px-4 py-2.5
                   text-zinc-800 text-sm outline-none
-                  bg-surface border border-[var(--brand-border)]
-                  focus:border-surface transition-colors
+                  bg-surface border border-zinc-300
+                  focus:border-[var(--brand)] transition-colors
                   placeholder:text-zinc-400
                 "
               />
@@ -231,15 +231,15 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                 className="
                   w-full rounded-xl px-4 py-2.5
                   text-zinc-800 text-sm outline-none
-                  bg-surface border border-[var(--brand-border)]
-                  focus:border-surface transition-colors
+                  bg-surface border border-zinc-300
+                  focus:border-[var(--brand)] transition-colors
                   placeholder:text-zinc-400
                 "
               />
               <div className="flex gap-2">
                 {[
-                  { key: 'delivery', label: '🛵 A domicilio' },
-                  { key: 'pickup', label: '🏠 Recoger' },
+                  { key: 'delivery', label: 'A domicilio' },
+                  { key: 'pickup', label: 'Recoger en local' },
                 ].map(opt => (
                   <button
                     key={opt.key}
@@ -249,8 +249,8 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                       text-sm font-semibold
                       border transition-all duration-200
                       ${deliveryType === opt.key
-                        ? 'bg-surface text-[var(--brand)] border-surface'
-                        : 'bg-white/10 text-white/50 border-[var(--brand-border)]/20 hover:bg-white/20 hover:text-white/70'
+                        ? 'bg-[var(--brand-light)] text-[var(--brand-text)] border-[var(--brand)]'
+                        : 'bg-surface text-zinc-600 border-zinc-200 hover:bg-zinc-50'
                       }
                     `}
                   >
@@ -264,13 +264,13 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
           {table.is_delivery && headerCollapsed && customerName && (
             <div className="px-4 pb-3">
               <span className="text-sm text-[var(--brand-text)]">
-                {deliveryType === 'delivery' ? '🛵' : '🏠'} {customerName}
+                {deliveryType === 'delivery' ? 'A domicilio' : 'Recoger'} · {customerName}
                 {customerPhone && ` · ${customerPhone}`}
               </span>
             </div>
           )}
 
-          <div className="flex gap-2 px-4 py-3 overflow-x-auto border-t border-violet-800/20">
+          <div className="flex gap-2 px-4 py-3 overflow-x-auto border-t border-zinc-200">
             {categories.map(cat => (
               <button
                 key={cat.id}
@@ -280,8 +280,8 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                   text-sm font-semibold whitespace-nowrap
                   border transition-all duration-200
                   ${displayCategory === cat.id
-                    ? 'bg-surface text-[var(--brand)] border-surface'
-                    : 'bg-white/10 text-white/60 border-transparent hover:bg-white/20 hover:text-white/80'
+                    ? 'bg-zinc-900 text-surface border-zinc-900'
+                    : 'bg-surface text-zinc-600 border-zinc-200 hover:bg-zinc-50'
                   }
                 `}
               >

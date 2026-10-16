@@ -526,16 +526,16 @@ export default function CocinaHome() {
       {/* ── Header fijo ── */}
       <div className="
         fixed top-0 left-0 right-0 z-50
-        sm:left-[92px]
-        bg-[var(--brand)] px-4 pt-6 pb-4 shadow-md
+        lg:left-[92px]
+        bg-surface/95 backdrop-blur border-b border-zinc-200 px-5 pt-5 pb-4
       ">
         <div className="flex items-center justify-between">
           <div className="w-10" />
           <div className="text-center">
-            <h1 className="text-2xl font-semibold tracking-tight text-white">
+            <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900">
               Cocina
             </h1>
-            <p className="text-sm text-white/70 mt-0.5">
+            <p className="text-sm text-zinc-500 mt-0.5">
               Tablero de pedidos
             </p>
           </div>
