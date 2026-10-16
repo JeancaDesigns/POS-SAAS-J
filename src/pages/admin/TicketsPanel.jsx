@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabaseClient'
-import { Printer, Receipt, Clock3, ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
+import { Printer, Search, X, Ban } from 'lucide-react'
+import { fetchAll } from '../../utils/fetchAll'
+import { inicioJornada } from '../../utils/jornada'
 import { useAuthStore } from '../../store/authStore'
 import { precioUnitario } from '../../utils/precio'
 
@@ -10,24 +12,33 @@ export default function TicketsPanel() {
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [loading, setLoading] = useState(true)
   const [deliveryFee, setDeliveryFee] = useState(0)
-  const [expandedMonths, setExpandedMonths] = useState({})
+  const [restaurantName, setRestaurantName] = useState('')
+  const [period, setPeriod] = useState('7')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [query, setQuery] = useState('')
   const [deletingId, setDeletingId] = useState(null)
   const { user } = useAuthStore()
 
   useEffect(() => {
-    loadOrders()
-    supabase.from('restaurants').select('delivery_fee').eq('id', user.restaurant_id).single()
-      .then(({ data }) => { if (data) setDeliveryFee(data.delivery_fee || 0) })
+    supabase.from('restaurants').select('delivery_fee, name').eq('id', user.restaurant_id).single()
+      .then(({ data }) => { if (data) { setDeliveryFee(data.delivery_fee || 0); setRestaurantName(data.name || '') } })
   }, [])
 
+  useEffect(() => { loadOrders() }, [period])
+
+  // Periodo: 'today' | '7' | '30' | '90' días. Paginado para no cortarse en 1.000 pedidos.
   async function loadOrders() {
     setLoading(true)
-    const { data } = await supabase
+    let since
+    if (period === 'today') since = inicioJornada()
+    else { since = new Date(); since.setDate(since.getDate() - Number(period)) }
+    const data = await fetchAll(() => supabase
       .from('orders')
-      .select(`*, table:tables(number, is_delivery), order_items(*, products(name, price)), payments(total, voided)`)
+      .select(`*, table:tables(number, is_delivery), order_items(*, products(name, price)), payments(total, cash, transfer, voided)`)
       .eq('restaurant_id', user.restaurant_id)
-      .order('created_at', { ascending: false })
-    setOrders(data || [])
+      .gte('created_at', since.toISOString())
+      .order('created_at', { ascending: false }))
+    setOrders(data)
     setLoading(false)
   }
 
@@ -67,30 +78,6 @@ export default function TicketsPanel() {
     return subtotal - discount
   }
 
-  function getMonthKey(dateStr) {
-    const d = new Date(dateStr)
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-  }
-
-  function getMonthLabel(key) {
-    const [year, month] = key.split('-')
-    return new Date(parseInt(year), parseInt(month) - 1)
-      .toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })
-  }
-
-  const ordersByMonth = orders.reduce((acc, order) => {
-    const key = getMonthKey(order.created_at)
-    if (!acc[key]) acc[key] = []
-    acc[key].push(order)
-    return acc
-  }, {})
-
-  const monthKeys = Object.keys(ordersByMonth).sort((a, b) => b.localeCompare(a))
-
-  function toggleMonth(key) {
-    setExpandedMonths(prev => ({ ...prev, [key]: !prev[key] }))
-  }
-
   // Anulación lógica (antes: borrado físico protegido con una clave escrita en el código).
   // El pedido queda como cancelado y sus pagos como anulados, para que haya rastro.
   async function handleDelete(order) {
@@ -106,251 +93,148 @@ export default function TicketsPanel() {
     loadOrders()
   }
 
-  return (
-    <div className="space-y-4">
+  const STATUS = {
+    paid: { label: 'Pagado', cls: 'bg-green-50 text-green-700 border-green-200' },
+    cancelled: { label: 'Anulado', cls: 'bg-red-50 text-red-600 border-red-200' },
+    open: { label: 'Abierto', cls: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
+  }
+  const statusOf = o => o.status === 'paid' ? 'paid' : o.status === 'cancelled' ? 'cancelled' : 'open'
+  const titleOf = o => o.table?.is_delivery ? `Domicilio ${o.table.number}` : `Mesa ${o.table?.number ?? '—'}`
+  const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
+  const q = query.trim().toLowerCase()
+  const visible = orders
+    .filter(o => statusFilter === 'all' || statusOf(o) === statusFilter)
+    .filter(o => !q || `${titleOf(o)} ${o.customer_name || ''} ${o.order_number || ''}`.toLowerCase().includes(q))
+  const totalPaid = visible.filter(o => statusOf(o) === 'paid').reduce((sum, o) => sum + calculateTotal(o), 0)
 
-      {/* ── Loading ── */}
-      {loading && (
-        <div className="space-y-3">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-16 rounded-2xl bg-zinc-200 animate-pulse" />
+  return (
+    <div className="flex flex-col gap-4">
+
+      {/* Filtros */}
+      <div className="flex flex-col lg:flex-row gap-2">
+        <label className="flex-1 flex items-center gap-2 h-11 px-3 rounded-xl bg-surface border border-zinc-200 focus-within:border-[var(--brand)] transition-colors">
+          <Search size={17} className="text-zinc-400 shrink-0" aria-hidden="true" />
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar por mesa, cliente o número" aria-label="Buscar ticket" className="flex-1 bg-transparent outline-none text-sm text-zinc-900 placeholder:text-zinc-400" />
+        </label>
+        <div role="radiogroup" aria-label="Periodo" className="flex p-1 rounded-xl bg-zinc-100 border border-zinc-200 overflow-x-auto">
+          {[['today', 'Hoy'], ['7', '7 días'], ['30', '30 días'], ['90', '90 días']].map(([k, l]) => (
+            <button key={k} role="radio" aria-checked={period === k} onClick={() => setPeriod(k)} className={`shrink-0 h-9 px-3 rounded-lg text-sm font-bold transition-colors ${period === k ? 'bg-surface text-zinc-900 shadow-card' : 'text-zinc-500'}`}>{l}</button>
           ))}
         </div>
-      )}
-
-      {/* ── Lista por mes ── */}
-      {!loading && (
-        <div className="space-y-3">
-          {monthKeys.map(key => {
-            const isExpanded = expandedMonths[key]
-            const monthOrders = ordersByMonth[key]
-            const monthTotal = monthOrders.reduce((s, o) => s + calculateTotal(o), 0)
-
-            return (
-              <div
-                key={key}
-                className="rounded-2xl bg-surface border border-zinc-200 overflow-hidden
-                  shadow-card"
-              >
-                {/* Header mes */}
-                <button
-                  onClick={() => toggleMonth(key)}
-                  className="
-                    w-full flex items-center justify-between
-                    px-5 py-4
-                    hover:bg-zinc-50 transition-colors
-                  "
-                >
-                  <div className="flex items-center gap-3">
-                    {isExpanded
-                      ? <ChevronDown size={18} className="text-[var(--brand-text)]" />
-                      : <ChevronRight size={18} className="text-zinc-400" />
-                    }
-                    <span className="font-bold text-zinc-900 capitalize">
-                      {getMonthLabel(key)}
-                    </span>
-                    <span className="text-zinc-400 text-sm">
-                      {monthOrders.length} pedido{monthOrders.length !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                  <span className="font-black text-[var(--brand-text)]">
-                    ${monthTotal.toLocaleString('es-CO')}
-                  </span>
-                </button>
-
-                {/* Tickets del mes */}
-                {isExpanded && (
-                  <div className="border-t border-zinc-100 divide-y divide-zinc-100">
-                    {monthOrders.map(order => {
-                      const total = calculateTotal(order)
-                      return (
-                        <div
-                          key={order.id}
-                          className="flex items-center justify-between px-5 py-4 hover:bg-zinc-50 transition-colors"
-                        >
-                          <button
-                            onClick={() => setSelectedOrder(order)}
-                            className="flex-1 text-left"
-                          >
-                            <div className="flex items-center gap-3">
-                              <Receipt size={16} className="text-[var(--brand-text)] shrink-0" />
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <p className="font-semibold text-zinc-900 text-sm">
-                                    {order.customer_name || 'Cliente general'}
-                                  </p>
-                                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                                    order.status === 'paid'
-                                      ? 'bg-green-50 text-green-600 border border-green-200'
-                                      : order.status === 'cancelled'
-                                        ? 'bg-red-50 text-red-500 border border-red-200'
-                                        : 'bg-yellow-50 text-yellow-600 border border-yellow-200'
-                                  }`}>
-                                    {order.status}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-1 text-xs text-zinc-400 mt-0.5">
-                                  <Clock3 size={11} />
-                                  <span>{new Date(order.created_at).toLocaleString('es-CO')}</span>
-                                </div>
-                              </div>
-                            </div>
-                          </button>
-
-                          <div className="flex items-center gap-3 ml-4">
-                            <span className="font-bold text-[var(--brand-text)] text-sm">
-                              ${total.toLocaleString('es-CO')}
-                            </span>
-                            <button
-                              onClick={() => handleDelete(order)}
-                              disabled={deletingId === order.id || order.status === 'cancelled'}
-                              title="Anular pedido"
-                              className="
-                                p-2 rounded-xl
-                                text-red-400 hover:text-red-500
-                                hover:bg-red-50 border border-transparent
-                                hover:border-red-200
-                                transition-all disabled:opacity-50
-                              "
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )
-          })}
+        <div role="radiogroup" aria-label="Estado" className="flex p-1 rounded-xl bg-zinc-100 border border-zinc-200 overflow-x-auto">
+          {[['all', 'Todos'], ['paid', 'Pagados'], ['open', 'Abiertos'], ['cancelled', 'Anulados']].map(([k, l]) => (
+            <button key={k} role="radio" aria-checked={statusFilter === k} onClick={() => setStatusFilter(k)} className={`shrink-0 h-9 px-3 rounded-lg text-sm font-bold transition-colors ${statusFilter === k ? 'bg-surface text-zinc-900 shadow-card' : 'text-zinc-500'}`}>{l}</button>
+          ))}
         </div>
-      )}
+      </div>
 
-      {/* ── Modal ticket ── */}
+      <p className="text-sm text-zinc-500">
+        <span className="font-bold text-zinc-800">{visible.length}</span> ticket{visible.length !== 1 ? 's' : ''} · cobrado <span className="font-mono font-semibold text-zinc-800">{money(totalPaid)}</span>
+      </p>
+
+      <div className="bg-surface border border-zinc-200 rounded-2xl shadow-card overflow-hidden">
+        {loading ? (
+          <div className="p-4 flex flex-col gap-2">{[...Array(5)].map((_, i) => <div key={i} className="h-12 rounded-xl bg-zinc-100 animate-pulse" />)}</div>
+        ) : visible.length === 0 ? (
+          <p className="py-14 text-center text-sm text-zinc-500">No hay tickets con estos filtros</p>
+        ) : (
+          <ul className="divide-y divide-zinc-100">
+            {visible.map(order => {
+              const st = STATUS[statusOf(order)]
+              return (
+                <li key={order.id} className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-50 transition-colors">
+                  <button onClick={() => setSelectedOrder(order)} className="flex-1 min-w-0 text-left flex items-center gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-zinc-900 truncate">
+                        {titleOf(order)}{order.customer_name ? ` · ${order.customer_name}` : ''}
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        {new Date(order.created_at).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        {order.order_number ? ` · #${String(order.order_number).padStart(3, '0')}` : ''}
+                      </p>
+                    </div>
+                    <span className={`h-6 px-2 rounded-full border text-[11px] font-bold flex items-center shrink-0 ${st.cls}`}>{st.label}</span>
+                    <span className="font-mono text-sm font-semibold text-zinc-900 tabular shrink-0 w-24 text-right">{money(calculateTotal(order))}</span>
+                  </button>
+                  <button
+                    onClick={() => handleDelete(order)}
+                    disabled={deletingId === order.id || order.status === 'cancelled'}
+                    aria-label="Anular pedido"
+                    className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30 disabled:hover:bg-transparent shrink-0"
+                  >
+                    <Ban size={15} />
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
+
+      {/* Comprobante */}
       {selectedOrder && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
-        >
-          <div className="
-            w-full max-w-md
-            bg-surface rounded-3xl
-            border border-zinc-200
-            shadow-pop overflow-hidden
-          ">
-            {/* Barra acciones */}
-            <div className="flex items-center justify-between p-4 border-b border-zinc-100 print:hidden">
-              <button
-                onClick={() => setSelectedOrder(null)}
-                className="
-                  px-4 py-2 rounded-2xl
-                  text-sm font-semibold
-                  text-[var(--brand-text)] hover:text-[var(--brand-text)]
-                  bg-[var(--brand-light)] hover:bg-[var(--brand-light)]
-                  border border-[var(--brand-border)]
-                  transition-colors
-                "
-              >
-                Cerrar
-              </button>
-              <button
-                onClick={() => window.print()}
-                className="
-                  flex items-center gap-2
-                  px-4 py-2 rounded-2xl
-                  font-bold text-white text-sm
-                  bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-                  shadow-[0_4px_20px_var(--brand-shadow)]
-                  transition-all active:scale-95
-                "
-              >
-                <Printer size={16} />
-                Imprimir
-              </button>
+        <div className="fixed inset-0 z-[90] flex justify-end bg-black/40 backdrop-blur-[2px] print:bg-transparent" onClick={() => setSelectedOrder(null)}>
+          <div role="dialog" aria-label="Comprobante" onClick={e => e.stopPropagation()} className="w-full max-w-md h-full bg-surface border-l border-zinc-200 shadow-pop flex flex-col">
+            <div className="px-5 py-4 border-b border-zinc-200 flex items-center justify-between print:hidden">
+              <h3 className="text-lg font-extrabold tracking-tight text-zinc-900">Comprobante</h3>
+              <div className="flex gap-2">
+                <button onClick={() => window.print()} className="h-10 px-3.5 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white text-sm font-bold flex items-center gap-1.5">
+                  <Printer size={16} aria-hidden="true" /> Imprimir
+                </button>
+                <button onClick={() => setSelectedOrder(null)} aria-label="Cerrar" className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-500 hover:bg-zinc-100"><X size={18} /></button>
+              </div>
             </div>
 
-            {/* Ticket imprimible */}
-            <div
-              id="ticket-print"
-              className="bg-surface text-black mx-auto p-5 w-full max-w-[320px] print:max-w-full"
-            >
-              <div className="text-center">
-                <h1 className="text-xl font-black mt-3">BENDITAS PAPAS</h1>
-                <p className="text-xs mt-1 text-zinc-500">Ticket de compra</p>
-              </div>
-
-              <div className="mt-6 text-sm space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">Fecha</span>
-                  <span className="font-medium">
-                    {new Date(selectedOrder.created_at).toLocaleString('es-CO')}
-                  </span>
+            <div className="flex-1 overflow-y-auto p-5 bg-canvas">
+              {/* El comprobante siempre es papel blanco con tinta negra, también en modo oscuro */}
+              <div id="ticket-print" className="mx-auto w-full max-w-[320px] bg-white text-[#111] p-5 rounded-xl shadow-card print:shadow-none print:rounded-none">
+                <div className="text-center">
+                  <h1 className="text-lg font-extrabold uppercase tracking-wide">{restaurantName}</h1>
+                  <p className="text-xs mt-1 text-[#555]">Comprobante de compra</p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">Cliente</span>
-                  <span className="font-medium">{selectedOrder.customer_name || 'General'}</span>
+                <div className="mt-5 text-sm flex flex-col gap-1.5">
+                  <div className="flex justify-between"><span className="text-[#555]">Fecha</span><span className="font-medium">{new Date(selectedOrder.created_at).toLocaleString('es-CO')}</span></div>
+                  <div className="flex justify-between"><span className="text-[#555]">{selectedOrder.table?.is_delivery ? 'Domicilio' : 'Mesa'}</span><span className="font-medium">{selectedOrder.table?.number}</span></div>
+                  <div className="flex justify-between"><span className="text-[#555]">Cliente</span><span className="font-medium">{selectedOrder.customer_name || 'General'}</span></div>
+                  <div className="flex justify-between"><span className="text-[#555]">Estado</span><span className="font-medium">{STATUS[statusOf(selectedOrder)].label}</span></div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">Estado</span>
-                  <span className="font-medium capitalize">{selectedOrder.status}</span>
-                </div>
-              </div>
-
-              <div className="border-t border-dashed border-zinc-300 my-4" />
-
-              <div className="space-y-3">
-                {selectedOrder.order_items
-                  ?.filter(i => i.status !== 'cancelled')
-                  .map(item => {
+                <div className="border-t border-dashed border-[#bbb] my-4" />
+                <div className="flex flex-col gap-2.5">
+                  {selectedOrder.order_items?.filter(i => i.status !== 'cancelled').map(item => {
                     const lineTotal = precioUnitario(item) * Number(item.quantity)
                     const netTotal = lineTotal - itemDiscount(item, lineTotal)
                     return (
-                      <div key={item.id} className="text-sm">
-                        <div className="flex justify-between gap-3">
-                          <div>
-                            <p className="font-bold">{item.quantity}x {item.products?.name}</p>
-                            {item.note && (
-                              <p className="text-xs text-zinc-400 mt-0.5">Nota: {item.note}</p>
-                            )}
-                          </div>
-                          <span className="font-bold">${netTotal.toLocaleString('es-CO')}</span>
+                      <div key={item.id} className="text-sm flex justify-between gap-3">
+                        <div>
+                          <p className="font-bold">{item.quantity}× {item.products?.name}</p>
+                          {item.variant && <p className="text-xs text-[#555]">{item.variant}</p>}
+                          {item.note && <p className="text-xs text-[#555]">Nota: {item.note}</p>}
                         </div>
+                        <span className="font-mono font-semibold">{money(netTotal)}</span>
                       </div>
                     )
                   })}
-
-                {selectedOrder.delivery_type === 'delivery' && selectedOrder.table?.is_delivery && (
-                  <div className="text-sm flex justify-between gap-3">
-                    <p className="font-bold">Domicilio</p>
-                    <span className="font-bold">${deliveryFee.toLocaleString('es-CO')}</span>
-                  </div>
-                )}
-
-                {selectedOrder.discount_value > 0 && (
-                  <div className="text-sm flex justify-between gap-3 text-red-600">
-                    <p className="font-bold">
-                      Descuento{selectedOrder.discount_type === 'percent' ? ` (${selectedOrder.discount_value}%)` : ''}
-                    </p>
-                    <span className="font-bold">
-                      -${(calculateSubtotal(selectedOrder) - calculateTotal(selectedOrder)).toLocaleString('es-CO')}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <div className="border-t border-dashed border-zinc-300 my-4" />
-
-              <div className="flex items-center justify-between">
-                <span className="text-lg font-black">TOTAL</span>
-                <span className="text-2xl font-black">
-                  ${calculateTotal(selectedOrder).toLocaleString('es-CO')}
-                </span>
-              </div>
-
-              <div className="mt-8 text-center">
-                <p className="text-sm font-bold">¡Gracias por tu compra!</p>
-                <p className="text-xs mt-2 text-zinc-400">Powered by Jeanca</p>
+                  {selectedOrder.delivery_type === 'delivery' && selectedOrder.table?.is_delivery && (
+                    <div className="text-sm flex justify-between gap-3"><p className="font-bold">Domicilio</p><span className="font-mono font-semibold">{money(deliveryFee)}</span></div>
+                  )}
+                  {selectedOrder.discount_value > 0 && (
+                    <div className="text-sm flex justify-between gap-3">
+                      <p className="font-bold">Descuento{selectedOrder.discount_type === 'percent' ? ` (${selectedOrder.discount_value}%)` : ''}</p>
+                      <span className="font-mono font-semibold">−{money(calculateSubtotal(selectedOrder) - calculateTotal(selectedOrder))}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="border-t border-dashed border-[#bbb] my-4" />
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-extrabold">TOTAL</span>
+                  <span className="font-mono text-2xl font-semibold">{money(calculateTotal(selectedOrder))}</span>
+                </div>
+                {(selectedOrder.payments || []).filter(p => !p.voided).map((p, i) => (
+                  <p key={i} className="mt-2 text-xs text-[#555] text-right">
+                    {p.cash > 0 && `Efectivo ${money(p.cash)}`}{p.cash > 0 && p.transfer > 0 && ' · '}{p.transfer > 0 && `Transferencia ${money(p.transfer)}`}
+                  </p>
+                ))}
+                <p className="mt-6 text-center text-sm font-bold">¡Gracias por tu compra!</p>
               </div>
             </div>
           </div>
