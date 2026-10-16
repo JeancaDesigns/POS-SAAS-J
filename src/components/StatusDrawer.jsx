@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
-import { useAuthStore } from '../store/authStore'
-import { supabase } from '../supabaseClient'
+import { useAuthStore, signOutAndClear } from '../store/authStore'
 import { db } from '../db/localDB'
 import DevPanel from './DevPanel'
 import DebtPanel from './DebtPanel'
@@ -11,7 +10,7 @@ import { LogOut, Wifi, WifiOff, Clock } from 'lucide-react'
 
 export default function StatusDrawer() {
   const isOnline = useOnlineStatus()
-  const { user, clearUser } = useAuthStore()
+  const { user } = useAuthStore()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
@@ -49,8 +48,7 @@ export default function StatusDrawer() {
 
   async function handleLogout() {
     if (!window.confirm('¿Seguro que deseas cerrar sesión?')) return
-    await supabase.auth.signOut()
-    clearUser()
+    await signOutAndClear()
     navigate('/')
   }
 
