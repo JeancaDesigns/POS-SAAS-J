@@ -1,5 +1,5 @@
 -- ============================================================================
--- BORRADOR — NO APLICADO. Requiere 20261016000400 (que quita al rol anon el
+-- NO APLICADO todavía. Requiere 20261016000400 (que quita al rol anon el
 -- acceso directo a orders / order_items / users / active_shifts).
 -- El frontend de esta rama (PedidoPublico.jsx) ya usa estas funciones:
 -- aplicar esta migración ANTES de desplegar el código.
@@ -32,7 +32,7 @@ as $$
 declare
   v_restaurant public.restaurants;
   v_table_id uuid;
-  v_number int;
+  v_number bigint;
   v_order public.orders;
   v_item jsonb;
   v_qty int;

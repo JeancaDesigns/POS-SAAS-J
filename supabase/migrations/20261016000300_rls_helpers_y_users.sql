@@ -1,11 +1,12 @@
 -- ============================================================================
--- BORRADOR — NO APLICADO. Revisar contra el esquema real (supabase db pull) y
--- probar en una rama/staging de Supabase antes de producción.
+-- RLS en public.users (auditoría C2, A1, A2). Ajustado al esquema real revisado
+-- el 2026-10-16: la tabla tenía 2 políticas pero RLS DESACTIVADO.
+-- Probar primero con supabase/tests/prueba_rls.sql (se deshace solo).
 -- ============================================================================
--- Funciones de apoyo para RLS + RLS en public.users (auditoría C2, A1, A2).
 
--- Perfil del usuario autenticado. SECURITY DEFINER para que las políticas de
--- users puedan usarla sin recursión infinita.
+-- Funciones de apoyo. SECURITY DEFINER: leen users saltando RLS, así las políticas
+-- de users no se llaman a sí mismas (la política actual "Users access policy"
+-- consulta users dentro de users y daría "infinite recursion" al activar RLS).
 create or replace function public.current_profile()
 returns public.users
 language sql stable security definer
@@ -34,33 +35,37 @@ language sql stable security definer
 set search_path = public
 as $$ select public.has_role('dev') $$;
 
-revoke all on function public.current_profile() from public, anon;
+revoke all on function public.current_profile() from public, anon, authenticated;
+revoke all on function public.current_restaurant_id(), public.has_role(text), public.is_dev() from public, anon;
 grant execute on function public.current_restaurant_id(), public.has_role(text), public.is_dev() to authenticated;
 
 -- ── users ───────────────────────────────────────────────────────────────────
-alter table public.users enable row level security;
+-- "with check (true)" para el rol public = cualquiera (incluso anónimo) podría
+-- insertar perfiles con rol dev. Las Edge Functions usan service_role, que salta RLS.
+drop policy if exists "service role puede insertar usuarios" on public.users;
 
+-- Misma regla que la política actual (cada quien su perfil; admin ve su restaurante;
+-- dev ve todo), pero sin recursión.
+drop policy if exists "Users access policy" on public.users;
 drop policy if exists users_select on public.users;
 create policy users_select on public.users
   for select to authenticated
   using (
     auth_user_id = auth.uid()
     or public.is_dev()
-    or restaurant_id = public.current_restaurant_id()
-    -- perfiles antiguos sin vincular: el login los busca por email (ver migración 0100)
-    or (auth_user_id is null and lower(email) = lower(auth.jwt() ->> 'email'))
+    or (public.has_role('admin') and restaurant_id = public.current_restaurant_id())
   );
 
--- Sin política INSERT/DELETE: los perfiles se crean solo desde Edge Functions (service_role).
-
+-- Necesaria para UsuariosPanel (editar nombre/roles, activar/desactivar)
 drop policy if exists users_update on public.users;
 create policy users_update on public.users
   for update to authenticated
   using (public.is_dev() or (public.has_role('admin') and restaurant_id = public.current_restaurant_id()))
   with check (public.is_dev() or (public.has_role('admin') and restaurant_id = public.current_restaurant_id()));
 
--- Impide escalar privilegios desde el cliente: nadie salvo un dev asigna 'dev',
--- nadie cambia sus propios roles, y un admin no mueve usuarios de restaurante.
+-- Sin política INSERT/DELETE: los perfiles se crean solo desde Edge Functions.
+
+-- Impide escalar privilegios desde el cliente
 create or replace function public.users_guard_roles()
 returns trigger
 language plpgsql security definer
@@ -87,11 +92,12 @@ begin
   return new;
 end;
 $$;
+revoke all on function public.users_guard_roles() from public, anon, authenticated;
 
 drop trigger if exists users_guard_roles on public.users;
 create trigger users_guard_roles
   before update on public.users
   for each row execute function public.users_guard_roles();
 
--- Recordatorio (Dashboard, no SQL): Authentication → Sign In / Providers →
--- desactivar "Allow new users to sign up". Todos los usuarios se crean con Edge Functions.
+-- Activar RLS al final, cuando las políticas nuevas ya existen
+alter table public.users enable row level security;

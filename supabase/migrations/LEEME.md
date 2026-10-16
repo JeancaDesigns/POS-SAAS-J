@@ -1,21 +1,32 @@
-# Migraciones (borradores de la auditoría, 2026-10-16)
+# Migraciones de la auditoría (actualizado 2026-10-16, contra el esquema real)
 
-**Ninguna está aplicada.** El repo no tenía el esquema versionado, así que estas
-migraciones se escribieron a partir de lo que usa el frontend. Antes de aplicarlas:
+El 2026-10-16 revisé la base de producción (solo lectura) y ajusté estos archivos a lo
+que existe de verdad. **Ninguno está aplicado todavía.**
 
-1. `supabase db pull` para traer el esquema y las políticas reales al repo.
-2. Comparar nombres de tablas y columnas con estos archivos.
-3. Probar en una rama de Supabase (branching) o en staging: iniciar sesión con cada rol
-   (admin, cajero, mesero, cocina, domiciliario, dev) y hacer un pedido público.
-4. Aplicar en producción en este orden:
+## Qué encontré en producción
+- `users` tiene **RLS desactivado** y una política `INSERT with check (true)` para cualquiera.
+- La función `change-password` publicada **no verifica quién llama**: cualquiera con la llave
+  pública puede cambiar la contraseña de cualquier usuario. Urgente: publicar la del repo.
+- `create-user` publicada es la versión vieja, sin verificar quién llama.
+- `payments` permitía DELETE; cualquier empleado podía borrar su restaurante; los turnos
+  (`active_shifts`) se podían leer sin sesión.
+- La página pública de pedidos no funciona: 0 pedidos online en 60 días, porque anon no
+  puede insertar pedidos ni leer el menú.
+- Ningún perfil tiene `auth_user_id` NULL, así que la migración 0100 no cambia nada.
 
-| Archivo | Rama | Qué hace | Depende de |
-|---|---|---|---|
-| `20261016000100_backfill_auth_user_id.sql` | tarea/sesion-y-acceso | Vincula perfiles antiguos con su cuenta de Auth | — |
-| `20261016000200_order_items_unit_price.sql` | tarea/reportes | Precio histórico por línea | — |
-| `20261016000300_rls_helpers_y_users.sql` | tarea/rls-supabase | Funciones de apoyo + RLS en `users` + trigger anti-escalada | — |
-| `20261016000400_rls_por_restaurante.sql` | tarea/rls-supabase | RLS por restaurante en todas las tablas; pagos sin DELETE | 0300 |
-| `20261016000500_rpc_pedido_publico.sql` | tarea/rls-supabase | RPC del pedido público (sin exponer clientes) | 0400 |
+## Orden
+| Archivo | Qué hace |
+|---|---|
+| `0100_backfill_auth_user_id.sql` | Opcional (0 filas afectadas hoy) |
+| `0200_order_items_unit_price.sql` | Precio histórico. Independiente, se puede aplicar ya |
+| `0300_rls_helpers_y_users.sql` | Activa RLS en `users` sin recursión; quita el INSERT abierto; trigger anti-escalada |
+| `0400_rls_por_restaurante.sql` | Pagos sin DELETE, restaurante solo editable/borrable por dev, turnos privados, menú visible para la página pública, permisos de funciones |
+| `0500_rpc_pedido_publico.sql` | RPC del pedido público. Después, desplegar el frontend de esta rama |
 
-Después de 0500, desplegar el frontend de `tarea/rls-supabase` (la página pública ya llama a las RPC).
-También en el Dashboard: desactivar el registro público de usuarios (Auth → "Allow new users to sign up").
+## Cómo probar sin riesgo
+`supabase/tests/prueba_rls.sql` aplica 0300 + 0400 + 0500 y prueba mesero, admin, dev y anónimo
+dentro de una transacción que **siempre se deshace** (termina con un error a propósito cuyo
+mensaje trae los resultados). Pegarlo completo en SQL Editor → Run, y revisar que cada línea
+coincida con su `[esperado ...]`.
+
+Si `prueba_rls.sql` se regenera: es la concatenación de 0300, 0400, 0500 y `_bloque_pruebas.sql`.
