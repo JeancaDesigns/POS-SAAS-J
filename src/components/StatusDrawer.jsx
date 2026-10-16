@@ -7,7 +7,7 @@ import DebtPanel from './DebtPanel'
 import ReportsPanel from './ReportsPanel'
 import { useNavigate } from 'react-router-dom'
 import { LogOut, Wifi, WifiOff, X, CreditCard, BarChart3, Wrench, ChevronRight } from 'lucide-react'
-import ModeSwitch from './ModeSwitch'
+import { confirmar } from '../utils/dialogo'
 
 export default function StatusDrawer() {
   const isOnline = useOnlineStatus()
@@ -48,7 +48,7 @@ export default function StatusDrawer() {
   }, [])
 
   async function handleLogout() {
-    if (!window.confirm('¿Seguro que deseas cerrar sesión?')) return
+    if (!(await confirmar('Tendrás que volver a ingresar con tu usuario.', { titulo: '¿Cerrar sesión?', aceptar: 'Cerrar sesión' }))) return
     await signOutAndClear()
     navigate('/')
   }
@@ -166,11 +166,8 @@ export default function StatusDrawer() {
             </div>
           </div>
 
-          {/* Apariencia */}
+          {/* Versión del sistema, para saber si se está viendo la última publicación */}
           <div className="flex flex-col gap-2">
-            <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Apariencia</p>
-            <ModeSwitch />
-            <p className="text-xs text-zinc-500">Se guarda solo en este dispositivo.</p>
             <p className="text-xs text-zinc-500">
               Versión <span className="font-mono font-semibold text-zinc-700">{__APP_VERSION__.commit}</span> · {__APP_VERSION__.fecha}
             </p>

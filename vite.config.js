@@ -70,8 +70,8 @@ export default defineConfig({
         name: 'POS Restaurante',
         short_name: 'POS',
         description: 'Sistema POS para restaurantes',
-        theme_color: '#5B3DF5',
-        background_color: '#F6F7F9',
+        theme_color: '#0B0D12',
+        background_color: '#0B0D12',
         display: 'standalone',
         orientation: 'portrait',
         icons: [

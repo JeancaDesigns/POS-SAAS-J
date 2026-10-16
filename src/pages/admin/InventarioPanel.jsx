@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useAuthStore } from '../../store/authStore'
 import { Package, Plus, Pencil, X, Trash2, ArrowUpDown, Search } from 'lucide-react'
+import { avisar, confirmar } from '../../utils/dialogo'
+import Selector from '../../components/Selector'
 
 const inputClass = 'w-full h-11 rounded-xl px-3.5 bg-surface border border-zinc-300 text-[15px] text-zinc-900 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--brand-soft)] placeholder:text-zinc-400 transition-[border-color,box-shadow]'
 
@@ -62,15 +64,15 @@ export default function InventarioPanel() {
     const { error } = editingItem
       ? await supabase.from('inventory_items').update(payload).eq('id', editingItem.id)
       : await supabase.from('inventory_items').insert(payload)
-    if (error) { alert('No se pudo guardar: ' + error.message); return }
+    if (error) { avisar('No se pudo guardar: ' + error.message); return }
     setShowItemModal(false); resetItemForm(); fetchItems()
   }
 
   async function deleteItem(id) {
-    if (!confirm('¿Eliminar producto del inventario?')) return
+    if (!(await confirmar('¿Eliminar producto del inventario?'))) return
     const { error } = await supabase.from('inventory_items').delete().eq('id', id)
     if (error) {
-      alert(error.code === '23503'
+      avisar(error.code === '23503'
         ? 'No se puede eliminar: este insumo está en una receta o tiene movimientos.'
         : 'No se pudo eliminar: ' + error.message)
       return
@@ -87,11 +89,11 @@ export default function InventarioPanel() {
   async function registerMovement() {
     if (!movement.quantity || !movementModal) return
     const qty = Number(movement.quantity)
-    if (!(qty >= 0)) { alert('Cantidad inválida'); return }
+    if (!(qty >= 0)) { avisar('Cantidad inválida'); return }
     // Stock leído justo antes: la cocina pudo descontar mientras el modal estaba abierto
     const { data: fresh, error: readError } = await supabase
       .from('inventory_items').select('stock').eq('id', movementModal.id).single()
-    if (readError || !fresh) { alert('No se pudo leer el stock actual'); return }
+    if (readError || !fresh) { avisar('No se pudo leer el stock actual'); return }
     const currentStock = Number(fresh.stock)
     let newStock = currentStock
     if (movement.type === 'in')         newStock += qty
@@ -102,7 +104,7 @@ export default function InventarioPanel() {
     const { error: upError } = await supabase.from('inventory_items')
       .update({ stock: newStock, available: newStock > 0 })
       .eq('id', movementModal.id)
-    if (upError) { alert('No se pudo actualizar el stock: ' + upError.message); return }
+    if (upError) { avisar('No se pudo actualizar el stock: ' + upError.message); return }
     await supabase.from('inventory_movements').insert({
       item_id: movementModal.id,
       type: movement.type,
@@ -206,7 +208,7 @@ export default function InventarioPanel() {
           quantity: i.quantity,
         }))
       )
-      if (error) { alert('No se pudo guardar la receta: ' + error.message); return }
+      if (error) { avisar('No se pudo guardar la receta: ' + error.message); return }
       const oldIds = (oldItems || []).map(i => i.id)
       if (oldIds.length > 0) await supabase.from('recipe_items').delete().in('id', oldIds)
     } else {
@@ -214,7 +216,7 @@ export default function InventarioPanel() {
         .from('recipes')
         .insert({ restaurant_id: user.restaurant_id, product_id: recipeForm.product_id })
         .select().single()
-      if (recipeError || !recipe) { alert('No se pudo crear la receta: ' + (recipeError?.message || '')); return }
+      if (recipeError || !recipe) { avisar('No se pudo crear la receta: ' + (recipeError?.message || '')); return }
 
       const { error: itemsError } = await supabase.from('recipe_items').insert(
         recipeForm.ingredients.map(i => ({
@@ -226,7 +228,7 @@ export default function InventarioPanel() {
       if (itemsError) {
         // Sin ingredientes la receta no sirve: se borra para poder intentarlo de nuevo
         await supabase.from('recipes').delete().eq('id', recipe.id)
-        alert('No se pudo guardar la receta: ' + itemsError.message)
+        avisar('No se pudo guardar la receta: ' + itemsError.message)
         return
       }
     }
@@ -236,9 +238,9 @@ export default function InventarioPanel() {
   }
 
   async function deleteRecipe(id) {
-    if (!confirm('¿Eliminar esta receta?')) return
+    if (!(await confirmar('¿Eliminar esta receta?'))) return
     const { error } = await supabase.from('recipes').delete().eq('id', id)
-    if (error) { alert('No se pudo eliminar la receta: ' + error.message); return }
+    if (error) { avisar('No se pudo eliminar la receta: ' + error.message); return }
     fetchRecipes()
   }
 
@@ -412,13 +414,10 @@ export default function InventarioPanel() {
                   className={inputClass} />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <select value={itemForm.unit}
-                  onChange={e => setItemForm({ ...itemForm, unit: e.target.value })}
-                  className={inputClass}>
-                  {['und', 'gr', 'kg', 'ml', 'lt', 'porciones', 'tazas', 'cucharadas'].map(u => (
-                    <option key={u} value={u}>{u}</option>
-                  ))}
-                </select>
+                <Selector title="Unidad" value={itemForm.unit}
+                  onChange={v => setItemForm({ ...itemForm, unit: v })}
+                  className={inputClass}
+                  options={['und', 'gr', 'kg', 'ml', 'lt', 'porciones', 'tazas', 'cucharadas'].map(u => ({ value: u, label: u }))} />
                 <input type="number" placeholder="Costo" value={itemForm.cost}
                   onChange={e => setItemForm({ ...itemForm, cost: e.target.value })}
                   className={inputClass} />
@@ -508,16 +507,14 @@ export default function InventarioPanel() {
               {!editingRecipe && (
                 <div>
                   <p className="text-sm text-zinc-500 mb-2">Producto</p>
-                  <select
+                  <Selector
+                    title="Producto"
+                    placeholder="Selecciona un producto..."
                     value={recipeForm.product_id}
-                    onChange={e => setRecipeForm(prev => ({ ...prev, product_id: e.target.value }))}
+                    onChange={v => setRecipeForm(prev => ({ ...prev, product_id: v }))}
                     className={inputClass}
-                  >
-                    <option value="">Selecciona un producto...</option>
-                    {productsWithoutRecipe.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
+                    options={productsWithoutRecipe.map(p => ({ value: p.id, label: p.name }))}
+                  />
                 </div>
               )}
 
@@ -554,19 +551,16 @@ export default function InventarioPanel() {
               <div>
                 <p className="text-sm text-zinc-500 mb-2">Agregar ingrediente</p>
                 <div className="flex gap-2">
-                  <select
+                  <Selector
+                    title="Ingrediente"
+                    placeholder="Ingrediente..."
                     value={newIngredient.inventory_item_id}
-                    onChange={e => setNewIngredient(prev => ({ ...prev, inventory_item_id: e.target.value }))}
-                    className={`${inputClass} flex-1`}
-                  >
-                    <option value="">Ingrediente...</option>
-                    {items
+                    onChange={v => setNewIngredient(prev => ({ ...prev, inventory_item_id: v }))}
+                    className={`${inputClass} flex-1 min-w-0`}
+                    options={items
                       .filter(i => !recipeForm.ingredients.some(ri => ri.inventory_item_id === i.id))
-                      .map(i => (
-                        <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>
-                      ))
-                    }
-                  </select>
+                      .map(i => ({ value: i.id, label: `${i.name} (${i.unit})` }))}
+                  />
                   <input
                     type="number"
                     placeholder="Cant."

@@ -10,6 +10,7 @@ import { newId } from '../utils/uuid'
 import { useCartPersistence } from '../hooks/useCartPersistence'
 import { horaProgramadaISO } from '../utils/hora'
 import { ACTIVE_ORDER_STATUSES } from '../utils/mesas'
+import { avisar } from '../utils/dialogo'
 
 const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
 // Una línea del carrito se identifica por producto + variante (la misma papa en dos tamaños son dos líneas)
@@ -62,7 +63,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
   async function handleConfirm() {
     if (items.length === 0) return
     if (table.is_delivery && !customerName.trim()) {
-      alert('El nombre del cliente es obligatorio para domicilios')
+      avisar('El nombre del cliente es obligatorio para domicilios')
       setCartOpen(true)
       return
     }
@@ -71,7 +72,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
       await enviarPedido()
     } catch (err) {
       console.error(err)
-      alert('No se pudo guardar el pedido. Intenta de nuevo.')
+      avisar('No se pudo guardar el pedido. Intenta de nuevo.')
     } finally {
       setConfirming(false)
     }
@@ -89,7 +90,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
           .eq('table_id', table.id)
           .in('status', ACTIVE_ORDER_STATUSES)
         if (count > 0) {
-          alert('Esta mesa ya tiene un pedido abierto. Vuelve a abrirla: tus productos quedan listos para agregar.')
+          avisar('Esta mesa ya tiene un pedido abierto. Vuelve a abrirla: tus productos quedan listos para agregar.')
           onClose()
           return
         }
@@ -114,11 +115,11 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
       if (orderError) {
         // 23505 = la BD rechazó un segundo pedido en la mesa (migración 0600)
         if (orderError.code === '23505') {
-          alert('Esta mesa ya tiene un pedido abierto. Vuelve a abrirla: tus productos quedan listos para agregar.')
+          avisar('Esta mesa ya tiene un pedido abierto. Vuelve a abrirla: tus productos quedan listos para agregar.')
           onClose()
           return
         }
-        alert('No se pudo crear el pedido. Intenta de nuevo.')
+        avisar('No se pudo crear el pedido. Intenta de nuevo.')
         return
       }
 
@@ -137,7 +138,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
       if (itemsError) {
         // No dejar un pedido vacío en cocina: se borra y el carrito se conserva para reintentar
         await supabase.from('orders').delete().eq('id', order.id)
-        alert('No se pudieron guardar los productos. El pedido no se envió; intenta de nuevo.')
+        avisar('No se pudieron guardar los productos. El pedido no se envió; intenta de nuevo.')
         return
       }
 

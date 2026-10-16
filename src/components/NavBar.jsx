@@ -3,6 +3,7 @@ import { useAuthStore, signOutAndClear } from '../store/authStore'
 import {
   UtensilsCrossed, Wallet, ChefHat, Bike, Settings, LogOut,
 } from 'lucide-react'
+import { confirmar } from '../utils/dialogo'
 
 const NAV_ITEMS = {
   mesero: { path: 'mesero', label: 'Mesas', icon: UtensilsCrossed },
@@ -35,7 +36,7 @@ export default function NavBar() {
   if (orderedTabs.length < 1) return null
 
   async function handleLogout() {
-    if (!window.confirm('¿Seguro que deseas cerrar sesión?')) return
+    if (!(await confirmar('Tendrás que volver a ingresar con tu usuario.', { titulo: '¿Cerrar sesión?', aceptar: 'Cerrar sesión' }))) return
     await signOutAndClear()
     navigate('/')
   }

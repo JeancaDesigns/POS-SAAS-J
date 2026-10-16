@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useAuthStore } from '../../store/authStore'
 import { Plus, Pencil, Trash2, X, Bike } from 'lucide-react'
+import { avisar } from '../../utils/dialogo'
+import Selector from '../../components/Selector'
 
 
 export default function MesasPanel() {
@@ -96,11 +98,11 @@ export default function MesasPanel() {
 
   async function deleteZone(zone) {
     if (tables.some(t => t.zone_id === zone.id)) {
-      alert('No puedes eliminar una zona con mesas. Elimina las mesas primero.')
+      avisar('No puedes eliminar una zona con mesas. Elimina las mesas primero.')
       return
     }
     const { error: delError } = await supabase.from('zones').delete().eq('id', zone.id)
-    if (delError) { alert('No se pudo eliminar la zona: ' + delError.message); return }
+    if (delError) { avisar('No se pudo eliminar la zona: ' + delError.message); return }
     // Si era la zona seleccionada, pasar a otra (antes la vista quedaba vacía)
     if (activeZone === zone.id) setActiveZone(zones.find(z => z.id !== zone.id)?.id || null)
     fetchData()
@@ -108,12 +110,12 @@ export default function MesasPanel() {
 
   async function deleteTable(table) {
     if (table.status !== 'free') {
-      alert('No puedes eliminar una mesa ocupada o en espera de pago.')
+      avisar('No puedes eliminar una mesa ocupada o en espera de pago.')
       return
     }
     const { error: delError } = await supabase.from('tables').delete().eq('id', table.id)
     if (delError) {
-      alert(delError.code === '23503'
+      avisar(delError.code === '23503'
         ? 'No se puede eliminar: esta mesa tiene pedidos en el historial.'
         : 'No se pudo eliminar la mesa: ' + delError.message)
       return
@@ -219,9 +221,8 @@ export default function MesasPanel() {
                   </div>
                   <label className="flex flex-col gap-1.5">
                     <span className="text-sm font-bold text-zinc-700">Zona</span>
-                    <select value={tableForm.zone_id} onChange={e => setTableForm(f => ({ ...f, zone_id: e.target.value }))} className={field}>
-                      {zones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
-                    </select>
+                    <Selector title="Zona" value={tableForm.zone_id} onChange={v => setTableForm(f => ({ ...f, zone_id: v }))} className={field}
+                      options={zones.map(z => ({ value: z.id, label: z.name }))} />
                   </label>
                   <label className="px-3.5 py-3 rounded-xl border border-zinc-200 flex items-center gap-3 cursor-pointer">
                     <input type="checkbox" checked={tableForm.is_delivery} onChange={e => setTableForm(f => ({ ...f, is_delivery: e.target.checked }))} className="w-5 h-5 accent-[var(--brand)]" />

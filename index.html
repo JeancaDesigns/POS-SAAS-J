@@ -1,25 +1,12 @@
 <!doctype html>
-<html lang="es" translate="no">
+<html lang="es" translate="no" data-mode="dark">
 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#F6F7F9" />
+  <meta name="theme-color" content="#0B0D12" />
   <link rel="icon" type="image/svg+xml" href="/logo.svg" />
   <title>POS Restaurante</title>
-  <!-- Aplicar el modo claro/oscuro antes de pintar, para que no parpadee -->
-  <script>
-    (function () {
-      try {
-        var p = localStorage.getItem('pos-modo') || 'auto';
-        var dark = p === 'dark' || (p === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-        document.documentElement.setAttribute('data-mode', dark ? 'dark' : 'light');
-      } catch (e) {
-        document.documentElement.setAttribute('data-mode', 'light');
-      }
-      document.documentElement.setAttribute('data-theme', 'purple');
-    })();
-  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />

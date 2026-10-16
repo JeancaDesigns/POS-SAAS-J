@@ -81,8 +81,6 @@ export const useAuthStore = create((set) => ({
         return
       }
 
-      document.documentElement.setAttribute('data-theme', theme)
-
       set({ user: userData, slug, modules, theme, logoUrl, loading: false })
     } else {
       set({ user: null, slug: null, modules: [], theme: 'purple', logoUrl: null, loading: false })

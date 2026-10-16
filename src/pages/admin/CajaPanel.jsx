@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useAuthStore } from '../../store/authStore'
+import { avisar, confirmar } from '../../utils/dialogo'
 
 export default function CajaPanel() {
   const user = useAuthStore((s) => s.user)
@@ -81,7 +82,7 @@ export default function CajaPanel() {
 
   async function openCash() {
     const amount = Number(openingAmount)
-    if (isNaN(amount) || amount < 0) { alert('Monto inválido'); return }
+    if (isNaN(amount) || amount < 0) { avisar('Monto inválido'); return }
     if (opening) return
     setOpening(true)
     // Otra persona (o un doble clic) pudo abrir caja: dos cajas abiertas cuentan las ventas dos veces
@@ -90,7 +91,7 @@ export default function CajaPanel() {
       .eq('restaurant_id', user.restaurant_id).eq('status', 'open').limit(1)
     if (already?.length) {
       setOpening(false)
-      alert('Ya hay una caja abierta')
+      avisar('Ya hay una caja abierta')
       await loadCashRegister()
       return
     }
@@ -107,7 +108,7 @@ export default function CajaPanel() {
     setOpening(false)
     if (error) {
       console.error(error)
-      alert(error.code === '23505' ? 'Ya hay una caja abierta' : error.message)
+      avisar(error.code === '23505' ? 'Ya hay una caja abierta' : error.message)
       if (error.code === '23505') await loadCashRegister()
       return
     }
@@ -122,14 +123,15 @@ export default function CajaPanel() {
   async function closeCash() {
     if (!cashRegister) return
     const counted = Number(closingAmount)
-    if (isNaN(counted) || counted < 0) { alert('Monto inválido'); return }
+    if (isNaN(counted) || counted < 0) { avisar('Monto inválido'); return }
 
     // Esperado final = apertura + ventas en efectivo + ingresos - egresos
     const expectedFinal = computedExpected
 
     const difference = counted - expectedFinal
-    const confirmed = confirm(
-      `Cerrar caja con diferencia de ${difference >= 0 ? '+' : ''}$${difference.toLocaleString('es-CO')} ?`
+    const confirmed = await confirmar(
+      `Diferencia contra lo esperado: ${difference >= 0 ? '+' : ''}$${difference.toLocaleString('es-CO')}`,
+      { titulo: '¿Cerrar la caja?', aceptar: 'Cerrar caja', peligro: false }
     )
     if (!confirmed) return
     const { error } = await supabase
@@ -142,7 +144,7 @@ export default function CajaPanel() {
         difference_amount: difference,
       })
       .eq('id', cashRegister.id)
-    if (error) { console.error(error); alert(error.message); return }
+    if (error) { console.error(error); avisar(error.message); return }
     setCashRegister(null)
     setMovements([])
     setCashSales(0)
@@ -152,9 +154,9 @@ export default function CajaPanel() {
   }
 
   async function addMovement() {
-    if (!movementAmount || !movementDescription.trim()) { alert('Completa todos los campos'); return }
+    if (!movementAmount || !movementDescription.trim()) { avisar('Completa todos los campos'); return }
     const amount = Number(movementAmount)
-    if (isNaN(amount) || amount <= 0) { alert('Monto inválido'); return }
+    if (isNaN(amount) || amount <= 0) { avisar('Monto inválido'); return }
     const { error } = await supabase
       .from('cash_movements')
       .insert({
@@ -163,7 +165,7 @@ export default function CajaPanel() {
         amount,
         description: movementDescription.trim(),
       })
-    if (error) { console.error(error); alert(error.message); return }
+    if (error) { console.error(error); avisar(error.message); return }
     setMovementAmount('')
     setMovementDescription('')
     await loadMovements(cashRegister.id)

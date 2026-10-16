@@ -4,11 +4,6 @@ import { BrowserRouter } from 'react-router-dom'
 import { registerSW } from 'virtual:pwa-register'
 import './index.css'
 import App from './App.jsx'
-import { applyMode, watchSystemMode } from './utils/themeMode'
-
-// Modo claro/oscuro de este dispositivo (index.html ya lo aplicó antes de pintar)
-applyMode()
-watchSystemMode()
 
 registerSW({
   immediate: true,

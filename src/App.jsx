@@ -14,6 +14,7 @@ import DomiciliarioHome from './pages/domiciliario/DomiciliarioHome'
 import RestaurantSelector from './pages/RestaurantSelector'
 import NavBar from './components/NavBar'
 import StatusDrawer from './components/StatusDrawer'
+import DialogoHost from './components/Dialogo'
 import 'leaflet/dist/leaflet.css'
 import { useSyncQueue } from './hooks/useSyncQueue'
 import DevConfig from './pages/dev/DevConfig'
@@ -131,7 +132,6 @@ export default function App() {
 
   useEffect(() => {
     init()
-    document.documentElement.setAttribute('data-theme', 'purple')
   }, [])
 
   useSyncQueue()
@@ -139,6 +139,7 @@ export default function App() {
   return (
     <>
       {!isPublicRoute && <StatusDrawer />}
+      <DialogoHost />
       <div className={
         user && !isPublicRoute
           ? 'pb-[80px] lg:pb-0 lg:pl-[92px]'

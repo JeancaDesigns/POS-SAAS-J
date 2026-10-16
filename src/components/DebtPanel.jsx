@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import { useAuthStore } from '../store/authStore'
 import { ArrowLeft, X, Search } from 'lucide-react'
+import { avisar } from '../utils/dialogo'
 
 export default function DebtPanel({ onClose }) {
   const { user } = useAuthStore()
@@ -54,7 +55,7 @@ export default function DebtPanel({ onClose }) {
     const { data: fresh, error: readError } = await supabase
       .from('debtors').select('total_debt').eq('id', selectedDebtor.id).single()
     if (readError || !fresh) {
-      alert('No se pudo leer la deuda. Intenta de nuevo.')
+      avisar('No se pudo leer la deuda. Intenta de nuevo.')
       setProcesando(false)
       return
     }
@@ -63,7 +64,7 @@ export default function DebtPanel({ onClose }) {
     const amount = Math.min(Number(paymentAmount), currentDebt)
     if (amount <= 0) { setProcesando(false); await fetchMovements({ ...selectedDebtor, total_debt: currentDebt }); return }
     if (amount < Number(paymentAmount)) {
-      alert(`La deuda es de ${money(currentDebt)}: se registra un abono por ese valor`)
+      avisar(`La deuda es de ${money(currentDebt)}: se registra un abono por ese valor`)
     }
     const newDebt = currentDebt - amount
 
@@ -74,7 +75,7 @@ export default function DebtPanel({ onClose }) {
       note: [paymentMethod === 'transfer' ? 'Transferencia' : 'Efectivo', paymentNote.trim()].filter(Boolean).join(' · '),
     })
     if (mvError) {
-      alert('No se pudo registrar el abono: ' + mvError.message)
+      avisar('No se pudo registrar el abono: ' + mvError.message)
       setProcesando(false)
       return
     }
@@ -83,7 +84,7 @@ export default function DebtPanel({ onClose }) {
       .from('debtors')
       .update({ total_debt: newDebt })
       .eq('id', selectedDebtor.id)
-    if (upError) alert('El abono quedó en el historial, pero no se pudo actualizar el saldo: ' + upError.message)
+    if (upError) avisar('El abono quedó en el historial, pero no se pudo actualizar el saldo: ' + upError.message)
 
     // Abono en efectivo: entra al cajón, así que se registra en la caja abierta
     if (paymentMethod === 'cash') {
@@ -99,7 +100,7 @@ export default function DebtPanel({ onClose }) {
           description: `Abono fiado: ${selectedDebtor.name}`,
         })
       } else {
-        alert('No hay caja abierta: el abono quedó registrado en la deuda, pero súmalo a mano al abrir caja')
+        avisar('No hay caja abierta: el abono quedó registrado en la deuda, pero súmalo a mano al abrir caja')
       }
     }
 

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useAuthStore } from '../../store/authStore'
 import { Plus, Pencil, Trash2, Search, X } from 'lucide-react'
+import { avisar, confirmar } from '../../utils/dialogo'
+import Selector from '../../components/Selector'
 
 const ICONS = ['🌭', '🍟', '🥤', '🍨', '🍔', '🌮', '🍕', '🍗', '🎮']
 
@@ -103,24 +105,24 @@ export default function MenuPanel() {
 
   async function deleteCat(cat) {
     if (products.some(p => p.category_id === cat.id)) {
-      alert('No puedes eliminar una categoría con productos. Elimina o mueve los productos primero.')
+      avisar('No puedes eliminar una categoría con productos. Elimina o mueve los productos primero.')
       return
     }
     const { error } = await supabase.from('categories').update({ active: false }).eq('id', cat.id)
-    if (error) { alert('No se pudo eliminar la categoría: ' + error.message); return }
+    if (error) { avisar('No se pudo eliminar la categoría: ' + error.message); return }
     fetchData()
   }
 
   async function deleteProd(productId) {
-    if (!confirm('¿Desactivar este producto?')) return
+    if (!(await confirmar('¿Desactivar este producto?'))) return
     const { error } = await supabase.from('products').update({ active: false }).eq('id', productId)
-    if (error) { alert('Error desactivando producto'); return }
+    if (error) { avisar('Error desactivando producto'); return }
     fetchData()
   }
 
   async function toggleAvailable(prod) {
     const { error } = await supabase.from('products').update({ available: !prod.available }).eq('id', prod.id)
-    if (error) { alert('No se pudo cambiar la disponibilidad: ' + error.message); return }
+    if (error) { avisar('No se pudo cambiar la disponibilidad: ' + error.message); return }
     fetchData()
   }
 
@@ -275,9 +277,8 @@ export default function MenuPanel() {
                     </label>
                     <label className="flex flex-col gap-1.5">
                       <span className="text-sm font-bold text-zinc-700">Categoría</span>
-                      <select value={prodForm.category_id} onChange={e => setProdForm(f => ({ ...f, category_id: e.target.value }))} className={field}>
-                        {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
+                      <Selector title="Categoría" value={prodForm.category_id} onChange={v => setProdForm(f => ({ ...f, category_id: v }))} className={field}
+                        options={categories.map(c => ({ value: c.id, label: c.name }))} />
                     </label>
                   </div>
 
