@@ -1,7 +1,13 @@
 # Migraciones de la auditoría (actualizado 2026-10-16, contra el esquema real)
 
-El 2026-10-16 revisé la base de producción (solo lectura) y ajusté estos archivos a lo
-que existe de verdad. **Ninguno está aplicado todavía.**
+El 2026-10-16 revisé la base de producción y ajusté estos archivos a lo que existe de verdad.
+
+**Estado (2026-10-16, ~02:10 hora Colombia):**
+- Publicadas `change-password` (v2) y `create-user` (v9) con verificación del llamador.
+- `prueba_rls.sql` pasó las 23 pruebas (mesero, admin, dev, anónimo) y se confirmó que no dejó rastro.
+- **APLICADAS en producción:** 0200, 0300, 0400 y 0500. La 0100 no se aplicó porque afectaba 0 filas.
+- Advisor de seguridad: sin errores. Quedan avisos esperados (RPC públicas a propósito) y
+  "Leaked password protection" (se activa en el Dashboard).
 
 ## Qué encontré en producción
 - `users` tiene **RLS desactivado** y una política `INSERT with check (true)` para cualquiera.

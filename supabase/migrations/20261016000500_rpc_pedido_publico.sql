@@ -1,6 +1,5 @@
 -- ============================================================================
--- NO APLICADO todavía. Requiere 20261016000400 (que quita al rol anon el
--- acceso directo a orders / order_items / users / active_shifts).
+-- APLICADA en producción el 2026-10-16. Requiere 20261016000400.
 -- El frontend de esta rama (PedidoPublico.jsx) ya usa estas funciones:
 -- aplicar esta migración ANTES de desplegar el código.
 -- ============================================================================
@@ -8,7 +7,7 @@
 
 -- Inicio de la jornada (3:00 a. m. hora Colombia), igual que src/utils/jornada.js
 create or replace function public.inicio_jornada()
-returns timestamptz language sql stable as $$
+returns timestamptz language sql stable set search_path = public as $$
   select (date_trunc('day', (now() at time zone 'America/Bogota') - interval '3 hours')
           + interval '3 hours') at time zone 'America/Bogota'
 $$;
@@ -138,6 +137,9 @@ as $$
   limit 1
 $$;
 
+revoke all on function public.crear_pedido_publico(text, jsonb, jsonb),
+                       public.estado_pedido_publico(text, int),
+                       public.domiciliario_activo(text) from public;
 grant execute on function public.crear_pedido_publico(text, jsonb, jsonb),
                           public.estado_pedido_publico(text, int),
                           public.domiciliario_activo(text)

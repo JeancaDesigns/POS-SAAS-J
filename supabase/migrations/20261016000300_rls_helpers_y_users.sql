@@ -1,7 +1,7 @@
 -- ============================================================================
 -- RLS en public.users (auditoría C2, A1, A2). Ajustado al esquema real revisado
 -- el 2026-10-16: la tabla tenía 2 políticas pero RLS DESACTIVADO.
--- Probar primero con supabase/tests/prueba_rls.sql (se deshace solo).
+-- APLICADA en producción el 2026-10-16 tras pasar supabase/tests/prueba_rls.sql.
 -- ============================================================================
 
 -- Funciones de apoyo. SECURITY DEFINER: leen users saltando RLS, así las políticas
