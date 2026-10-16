@@ -171,6 +171,9 @@ export default function StatusDrawer() {
             <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Apariencia</p>
             <ModeSwitch />
             <p className="text-xs text-zinc-500">Se guarda solo en este dispositivo.</p>
+            <p className="text-xs text-zinc-500">
+              Versión <span className="font-mono font-semibold text-zinc-700">{__APP_VERSION__.commit}</span> · {__APP_VERSION__.fecha}
+            </p>
           </div>
 
           {/* Herramientas */}

@@ -61,12 +61,14 @@ function DailySalesChart({ days }) {
         <span>{days[days.length - 1]?.short}</span>
       </div>
 
-      {/* Vista de tabla para lectores de pantalla */}
-      <table className="sr-only">
-        <caption>Ventas por día, últimos 14 días</caption>
-        <thead><tr><th>Día</th><th>Ventas</th><th>Cobros</th></tr></thead>
-        <tbody>{days.map(d => <tr key={d.key}><td>{d.label}</td><td>{money(d.total)}</td><td>{d.count}</td></tr>)}</tbody>
-      </table>
+      {/* Vista de tabla para lectores de pantalla. El sr-only va en un div: en la tabla no oculta el <caption> */}
+      <div className="sr-only">
+        <table>
+          <caption>Ventas por día, últimos 14 días</caption>
+          <thead><tr><th>Día</th><th>Ventas</th><th>Cobros</th></tr></thead>
+          <tbody>{days.map(d => <tr key={d.key}><td>{d.label}</td><td>{money(d.total)}</td><td>{d.count}</td></tr>)}</tbody>
+        </table>
+      </div>
     </div>
   )
 }
