@@ -4,7 +4,6 @@ import { useAuthStore } from '../../store/authStore'
 import { useDeliveryCount } from '../../hooks/useDeliveryCount'
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import { Phone, MessageCircle, Navigation, Map as MapIcon, Check, Banknote } from 'lucide-react'
-import { precioUnitario } from '../../utils/precio'
 import { orderTotal } from '../../utils/totales'
 import L from 'leaflet'
 

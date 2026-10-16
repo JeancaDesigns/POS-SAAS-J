@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient'
 import { useOnlineStatus } from './useOnlineStatus'
 import { newId } from '../utils/uuid'
 import { liberarMesaSiQuedaVacia } from '../utils/mesas'
+import { marcarListoYDescontar } from '../utils/inventario'
 
 // Código de Postgres para "uuid inválido": la operación apunta a un id que nunca va a
 // existir (p. ej. ids "local_N" de versiones anteriores). Reintentarla no sirve.
@@ -124,14 +125,14 @@ export function useSyncQueue() {
         let error = null
 
         if (op.type === 'mark_item_done') {
-          const { error: e } = await supabase
-            .from('order_items')
-            .update({ status: 'done' })
-            .eq('id', op.payload.itemId)
+          // Igual que en línea: marca la línea y descuenta inventario (antes offline nunca descontaba)
+          const { error: e } = await marcarListoYDescontar({ itemId: op.payload.itemId })
           error = e
         }
 
         if (op.type === 'mark_order_done') {
+          // Las líneas pendientes también pasan a listas (antes quedaban "En cocina")
+          const { error: e0 } = await marcarListoYDescontar({ orderId: op.payload.orderId })
           const { error: e } = await supabase
             .from('orders')
             .update({
@@ -139,7 +140,7 @@ export function useSyncQueue() {
               delivered_at: op.payload.delivered_at
             })
             .eq('id', op.payload.orderId)
-          error = e
+          error = e0 || e
         }
 
         if (op.type === 'update_table_status') {
