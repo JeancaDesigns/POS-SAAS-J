@@ -24,6 +24,7 @@ export async function fetchProfile(authUser) {
 
 // Cierra sesión y borra los datos cacheados del dispositivo (no la cola pendiente)
 export async function signOutAndClear() {
+  try { sessionStorage.removeItem('dev-restaurant-id') } catch { /* sin storage */ }
   await supabase.auth.signOut()
   await clearLocalCache()
   useAuthStore.getState().clearUser()
@@ -44,7 +45,14 @@ export const useAuthStore = create((set) => ({
   init: async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
-      const userData = await fetchProfile(session.user)
+      let userData = await fetchProfile(session.user)
+
+      // Dev que entró a otro restaurante: mantener ese restaurante al recargar
+      if (userData?.roles?.includes('dev')) {
+        let devRestaurantId = null
+        try { devRestaurantId = sessionStorage.getItem('dev-restaurant-id') } catch { /* sin storage */ }
+        if (devRestaurantId) userData = { ...userData, restaurant_id: devRestaurantId }
+      }
 
       let slug = null
       let modules = []
