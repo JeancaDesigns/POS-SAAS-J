@@ -69,7 +69,7 @@ export default function ConfigPanel() {
 
   return (
     <div className="rounded-2xl bg-surface border border-zinc-200 p-6
-      shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+      shadow-card">
 
       <p className="text-xs text-center font-semibold text-[var(--brand-text)] tracking-wide mb-5">
         CONFIGURACIÓN GENERAL

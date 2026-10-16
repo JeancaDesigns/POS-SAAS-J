@@ -199,7 +199,7 @@ export default function DevPanel({ onClose }) {
         w-full max-w-2xl max-h-[90vh]
         bg-surface rounded-3xl
         border border-zinc-200
-        shadow-2xl flex flex-col
+        shadow-pop flex flex-col
         overflow-hidden
       ">
 

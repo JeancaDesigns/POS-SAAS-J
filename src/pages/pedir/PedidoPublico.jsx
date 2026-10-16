@@ -631,7 +631,7 @@ export default function PedidoPublico() {
         rounded-2xl mb-5 p-5
         bg-red-50 border border-red-200
         flex items-start gap-4
-        shadow-[0_2px_8px_rgba(0,0,0,0.05)]
+        shadow-card
       ">
                   <svg className="shrink-0 text-red-600 mt-0.5" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
                   <div>
@@ -684,7 +684,7 @@ export default function PedidoPublico() {
                       className={`
                         rounded-2xl p-4 bg-surface border
                         transition-all duration-200
-                        shadow-[0_2px_8px_rgba(0,0,0,0.05)]
+                        shadow-card
                         ${!open
                           ? 'border-zinc-100 opacity-50 pointer-events-none'
                           : qty > 0
@@ -732,7 +732,7 @@ export default function PedidoPublico() {
                               flex items-center justify-center
                               font-bold text-white
                               bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-                              shadow-[0_4px_12px_rgba(130,10,209,0.3)]
+                              shadow-[0_4px_12px_var(--brand-shadow)]
                               transition-all active:scale-95
                               disabled:opacity-40 disabled:cursor-not-allowed
                               disabled:shadow-none
@@ -753,7 +753,7 @@ export default function PedidoPublico() {
           {activeSection === 'delivery' && (
             <div className="max-w-3xl mx-auto">
               <div className="rounded-2xl bg-surface border border-zinc-200 p-5 md:p-7
-                shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+                shadow-card">
 
                 <h2 className="text-zinc-900 font-bold text-lg mb-5">
                   Datos de entrega
@@ -999,7 +999,7 @@ export default function PedidoPublico() {
             w-full max-w-lg
             bg-surface rounded-t-3xl
             border border-b-0 border-zinc-200
-            shadow-[0_-8px_40px_rgba(0,0,0,0.10)]
+            shadow-pop
             p-6 pb-20 sm:pb-8
           ">
             <div className="flex items-center justify-between mb-6">

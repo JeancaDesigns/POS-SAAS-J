@@ -182,7 +182,7 @@ export default function PedidoActivo({ table, onClose }) {
         md:max-w-4xl md:h-[90vh] md:rounded-3xl
         flex flex-col relative overflow-hidden
         bg-surface
-        shadow-2xl
+        shadow-pop
       ">
 
         {/* Header */}
@@ -518,7 +518,7 @@ export default function PedidoActivo({ table, onClose }) {
             bg-surface
             rounded-t-3xl
             border border-b-0 border-zinc-200
-            shadow-[0_-8px_40px_rgba(0,0,0,0.10)]
+            shadow-pop
             p-6 pb-[90px] sm:pb-6
           ">
 
@@ -597,7 +597,7 @@ export default function PedidoActivo({ table, onClose }) {
             bg-surface
             rounded-t-3xl
             border border-b-0 border-zinc-200
-            shadow-[0_-8px_40px_rgba(0,0,0,0.10)]
+            shadow-pop
             p-6 pb-20 sm:pb-8
           ">
 

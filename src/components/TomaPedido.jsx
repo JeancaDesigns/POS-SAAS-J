@@ -171,7 +171,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
         w-full h-full
         md:max-w-4xl md:h-[90vh] md:rounded-3xl
         flex flex-col relative overflow-hidden
-        bg-surface shadow-2xl
+        bg-surface shadow-pop
       ">
 
         {/* ── Header ── */}
@@ -468,7 +468,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
             w-full max-w-lg
             bg-surface rounded-t-3xl
             border border-b-0 border-zinc-200
-            shadow-[0_-8px_40px_rgba(0,0,0,0.10)]
+            shadow-pop
             p-6 pb-[90px] sm:pb-8
           ">
             <div className="flex items-center justify-between mb-6">

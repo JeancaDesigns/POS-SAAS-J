@@ -141,10 +141,10 @@ export default function MenuPanel() {
       {/* ── Lista categorías ── */}
       {view === 'categorias' && !showForm && (
         <div className="rounded-2xl bg-surface border border-zinc-200 p-6
-          shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+          shadow-card">
 
           <div className="flex justify-between items-center mb-4">
-            <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">
+            <p className="text-xs font-bold text-zinc-500 tracking-wider">
               {categories.length} CATEGORÍAS
             </p>
             <button
@@ -209,7 +209,7 @@ export default function MenuPanel() {
       {/* ── Form categoría ── */}
       {view === 'categorias' && showForm && (
         <div className="rounded-2xl bg-surface border border-zinc-200 p-6
-          shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+          shadow-card">
 
           <div className="flex items-center gap-3 mb-6">
             <button
@@ -271,10 +271,10 @@ export default function MenuPanel() {
       {/* ── Lista productos ── */}
       {view === 'productos' && !showForm && (
         <div className="rounded-2xl bg-surface border border-zinc-200 p-6
-          shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+          shadow-card">
 
           <div className="flex justify-between items-center mb-4">
-            <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">
+            <p className="text-xs font-bold text-zinc-500 tracking-wider">
               {products.length} PRODUCTOS
             </p>
             <button
@@ -373,7 +373,7 @@ export default function MenuPanel() {
       {/* ── Form producto ── */}
       {view === 'productos' && showForm && (
         <div className="rounded-2xl bg-surface border border-zinc-200 p-6
-          shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+          shadow-card">
 
           <div className="flex items-center gap-3 mb-6">
             <button

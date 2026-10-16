@@ -397,7 +397,7 @@ export default function DevConfig() {
         {/* ── Formulario de creación ── */}
         {showCreateForm && (
           <div className="rounded-2xl bg-surface border border-zinc-200 p-6 mb-6 shadow-sm">
-            <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-4">
+            <p className="text-xs font-bold text-zinc-500 tracking-wider mb-4">
               {editingId ? 'EDITAR RESTAURANTE' : 'DATOS DEL RESTAURANTE'}
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
@@ -427,7 +427,7 @@ export default function DevConfig() {
             </div>
             {!editingId && (
               <>
-                <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-4">USUARIO ADMIN</p>
+                <p className="text-xs font-bold text-zinc-500 tracking-wider mb-4">USUARIO ADMIN</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
                   <input placeholder="Nombre" value={form.admin_name} onChange={e => updateForm('admin_name', e.target.value)} className={inputClass} />
                   <input type="email" placeholder="Correo" value={form.admin_email} onChange={e => updateForm('admin_email', e.target.value)} className={inputClass} />
@@ -444,7 +444,7 @@ export default function DevConfig() {
 
             {deleteTarget && (
               <div className="fixed inset-0 z-[90] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
-                <div className="w-full max-w-sm bg-surface rounded-3xl p-6 text-center shadow-2xl">
+                <div className="w-full max-w-sm bg-surface rounded-3xl p-6 text-center shadow-pop">
                   <p className="text-3xl mb-3">⚠️</p>
                   <p className="font-bold text-zinc-900 mb-1">
                     ¿Eliminar {deleteTarget.name}?

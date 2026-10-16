@@ -100,10 +100,10 @@ export default function UsuariosPanel() {
       {/* ── Lista ── */}
       {!showForm && (
         <div className="rounded-2xl bg-surface border border-zinc-200 p-6
-          shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+          shadow-card">
 
           <div className="flex justify-between items-center mb-4">
-            <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">
+            <p className="text-xs font-bold text-zinc-500 tracking-wider">
               {usuarios.length} USUARIOS
             </p>
             <button
@@ -188,7 +188,7 @@ export default function UsuariosPanel() {
       {/* ── Form ── */}
       {showForm && (
         <div className="rounded-2xl bg-surface border border-zinc-200 p-6 max-w-lg
-          shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+          shadow-card">
 
           <div className="flex items-center gap-3 mb-6">
             <button

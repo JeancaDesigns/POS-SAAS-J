@@ -112,7 +112,7 @@ export default function DebtPanel({ onClose }) {
         w-full max-w-lg max-h-[90vh]
         bg-surface rounded-3xl
         border border-zinc-200
-        shadow-2xl flex flex-col
+        shadow-pop flex flex-col
         overflow-hidden
       ">
 
@@ -201,7 +201,7 @@ export default function DebtPanel({ onClose }) {
 
             {/* Registrar abono */}
             <div className="rounded-2xl bg-surface border border-zinc-200 p-4 shadow-sm">
-              <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-3">
+              <p className="text-xs font-bold text-zinc-500 tracking-wider mb-3">
                 REGISTRAR ABONO O PAGO
               </p>
               <div className="space-y-3">
@@ -298,7 +298,7 @@ export default function DebtPanel({ onClose }) {
 
             {/* Historial de movimientos */}
             <div>
-              <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-3">
+              <p className="text-xs font-bold text-zinc-500 tracking-wider mb-3">
                 HISTORIAL
               </p>
 

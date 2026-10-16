@@ -174,11 +174,11 @@ export default function CajaPanel() {
       {/* ── Caja cerrada ── */}
       {!cashRegister && (
         <div className="rounded-2xl bg-surface border border-zinc-200 p-6 max-w-md
-          shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+          shadow-card">
           <h2 className="text-zinc-900 font-bold text-base mb-4">Abrir caja</h2>
           <div className="space-y-3">
             <div>
-              <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-2">
+              <p className="text-xs font-bold text-zinc-500 tracking-wider mb-2">
                 MONTO INICIAL
               </p>
               <input
@@ -215,15 +215,15 @@ export default function CajaPanel() {
           {/* Resumen */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="rounded-2xl bg-surface border border-zinc-200 p-5
-              shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
-              <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">APERTURA</p>
+              shadow-card">
+              <p className="text-xs font-bold text-zinc-500 tracking-wider">APERTURA</p>
               <p className="text-xl font-black text-zinc-900 mt-2">
                 ${Number(cashRegister.opening_amount).toLocaleString('es-CO')}
               </p>
             </div>
 
             <div className="rounded-2xl bg-green-50 border border-green-200 p-5
-              shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+              shadow-card">
               <p className="text-xs font-semibold text-green-500 tracking-wide">VENTAS EFECTIVO</p>
               <p className="text-xl font-black text-green-600 mt-2">
                 ${cashSales.toLocaleString('es-CO')}
@@ -234,15 +234,15 @@ export default function CajaPanel() {
             </div>
 
             <div className="rounded-2xl bg-[var(--brand-light)] border border-[var(--brand-border)] p-5
-              shadow-[0_2px_8px_rgba(130,10,209,0.08)]">
-              <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">ESPERADO</p>
+              shadow-card">
+              <p className="text-xs font-bold text-zinc-500 tracking-wider">ESPERADO</p>
               <p className="text-xl font-black text-[var(--brand-text)] mt-2">
                 ${computedExpected.toLocaleString('es-CO')}
               </p>
             </div>
 
             <div className="rounded-2xl bg-zinc-50 border border-zinc-200 p-5
-              shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+              shadow-card">
               <p className="text-xs font-semibold text-zinc-400 tracking-wide">ESTADO</p>
               <p className="text-xl font-black text-green-600 mt-2">ABIERTA</p>
             </div>
@@ -250,8 +250,8 @@ export default function CajaPanel() {
 
           {/* Registrar movimiento */}
           <div className="rounded-2xl bg-surface border border-zinc-200 p-6
-            shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
-            <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-4">
+            shadow-card">
+            <p className="text-xs font-bold text-zinc-500 tracking-wider mb-4">
               REGISTRAR MOVIMIENTO
             </p>
             <div className="grid md:grid-cols-4 gap-3">
@@ -310,8 +310,8 @@ export default function CajaPanel() {
 
           {/* Movimientos */}
           <div className="rounded-2xl bg-surface border border-zinc-200 p-6
-            shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
-            <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-4">
+            shadow-card">
+            <p className="text-xs font-bold text-zinc-500 tracking-wider mb-4">
               MOVIMIENTOS MANUALES
             </p>
             <div className="space-y-2">
@@ -364,7 +364,7 @@ export default function CajaPanel() {
 
             {/* Cierre */}
             <div className="mt-6 pt-5 border-t border-zinc-100">
-              <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-1">
+              <p className="text-xs font-bold text-zinc-500 tracking-wider mb-1">
                 DINERO TOTAL CONTADO (EFECTIVO + TRANSFERENCIA)
               </p>
               <p className="text-xs text-zinc-400 mb-3">
@@ -417,8 +417,8 @@ export default function CajaPanel() {
 
       {/* ── Historial de cajas ── */}
       <div className="rounded-2xl bg-surface border border-zinc-200 p-6
-        shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
-        <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-4">
+        shadow-card">
+        <p className="text-xs font-bold text-zinc-500 tracking-wider mb-4">
           HISTORIAL DE CAJAS
         </p>
         <div className="space-y-2">

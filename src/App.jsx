@@ -221,7 +221,7 @@ export default function App() {
             w-full max-w-sm
             bg-surface rounded-3xl
             border border-zinc-200
-            shadow-2xl p-8 text-center
+            shadow-pop p-8 text-center
           ">
             <div className="
               w-20 h-20 rounded-full mx-auto mb-6

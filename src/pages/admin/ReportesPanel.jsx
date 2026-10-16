@@ -280,7 +280,7 @@ export default function ReportesPanel() {
                   className={`
                     rounded-2xl border p-5
                     bg-surface
-                    shadow-[0_2px_8px_rgba(0,0,0,0.05)]
+                    shadow-card
                   `}
                 >
                   <div className="flex items-start justify-between">
@@ -308,7 +308,7 @@ export default function ReportesPanel() {
 
             {/* Top productos */}
             <div className="rounded-2xl bg-surface border border-zinc-200 p-5
-              shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+              shadow-card">
               <div className="flex items-center gap-2 mb-4">
                 <Package size={18} className="text-[var(--brand-text)]" />
                 <h2 className="font-bold text-zinc-900">Productos más vendidos</h2>
@@ -337,7 +337,7 @@ export default function ReportesPanel() {
 
             {/* Clientes frecuentes */}
             <div className="rounded-2xl bg-surface border border-zinc-200 p-5
-              shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+              shadow-card">
               <div className="flex items-center gap-2 mb-4">
                 <Users size={18} className="text-blue-500" />
                 <h2 className="font-bold text-zinc-900">Clientes frecuentes</h2>
@@ -368,7 +368,7 @@ export default function ReportesPanel() {
 
           {/* ── Alertas ── */}
           <div className="rounded-2xl bg-red-50 border border-red-200 p-5
-            shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+            shadow-card">
             <div className="flex items-center gap-2 mb-4">
               <AlertTriangle size={18} className="text-red-500" />
               <h2 className="font-bold text-zinc-900">Alertas del sistema</h2>
@@ -406,9 +406,9 @@ export default function ReportesPanel() {
 
       {/* ── Desglose de ventas del día ── */}
       <div className="rounded-2xl bg-surface border border-zinc-200 p-5
-        shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+        shadow-card">
         <div className="flex items-center justify-between mb-4">
-          <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">
+          <p className="text-xs font-bold text-zinc-500 tracking-wider">
             DESGLOSE DE VENTAS — HOY
           </p>
           <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500 font-semibold">
@@ -503,7 +503,7 @@ export default function ReportesPanel() {
 
       {/* ── Reportes mensuales ── */}
       <div className="rounded-2xl bg-surface border border-zinc-200 p-5
-        shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+        shadow-card">
         <div className="flex items-center gap-2 mb-4">
           <TrendingUp size={18} className="text-[var(--brand-text)]" />
           <h2 className="font-bold text-zinc-900">Reportes mensuales</h2>
@@ -553,7 +553,7 @@ export default function ReportesPanel() {
             w-full max-w-2xl
             bg-surface rounded-3xl
             border border-zinc-200
-            shadow-2xl overflow-hidden
+            shadow-pop overflow-hidden
             max-h-[90vh] flex flex-col
           ">
 
@@ -623,7 +623,7 @@ export default function ReportesPanel() {
 
                   {/* Por categoría */}
                   <div>
-                    <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-3">
+                    <p className="text-xs font-bold text-zinc-500 tracking-wider mb-3">
                       POR CATEGORÍA
                     </p>
                     <div className="space-y-2">
@@ -646,7 +646,7 @@ export default function ReportesPanel() {
 
                   {/* Productos más vendidos */}
                   <div>
-                    <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-3">
+                    <p className="text-xs font-bold text-zinc-500 tracking-wider mb-3">
                       PRODUCTOS MÁS VENDIDOS
                     </p>
                     <div className="space-y-2">

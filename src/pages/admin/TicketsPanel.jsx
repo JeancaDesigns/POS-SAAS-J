@@ -130,7 +130,7 @@ export default function TicketsPanel() {
               <div
                 key={key}
                 className="rounded-2xl bg-surface border border-zinc-200 overflow-hidden
-                  shadow-[0_2px_8px_rgba(0,0,0,0.05)]"
+                  shadow-card"
               >
                 {/* Header mes */}
                 <button
@@ -237,7 +237,7 @@ export default function TicketsPanel() {
             w-full max-w-md
             bg-surface rounded-3xl
             border border-zinc-200
-            shadow-2xl overflow-hidden
+            shadow-pop overflow-hidden
           ">
             {/* Barra acciones */}
             <div className="flex items-center justify-between p-4 border-b border-zinc-100 print:hidden">

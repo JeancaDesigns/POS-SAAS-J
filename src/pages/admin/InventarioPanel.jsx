@@ -276,7 +276,7 @@ export default function InventarioPanel() {
               { title: 'Agotados',   value: stats.empty, icon: <X size={20} />,             accent: 'text-red-500',    bg: 'bg-red-50 border-red-200'        },
             ].map(card => (
               <div key={card.title} className="rounded-2xl bg-surface border border-zinc-200 p-5
-                shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+                shadow-card">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-zinc-400">{card.title}</p>
@@ -292,9 +292,9 @@ export default function InventarioPanel() {
 
           {/* Lista */}
           <div className="rounded-2xl bg-surface border border-zinc-200 p-6
-            shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+            shadow-card">
             <div className="flex items-center justify-between mb-4">
-              <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">
+              <p className="text-xs font-bold text-zinc-500 tracking-wider">
                 {items.length} PRODUCTOS
               </p>
               <button
@@ -393,10 +393,10 @@ export default function InventarioPanel() {
       ══════════════════════════════════════════════════════════════════════════ */}
       {view === 'recetas' && (
         <div className="rounded-2xl bg-surface border border-zinc-200 p-6
-          shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+          shadow-card">
 
           <div className="flex items-center justify-between mb-4">
-            <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">
+            <p className="text-xs font-bold text-zinc-500 tracking-wider">
               {recipes.length} RECETAS
             </p>
             <button
@@ -479,7 +479,7 @@ export default function InventarioPanel() {
       {showItemModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}>
-          <div className="w-full max-w-lg bg-surface rounded-3xl border border-zinc-200 shadow-2xl p-6">
+          <div className="w-full max-w-lg bg-surface rounded-3xl border border-zinc-200 shadow-pop p-6">
             <h2 className="text-zinc-900 font-bold text-lg mb-5">
               {editingItem ? 'Editar producto' : 'Nuevo producto'}
             </h2>
@@ -528,7 +528,7 @@ export default function InventarioPanel() {
       {movementModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}>
-          <div className="w-full max-w-lg bg-surface rounded-3xl border border-zinc-200 shadow-2xl p-6 max-h-[90vh] flex flex-col">
+          <div className="w-full max-w-lg bg-surface rounded-3xl border border-zinc-200 shadow-pop p-6 max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-zinc-900 font-bold">
                 Movimiento — {movementModal.name}
@@ -582,7 +582,7 @@ export default function InventarioPanel() {
       {showRecipeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}>
-          <div className="w-full max-w-lg bg-surface rounded-3xl border border-zinc-200 shadow-2xl p-6 max-h-[90vh] flex flex-col">
+          <div className="w-full max-w-lg bg-surface rounded-3xl border border-zinc-200 shadow-pop p-6 max-h-[90vh] flex flex-col">
 
             <h2 className="text-zinc-900 font-bold text-lg mb-5 shrink-0">
               {editingRecipe ? 'Editar receta' : 'Nueva receta'}

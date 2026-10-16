@@ -585,7 +585,7 @@ export default function CocinaHome() {
           className="fixed inset-0 z-[80] flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.5)' }}
         >
-          <div className="w-full max-w-sm bg-surface rounded-3xl p-6 text-center shadow-2xl">
+          <div className="w-full max-w-sm bg-surface rounded-3xl p-6 text-center shadow-pop">
             <p className="font-bold text-zinc-900 mb-1">
               Pedido de {readyToNotify.customer_name} listo
             </p>

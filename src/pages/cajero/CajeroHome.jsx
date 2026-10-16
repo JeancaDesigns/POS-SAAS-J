@@ -859,7 +859,7 @@ export default function CajeroHome() {
           {/* ── Fiado ── */}
           <div className="rounded-2xl p-4 mb-4 bg-surface border border-zinc-100 shadow-sm">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">
+              <p className="text-xs font-bold text-zinc-500 tracking-wider">
                 FIADO
               </p>
               <button
@@ -1137,7 +1137,7 @@ export default function CajeroHome() {
             w-full max-w-lg
             bg-surface rounded-t-3xl
             border border-b-0 border-zinc-200
-            shadow-[0_-8px_40px_rgba(0,0,0,0.10)]
+            shadow-pop
             p-6 pb-10
             max-h-[80vh] flex flex-col
           ">
@@ -1235,7 +1235,7 @@ export default function CajeroHome() {
             className="
               text-left
               rounded-2xl bg-surface border border-[var(--brand-border)]
-              shadow-[0_8px_30px_rgba(0,0,0,0.15)]
+              shadow-pop
               p-4
               animate-[slidein_0.3s_ease]
               hover:scale-[1.02] transition-transform
