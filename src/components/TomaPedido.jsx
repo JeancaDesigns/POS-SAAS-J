@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { ArrowLeft, Plus, Minus, X, StickyNote, Clock, ShoppingBag } from 'lucide-react'
+import ProductPicker, { VariantSheet } from './ProductPicker'
 import { useProducts } from '../hooks/useProducts'
 import { supabase } from '../supabaseClient'
 import { useAuthStore } from '../store/authStore'
@@ -7,69 +9,66 @@ import { db } from '../db/localDB'
 import { newId } from '../utils/uuid'
 import { useCartPersistence } from '../hooks/useCartPersistence'
 
+const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
+// Una línea del carrito se identifica por producto + variante (la misma papa en dos tamaños son dos líneas)
+const lineKey = (productId, variant) => `${productId}::${variant || ''}`
+
 export default function TomaPedido({ table, onClose, onConfirmed }) {
   const { user } = useAuthStore()
   const { categories, products, loading } = useProducts()
-  const [activeCategory, setActiveCategory] = useState(null)
+  const isOnline = useOnlineStatus()
+
   const [items, setItems] = useState([])
-  const [noteTarget, setNoteTarget] = useState(null)
-  const [showResumen, setShowResumen] = useState(false)
+  const [editingNote, setEditingNote] = useState(null)
+  const [cartOpen, setCartOpen] = useState(false) // solo celular
   const [scheduled, setScheduled] = useState('')
+  const [showSchedule, setShowSchedule] = useState(false)
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [deliveryType, setDeliveryType] = useState('delivery')
   const [confirming, setConfirming] = useState(false)
   const [variantModal, setVariantModal] = useState(null)
-  const [headerCollapsed, setHeaderCollapsed] = useState(false)
-  const isOnline = useOnlineStatus()
   useCartPersistence(`cart-mesa-${table.id}`, items, setItems)
-
-  const displayCategory = activeCategory || categories[0]?.id
-  const categoryProducts = products.filter(
-    p => p.category_id === displayCategory && p.available
-  )
 
   function addProduct(product, variant = null) {
     if (product.variants?.length > 0 && !variant) {
       setVariantModal(product)
       return
     }
+    const key = lineKey(product.id, variant)
     setItems(prev => {
-      const existing = prev.find(i => i.product.id === product.id && i.variant === variant)
-      if (existing) return prev.map(i =>
-        i.product.id === product.id && i.variant === variant
-          ? { ...i, quantity: i.quantity + 1 }
-          : i
-      )
+      const existing = prev.find(i => lineKey(i.product.id, i.variant) === key)
+      if (existing) return prev.map(i => lineKey(i.product.id, i.variant) === key ? { ...i, quantity: i.quantity + 1 } : i)
       return [...prev, { product, quantity: 1, note: '', variant }]
     })
   }
 
-  function removeProduct(productId) {
-    setItems(prev => {
-      const existing = prev.find(i => i.product.id === productId)
-      if (existing?.quantity === 1) return prev.filter(i => i.product.id !== productId)
-      return prev.map(i => i.product.id === productId ? { ...i, quantity: i.quantity - 1 } : i)
-    })
+  function changeQty(key, delta) {
+    setItems(prev => prev
+      .map(i => lineKey(i.product.id, i.variant) === key ? { ...i, quantity: i.quantity + delta } : i)
+      .filter(i => i.quantity > 0))
   }
 
-  function getQuantity(productId) {
-    return items.find(i => i.product.id === productId)?.quantity || 0
+  function updateNote(key, note) {
+    setItems(prev => prev.map(i => lineKey(i.product.id, i.variant) === key ? { ...i, note } : i))
   }
 
-  function updateNote(productId, note) {
-    setItems(prev => prev.map(i => i.product.id === productId ? { ...i, note } : i))
-  }
-
+  const qtyOfProduct = productId => items.filter(i => i.product.id === productId).reduce((s, i) => s + i.quantity, 0)
   const total = items.reduce((sum, i) => sum + i.product.price * i.quantity, 0)
+  const count = items.reduce((s, i) => s + i.quantity, 0)
 
   async function handleConfirm() {
     if (items.length === 0) return
     if (table.is_delivery && !customerName.trim()) {
       alert('El nombre del cliente es obligatorio para domicilios')
+      setCartOpen(true)
       return
     }
     setConfirming(true)
+
+    const scheduledFor = scheduled
+      ? new Date(`${new Date().toDateString()} ${scheduled}`).toISOString()
+      : null
 
     if (isOnline) {
       const { data: order, error: orderError } = await supabase
@@ -80,9 +79,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
           status: 'confirmed',
           confirmed_at: new Date().toISOString(),
           started_at: new Date().toISOString(),
-          scheduled_for: scheduled
-            ? new Date(`${new Date().toDateString()} ${scheduled}`).toISOString()
-            : null,
+          scheduled_for: scheduledFor,
           customer_name: customerName.trim() || null,
           customer_phone: customerPhone.trim() || null,
           delivery_type: table.is_delivery ? deliveryType : null,
@@ -90,9 +87,13 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
         .select()
         .single()
 
-      if (orderError) { setConfirming(false); return }
+      if (orderError) {
+        alert('No se pudo crear el pedido. Intenta de nuevo.')
+        setConfirming(false)
+        return
+      }
 
-      await supabase.from('order_items').insert(
+      const { error: itemsError } = await supabase.from('order_items').insert(
         items.map(i => ({
           order_id: order.id,
           product_id: i.product.id,
@@ -103,6 +104,14 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
           kitchen_only: false,
         }))
       )
+
+      if (itemsError) {
+        // No dejar un pedido vacío en cocina: se borra y el carrito se conserva para reintentar
+        await supabase.from('orders').delete().eq('id', order.id)
+        alert('No se pudieron guardar los productos. El pedido no se envió; intenta de nuevo.')
+        setConfirming(false)
+        return
+      }
 
       await supabase.from('tables').update({ status: 'occupied' }).eq('id', table.id)
       sessionStorage.removeItem(`cart-mesa-${table.id}`)
@@ -120,9 +129,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
         status: 'confirmed',
         confirmed_at: new Date().toISOString(),
         started_at: new Date().toISOString(),
-        scheduled_for: scheduled
-          ? new Date(`${new Date().toDateString()} ${scheduled}`).toISOString()
-          : null,
+        scheduled_for: scheduledFor,
         customer_name: customerName.trim() || null,
         customer_phone: customerPhone.trim() || null,
         delivery_type: table.is_delivery ? deliveryType : null,
@@ -154,363 +161,205 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
     }
   }
 
-  // ── Loading ──────────────────────────────────────────────────────────────────
+  const title = table.is_delivery ? `Domicilio ${table.number}` : `Mesa ${String(table.number).padStart(2, '0')}`
+
   if (loading) return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-canvas">
-      <p className="text-zinc-400 text-sm font-medium">Cargando menú...</p>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-canvas">
+      <p className="text-zinc-500 text-sm font-medium">Cargando menú…</p>
     </div>
   )
 
-  // ── UI ───────────────────────────────────────────────────────────────────────
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-6"
-      style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
-    >
-      <div className="
-        w-full h-full
-        md:max-w-4xl md:h-[90vh] md:rounded-3xl
-        flex flex-col relative overflow-hidden
-        bg-surface shadow-pop
-      ">
-
-        {/* ── Header ── */}
-        <div className="bg-surface border-b border-zinc-200">
-
-          <div className="flex items-center justify-between px-4 pt-6 pb-3">
-            <button
-              onClick={onClose}
-              className="h-10 px-3 -ml-3 rounded-xl text-sm cursor-pointer font-semibold text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 transition-colors"
-            >
-              ← Volver
-            </button>
-            <h2 className="text-zinc-900 font-extrabold text-lg tracking-tight">
-              {table.is_delivery ? `Domicilio ${table.number}` : `Mesa ${table.number}`}
-            </h2>
-            {table.is_delivery ? (
-              <button
-                onClick={() => setHeaderCollapsed(prev => !prev)}
-                className={`
-                  text-sm font-semibold cursor-pointer
-                  px-3 py-1 rounded-full
-                  border border-zinc-200
-                  transition-all duration-200
-                  ${headerCollapsed
-                    ? 'bg-[var(--brand-light)] text-[var(--brand-text)]'
-                    : 'bg-surface text-zinc-600 hover:text-zinc-900'
-                  }
-                `}
-              >
-                {headerCollapsed ? '+ Datos' : '− Ocultar'}
-              </button>
-            ) : (
-              <div className="w-16" />
-            )}
-          </div>
-
-          {table.is_delivery && !headerCollapsed && (
-            <div className="px-4 pb-3 flex flex-col gap-2">
-              <input
-                type="text"
-                placeholder="Nombre del cliente *"
-                value={customerName}
-                onChange={e => setCustomerName(e.target.value)}
-                className="
-                  w-full rounded-xl px-4 py-2.5
-                  text-zinc-800 text-sm outline-none
-                  bg-surface border border-zinc-300
-                  focus:border-[var(--brand)] transition-colors
-                  placeholder:text-zinc-400
-                "
-              />
-              <input
-                type="tel"
-                placeholder="Teléfono (opcional)"
-                value={customerPhone}
-                onChange={e => setCustomerPhone(e.target.value)}
-                className="
-                  w-full rounded-xl px-4 py-2.5
-                  text-zinc-800 text-sm outline-none
-                  bg-surface border border-zinc-300
-                  focus:border-[var(--brand)] transition-colors
-                  placeholder:text-zinc-400
-                "
-              />
-              <div className="flex gap-2">
-                {[
-                  { key: 'delivery', label: 'A domicilio' },
-                  { key: 'pickup', label: 'Recoger en local' },
-                ].map(opt => (
-                  <button
-                    key={opt.key}
-                    onClick={() => setDeliveryType(opt.key)}
-                    className={`
-                      flex-1 py-2 cursor-pointer rounded-xl
-                      text-sm font-semibold
-                      border transition-all duration-200
-                      ${deliveryType === opt.key
-                        ? 'bg-[var(--brand-light)] text-[var(--brand-text)] border-[var(--brand)]'
-                        : 'bg-surface text-zinc-600 border-zinc-200 hover:bg-zinc-50'
-                      }
-                    `}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {table.is_delivery && headerCollapsed && customerName && (
-            <div className="px-4 pb-3">
-              <span className="text-sm text-[var(--brand-text)]">
-                {deliveryType === 'delivery' ? 'A domicilio' : 'Recoger'} · {customerName}
-                {customerPhone && ` · ${customerPhone}`}
-              </span>
-            </div>
-          )}
-
-          <div className="flex gap-2 px-4 py-3 overflow-x-auto border-t border-zinc-200">
-            {categories.map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => setActiveCategory(cat.id)}
-                className={`
-                  px-4 py-1.5 cursor-pointer rounded-full
-                  text-sm font-semibold whitespace-nowrap
-                  border transition-all duration-200
-                  ${displayCategory === cat.id
-                    ? 'bg-zinc-900 text-surface border-zinc-900'
-                    : 'bg-surface text-zinc-600 border-zinc-200 hover:bg-zinc-50'
-                  }
-                `}
-              >
-                {cat.icon && <span className="mr-1">{cat.icon}</span>}
-                {cat.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Productos ── */}
-        <div className="flex-1 overflow-y-auto px-4 py-3 sm:pb-3 pb-[90px]">
-          {categoryProducts.length === 0 ? (
-            <p className="text-center py-12 text-zinc-300 text-sm">
-              Sin productos disponibles
-            </p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {categoryProducts.map(product => {
-                const qty = getQuantity(product.id)
-                const item = items.find(i => i.product.id === product.id)
-                return (
-                  <div
-                    key={product.id}
-                    className="rounded-2xl p-4 bg-zinc-50 border border-zinc-100"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-zinc-900 font-semibold">{product.name}</p>
-                        <p className="text-sm font-bold mt-0.5 text-[var(--brand-text)]">
-                          ${product.price.toLocaleString('es-CO')}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {qty > 0 && (
-                          <>
-                            <button
-                              onClick={() => removeProduct(product.id)}
-                              className="
-                                w-8 h-8 cursor-pointer rounded-full
-                                flex items-center justify-center
-                                font-bold text-red-500
-                                bg-red-50 border border-red-200
-                                hover:bg-red-100 transition-colors
-                              "
-                            >
-                              −
-                            </button>
-                            <span className="text-zinc-900 font-bold w-4 text-center">
-                              {qty}
-                            </span>
-                          </>
-                        )}
-                        <button
-                          onClick={() => addProduct(product)}
-                          className="
-                            w-8 h-8 rounded-full cursor-pointer
-                            flex items-center justify-center
-                            font-bold text-white
-                            bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-                            transition-colors
-                          "
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-
-                    {qty > 0 && (
-                      <div className="mt-2">
-                        {noteTarget === product.id ? (
-                          <input
-                            autoFocus
-                            type="text"
-                            placeholder="Ej: sin cebolla"
-                            value={item?.note || ''}
-                            onChange={e => updateNote(product.id, e.target.value)}
-                            onBlur={() => setNoteTarget(null)}
-                            className="
-                              w-full rounded-xl px-3 py-1.5
-                              text-zinc-800 text-sm outline-none
-                              bg-surface border border-[var(--brand-border)]
-                              focus:border-[var(--brand)] transition-colors
-                            "
-                          />
-                        ) : (
-                          <button
-                            onClick={() => setNoteTarget(product.id)}
-                            className={`text-xs cursor-pointer transition-colors ${item?.note ? 'text-[var(--brand-text)]' : 'text-zinc-300 hover:text-zinc-400'
-                              }`}
-                          >
-                            {item?.note ? `Nota: ${item.note}` : '+ Agregar nota'}
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* ── Footer ── */}
-        {items.length > 0 && (
-          <div className="px-4 pb-24 pt-3 md:pb-4 border-t border-zinc-100 bg-surface">
-            <div className="mb-3">
-              <p className="text-xs mb-1 text-[var(--brand-text)] font-medium">
-                ¿Pedido programado? (opcional)
-              </p>
-              <input
-                type="time"
-                value={scheduled}
-                onChange={e => setScheduled(e.target.value)}
-                className="
-                  w-full rounded-xl px-4 py-2
-                  text-zinc-800 text-sm outline-none
-                  bg-zinc-50 border border-zinc-200
-                  focus:border-[var(--brand-border)] transition-colors
-                "
-              />
-            </div>
-
-            {showResumen && (
-              <div className="mb-3 rounded-2xl p-3 max-h-40 overflow-y-auto bg-zinc-50 border border-zinc-100">
-                {items.map(i => (
-                  <div key={i.product.id} className="flex justify-between items-start py-1">
-                    <div>
-                      <span className="text-zinc-800 text-sm">
-                        {i.quantity}x {i.product.name}
-                      </span>
-                      {i.variant && (
-                        <p className="text-xs text-[var(--brand-text)]">→ {i.variant}</p>
-                      )}
-                      {i.note && (
-                        <p className="text-xs text-zinc-400">Nota: {i.note}</p>
-                      )}
-                    </div>
-                    <span className="text-sm font-semibold text-[var(--brand-text)]">
-                      ${(i.product.price * i.quantity).toLocaleString('es-CO')}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="flex items-center justify-between mb-3">
-              <button
-                onClick={() => setShowResumen(prev => !prev)}
-                className="text-sm font-semibold cursor-pointer text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
-              >
-                {items.reduce((s, i) => s + i.quantity, 0)} ítems {showResumen ? '▲' : '▼'}
-              </button>
-              <span className="text-zinc-900 font-bold text-lg">
-                ${total.toLocaleString('es-CO')}
-              </span>
-            </div>
-
-            <button
-              onClick={handleConfirm}
-              disabled={confirming}
-              className="
-                w-full text-white font-bold cursor-pointer
-                rounded-2xl py-4
-                bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-                shadow-[0_4px_20px_var(--brand-shadow)
-                transition-all duration-200
-                active:scale-[0.98] disabled:opacity-50
-              "
-            >
-              {confirming ? 'Confirmando...' : 'Confirmar pedido'}
-            </button>
-          </div>
-        )}
+  // ── Carrito (panel derecho en escritorio, hoja completa en celular) ─────────
+  const cart = (
+    <div className="flex flex-col h-full min-h-0">
+      <div className="px-5 pt-5 pb-3 flex items-center justify-between">
+        <h3 className="text-lg font-extrabold tracking-tight text-zinc-900">Pedido</h3>
+        <button onClick={() => setCartOpen(false)} aria-label="Cerrar pedido" className="lg:hidden w-10 h-10 rounded-xl flex items-center justify-center text-zinc-500 hover:bg-zinc-100">
+          <X size={18} />
+        </button>
       </div>
 
-      {/* ── Modal variantes ── */}
-      {variantModal && (
-        <div
-          className="fixed inset-0 z-[60] flex items-end justify-center"
-          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
-        >
-          <div className="
-            w-full max-w-lg
-            bg-surface rounded-t-3xl
-            border border-b-0 border-zinc-200
-            shadow-pop
-            p-6 pb-[90px] sm:pb-8
-          ">
-            <div className="flex items-center justify-between mb-6">
-              <button
-                onClick={() => setVariantModal(null)}
-                className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
-              >
-                ✕ Cancelar
-              </button>
-              <h2 className="text-zinc-900 font-bold text-lg tracking-tight">
-                {variantModal.name}
-              </h2>
-              <div className="w-16" />
-            </div>
-            <p className="text-center text-sm mb-4 text-zinc-400">
-              Elige una opción
-            </p>
-            <div className="flex flex-col gap-3">
-              {variantModal.variants.map(v => (
+      <div className="flex-1 overflow-y-auto px-5 pb-4 flex flex-col gap-4">
+        {table.is_delivery && (
+          <div className="flex flex-col gap-2.5 p-3.5 rounded-xl border border-zinc-200 bg-surface-2">
+            <div role="radiogroup" aria-label="Tipo de entrega" className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-zinc-100 border border-zinc-200">
+              {[['delivery', 'A domicilio'], ['pickup', 'Recoger en local']].map(([k, l]) => (
                 <button
-                  key={v}
-                  onClick={() => {
-                    addProduct(variantModal, v)
-                    setVariantModal(null)
-                  }}
-                  className="
-                    w-full py-4 rounded-2xl
-                    font-bold text-[var(--brand-text)]
-                    bg-[var(--brand-light)] border border-[var(--brand-border)]
-                    hover:bg-[var(--brand-light)] hover:border-[var(--brand-border)]
-                    transition-all duration-200
-                    active:scale-95
-                  "
+                  key={k}
+                  role="radio"
+                  aria-checked={deliveryType === k}
+                  onClick={() => setDeliveryType(k)}
+                  className={`h-9 rounded-md text-sm font-bold transition-colors ${deliveryType === k ? 'bg-surface text-zinc-900 shadow-card' : 'text-zinc-500'}`}
                 >
-                  {v}
+                  {l}
                 </button>
               ))}
             </div>
+            <input
+              value={customerName}
+              onChange={e => setCustomerName(e.target.value)}
+              placeholder="Nombre del cliente *"
+              aria-label="Nombre del cliente"
+              className="h-11 px-3 rounded-lg bg-surface border border-zinc-300 text-sm text-zinc-900 outline-none focus:border-[var(--brand)] placeholder:text-zinc-400"
+            />
+            <input
+              type="tel"
+              value={customerPhone}
+              onChange={e => setCustomerPhone(e.target.value)}
+              placeholder="Teléfono (opcional)"
+              aria-label="Teléfono"
+              className="h-11 px-3 rounded-lg bg-surface border border-zinc-300 text-sm text-zinc-900 outline-none focus:border-[var(--brand)] placeholder:text-zinc-400"
+            />
           </div>
+        )}
+
+        {items.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center py-10 gap-2">
+            <ShoppingBag size={28} className="text-zinc-300" aria-hidden="true" />
+            <p className="text-sm font-bold text-zinc-600">Aún no hay productos</p>
+            <p className="text-xs text-zinc-500">Toca un producto para agregarlo</p>
+          </div>
+        ) : (
+          <ul className="flex flex-col divide-y divide-zinc-100">
+            {items.map(i => {
+              const key = lineKey(i.product.id, i.variant)
+              return (
+                <li key={key} className="py-3 flex flex-col gap-2">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-zinc-900">{i.product.name}</p>
+                      {i.variant && <p className="text-xs font-semibold text-[var(--brand-text)]">{i.variant}</p>}
+                      <p className="font-mono text-xs text-zinc-500 tabular mt-0.5">{money(i.product.price)} c/u</p>
+                    </div>
+                    <span className="font-mono text-sm font-semibold text-zinc-900 tabular">{money(i.product.price * i.quantity)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center rounded-lg border border-zinc-200 bg-surface">
+                      <button onClick={() => changeQty(key, -1)} aria-label={`Quitar uno de ${i.product.name}`} className="w-10 h-9 flex items-center justify-center text-zinc-600 hover:bg-zinc-50 rounded-l-lg"><Minus size={15} /></button>
+                      <span className="w-8 text-center font-mono text-sm font-semibold text-zinc-900">{i.quantity}</span>
+                      <button onClick={() => changeQty(key, 1)} aria-label={`Agregar uno de ${i.product.name}`} className="w-10 h-9 flex items-center justify-center text-zinc-600 hover:bg-zinc-50 rounded-r-lg"><Plus size={15} /></button>
+                    </div>
+                    <button
+                      onClick={() => setEditingNote(editingNote === key ? null : key)}
+                      className={`h-9 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors ${i.note ? 'text-orange-700 bg-orange-50' : 'text-zinc-500 hover:bg-zinc-100'}`}
+                    >
+                      <StickyNote size={14} aria-hidden="true" />
+                      {i.note ? 'Editar nota' : 'Nota'}
+                    </button>
+                  </div>
+                  {(editingNote === key || i.note) && (
+                    editingNote === key ? (
+                      <input
+                        autoFocus
+                        value={i.note}
+                        onChange={e => updateNote(key, e.target.value)}
+                        onBlur={() => setEditingNote(null)}
+                        onKeyDown={e => e.key === 'Enter' && setEditingNote(null)}
+                        placeholder="Ej: sin cebolla, salsa aparte"
+                        aria-label={`Nota para ${i.product.name}`}
+                        className="h-10 px-3 rounded-lg bg-surface border border-zinc-300 text-sm text-zinc-900 outline-none focus:border-[var(--brand)] placeholder:text-zinc-400"
+                      />
+                    ) : (
+                      <p className="text-xs text-orange-700">Nota: {i.note}</p>
+                    )
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        )}
+
+        {/* Programar para más tarde */}
+        <div className="flex flex-col gap-2">
+          {!showSchedule && !scheduled ? (
+            <button onClick={() => setShowSchedule(true)} className="self-start h-9 px-2.5 -ml-2.5 rounded-lg text-sm font-bold text-zinc-600 hover:bg-zinc-100 flex items-center gap-1.5">
+              <Clock size={15} aria-hidden="true" /> Programar para más tarde
+            </button>
+          ) : (
+            <label className="flex items-center justify-between gap-3">
+              <span className="text-sm font-bold text-zinc-700 flex items-center gap-1.5"><Clock size={15} aria-hidden="true" /> Hora programada</span>
+              <span className="flex items-center gap-2">
+                <input
+                  type="time"
+                  value={scheduled}
+                  onChange={e => setScheduled(e.target.value)}
+                  className="h-10 px-2 rounded-lg bg-surface border border-zinc-300 text-sm text-zinc-900 outline-none focus:border-[var(--brand)]"
+                />
+                <button onClick={() => { setScheduled(''); setShowSchedule(false) }} aria-label="Quitar hora programada" className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-500 hover:bg-zinc-100"><X size={15} /></button>
+              </span>
+            </label>
+          )}
+        </div>
+      </div>
+
+      <div className="p-5 border-t border-zinc-200 bg-surface-2 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-bold text-zinc-600">{count} producto{count !== 1 ? 's' : ''}</span>
+          <span className="font-mono text-2xl font-semibold tracking-tight text-zinc-900 tabular">{money(total)}</span>
+        </div>
+        <button
+          onClick={handleConfirm}
+          disabled={confirming || items.length === 0}
+          className="h-14 rounded-xl text-base font-extrabold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {confirming ? 'Enviando…' : isOnline ? 'Enviar a cocina' : 'Guardar sin conexión'}
+        </button>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-canvas flex flex-col">
+
+      {/* Encabezado */}
+      <header className="shrink-0 h-16 px-3 lg:px-5 flex items-center gap-3 bg-surface border-b border-zinc-200">
+        <button onClick={onClose} aria-label="Volver" className="w-11 h-11 rounded-xl flex items-center justify-center text-zinc-700 hover:bg-zinc-100">
+          <ArrowLeft size={20} />
+        </button>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-lg font-extrabold tracking-tight text-zinc-900 truncate">{title}</h2>
+          <p className="text-xs text-zinc-500">Nuevo pedido{!isOnline ? ' · sin conexión' : ''}</p>
+        </div>
+      </header>
+
+      <div className="flex-1 min-h-0 flex">
+
+        {/* Productos */}
+        <ProductPicker products={products} categories={categories} qtyOf={qtyOfProduct} onAdd={p => addProduct(p)} />
+
+        {/* Carrito: escritorio */}
+        <aside aria-label="Pedido" className="hidden lg:flex w-[380px] shrink-0 border-l border-zinc-200 bg-surface flex-col">
+          {cart}
+        </aside>
+      </div>
+
+      {/* Carrito: barra inferior y hoja en celular */}
+      {!cartOpen && (
+        <div className="lg:hidden fixed bottom-0 inset-x-0 p-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-surface border-t border-zinc-200">
+          <button
+            onClick={() => setCartOpen(true)}
+            className="w-full h-14 px-4 rounded-xl bg-[var(--brand)] text-white flex items-center justify-between font-extrabold"
+          >
+            <span className="flex items-center gap-2">
+              <span className="min-w-7 h-7 px-1.5 rounded-full bg-white/20 font-mono text-sm flex items-center justify-center">{count}</span>
+              Ver pedido
+            </span>
+            <span className="font-mono tabular">{money(total)}</span>
+          </button>
+        </div>
+      )}
+      {cartOpen && (
+        <div className="lg:hidden fixed inset-0 z-[70] bg-surface flex flex-col">
+          {cart}
         </div>
       )}
 
+      {/* Opciones del producto (variantes) */}
+      <VariantSheet
+        product={variantModal}
+        onPick={v => { addProduct(variantModal, v); setVariantModal(null) }}
+        onClose={() => setVariantModal(null)}
+      />
     </div>
   )
 }
