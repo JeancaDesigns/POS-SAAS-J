@@ -1,5 +1,5 @@
 -- ============================================================================
--- NO APLICADA. Escrita el 2026-10-16 (rama tarea/bugs-revision). Requiere 0300-0500.
+-- APLICADA en producción el 2026-10-16 (probada antes con rollback). Requiere 0300-0500.
 -- Revisado contra producción (solo lectura) ese mismo día:
 --   * 0 mesas (no domicilio) con más de un pedido activo  → el índice 1 se puede crear.
 --   * 0 restaurantes con más de una caja abierta           → el índice 2 se puede crear.
