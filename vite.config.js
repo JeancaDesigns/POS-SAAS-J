@@ -3,6 +3,20 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import fs from 'fs'
+import { execSync } from 'child_process'
+import process from 'process'
+
+// Versión visible en el menú lateral: commit corto + fecha del build (hora Colombia)
+function commitCorto() {
+  if (process.env.VERCEL_GIT_COMMIT_SHA) return process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 7)
+  try { return execSync('git rev-parse --short HEAD').toString().trim() } catch { return 'local' }
+}
+const APP_VERSION = {
+  commit: commitCorto(),
+  fecha: new Date().toLocaleString('es-CO', {
+    timeZone: 'America/Bogota', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+  }),
+}
 
 function versionPlugin() {
   return {
@@ -18,6 +32,7 @@ function versionPlugin() {
 }
 
 export default defineConfig({
+  define: { __APP_VERSION__: JSON.stringify(APP_VERSION) },
   plugins: [
     react(),
     tailwindcss(),
