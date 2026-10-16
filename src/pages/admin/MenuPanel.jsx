@@ -75,12 +75,12 @@ export default function MenuPanel() {
   async function saveCat() {
     if (!catForm.name) { setError('El nombre es obligatorio'); return }
     setSaving(true)
-    if (editItem) {
-      await supabase.from('categories').update({ name: catForm.name, icon: catForm.icon }).eq('id', editItem.id)
-    } else {
-      await supabase.from('categories').insert({ restaurant_id: user.restaurant_id, name: catForm.name, icon: catForm.icon })
-    }
-    setSaving(false); setShowForm(false); fetchData()
+    const { error } = editItem
+      ? await supabase.from('categories').update({ name: catForm.name, icon: catForm.icon }).eq('id', editItem.id)
+      : await supabase.from('categories').insert({ restaurant_id: user.restaurant_id, name: catForm.name, icon: catForm.icon })
+    setSaving(false)
+    if (error) { setError('No se pudo guardar: ' + error.message); return }
+    setShowForm(false); fetchData()
   }
 
   async function saveProd() {
@@ -93,12 +93,12 @@ export default function MenuPanel() {
       available: prodForm.available, local_only: prodForm.local_only,
       variants: prodForm.variants, description: prodForm.description || null,
     }
-    if (editItem) {
-      await supabase.from('products').update(payload).eq('id', editItem.id)
-    } else {
-      await supabase.from('products').insert({ ...payload, restaurant_id: user.restaurant_id })
-    }
-    setSaving(false); setShowForm(false); fetchData()
+    const { error } = editItem
+      ? await supabase.from('products').update(payload).eq('id', editItem.id)
+      : await supabase.from('products').insert({ ...payload, restaurant_id: user.restaurant_id })
+    setSaving(false)
+    if (error) { setError('No se pudo guardar: ' + error.message); return }
+    setShowForm(false); fetchData()
   }
 
   async function deleteCat(cat) {
@@ -106,7 +106,8 @@ export default function MenuPanel() {
       alert('No puedes eliminar una categoría con productos. Elimina o mueve los productos primero.')
       return
     }
-    await supabase.from('categories').update({ active: false }).eq('id', cat.id)
+    const { error } = await supabase.from('categories').update({ active: false }).eq('id', cat.id)
+    if (error) { alert('No se pudo eliminar la categoría: ' + error.message); return }
     fetchData()
   }
 
@@ -118,7 +119,8 @@ export default function MenuPanel() {
   }
 
   async function toggleAvailable(prod) {
-    await supabase.from('products').update({ available: !prod.available }).eq('id', prod.id)
+    const { error } = await supabase.from('products').update({ available: !prod.available }).eq('id', prod.id)
+    if (error) { alert('No se pudo cambiar la disponibilidad: ' + error.message); return }
     fetchData()
   }
 

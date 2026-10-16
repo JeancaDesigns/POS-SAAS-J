@@ -6,6 +6,7 @@ export default function CajaPanel() {
   const user = useAuthStore((s) => s.user)
   const [loading, setLoading] = useState(true)
   const [cashRegister, setCashRegister] = useState(null)
+  const [opening, setOpening] = useState(false)
   const [openingAmount, setOpeningAmount] = useState('0')
   const [movementAmount, setMovementAmount] = useState('')
   const [movementDescription, setMovementDescription] = useState('')
@@ -81,6 +82,18 @@ export default function CajaPanel() {
   async function openCash() {
     const amount = Number(openingAmount)
     if (isNaN(amount) || amount < 0) { alert('Monto inválido'); return }
+    if (opening) return
+    setOpening(true)
+    // Otra persona (o un doble clic) pudo abrir caja: dos cajas abiertas cuentan las ventas dos veces
+    const { data: already } = await supabase
+      .from('cash_registers').select('id')
+      .eq('restaurant_id', user.restaurant_id).eq('status', 'open').limit(1)
+    if (already?.length) {
+      setOpening(false)
+      alert('Ya hay una caja abierta')
+      await loadCashRegister()
+      return
+    }
     const { data, error } = await supabase
       .from('cash_registers')
       .insert({
@@ -91,7 +104,13 @@ export default function CajaPanel() {
       })
       .select()
       .single()
-    if (error) { console.error(error); alert(error.message); return }
+    setOpening(false)
+    if (error) {
+      console.error(error)
+      alert(error.code === '23505' ? 'Ya hay una caja abierta' : error.message)
+      if (error.code === '23505') await loadCashRegister()
+      return
+    }
     setCashRegister(data)
     setCashSales(0)
     setTransferSales(0)
@@ -186,7 +205,7 @@ export default function CajaPanel() {
               <span className="text-sm font-bold text-zinc-700">Base en efectivo</span>
               <input type="number" inputMode="numeric" value={openingAmount} onChange={e => setOpeningAmount(e.target.value)} className={`${field} font-mono text-lg font-semibold`} />
             </label>
-            <button onClick={openCash} className="h-12 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white font-bold transition-colors">
+            <button onClick={openCash} disabled={opening} className="disabled:opacity-50 h-12 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white font-bold transition-colors">
               Abrir caja con {money(openingAmount)}
             </button>
           </div>

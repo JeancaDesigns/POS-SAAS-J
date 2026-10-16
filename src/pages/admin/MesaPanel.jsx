@@ -55,35 +55,43 @@ export default function MesasPanel() {
   async function saveZone() {
     if (!zoneForm.name) { setError('El nombre es obligatorio'); return }
     setSaving(true)
-    if (editZone) {
-      await supabase.from('zones').update({ name: zoneForm.name }).eq('id', editZone.id)
-    } else {
-      await supabase.from('zones').insert({ restaurant_id: user.restaurant_id, name: zoneForm.name })
-    }
-    setSaving(false); setShowZoneForm(false); fetchData()
+    const { error: saveError } = editZone
+      ? await supabase.from('zones').update({ name: zoneForm.name }).eq('id', editZone.id)
+      : await supabase.from('zones').insert({ restaurant_id: user.restaurant_id, name: zoneForm.name })
+    setSaving(false)
+    if (saveError) { setError('No se pudo guardar: ' + saveError.message); return }
+    setShowZoneForm(false); fetchData()
   }
 
   async function saveTable() {
     if (!tableForm.number || !tableForm.zone_id) { setError('Número y zona son obligatorios'); return }
+    const number = parseInt(tableForm.number)
+    // Número repetido en la misma zona: confunde a meseros y cocina
+    if (tables.some(t => t.number === number && t.zone_id === tableForm.zone_id && t.id !== editTable?.id)) {
+      setError(`Ya existe la mesa ${number} en esta zona`); return
+    }
     setSaving(true)
+    let saveError
     if (editTable) {
-      await supabase.from('tables').update({
+      ({ error: saveError } = await supabase.from('tables').update({
         number: parseInt(tableForm.number),
         capacity: tableForm.capacity ? parseInt(tableForm.capacity) : null,
         zone_id: tableForm.zone_id,
         is_delivery: tableForm.is_delivery,
-      }).eq('id', editTable.id)
+      }).eq('id', editTable.id))
     } else {
-      await supabase.from('tables').insert({
+      ({ error: saveError } = await supabase.from('tables').insert({
         restaurant_id: user.restaurant_id,
         number: parseInt(tableForm.number),
         capacity: tableForm.capacity ? parseInt(tableForm.capacity) : null,
         zone_id: tableForm.zone_id,
         is_delivery: tableForm.is_delivery,
         status: 'free',
-      })
+      }))
     }
-    setSaving(false); setShowTableForm(false); fetchData()
+    setSaving(false)
+    if (saveError) { setError('No se pudo guardar: ' + saveError.message); return }
+    setShowTableForm(false); fetchData()
   }
 
   async function deleteZone(zone) {
@@ -91,7 +99,10 @@ export default function MesasPanel() {
       alert('No puedes eliminar una zona con mesas. Elimina las mesas primero.')
       return
     }
-    await supabase.from('zones').delete().eq('id', zone.id)
+    const { error: delError } = await supabase.from('zones').delete().eq('id', zone.id)
+    if (delError) { alert('No se pudo eliminar la zona: ' + delError.message); return }
+    // Si era la zona seleccionada, pasar a otra (antes la vista quedaba vacía)
+    if (activeZone === zone.id) setActiveZone(zones.find(z => z.id !== zone.id)?.id || null)
     fetchData()
   }
 
@@ -100,7 +111,13 @@ export default function MesasPanel() {
       alert('No puedes eliminar una mesa ocupada o en espera de pago.')
       return
     }
-    await supabase.from('tables').delete().eq('id', table.id)
+    const { error: delError } = await supabase.from('tables').delete().eq('id', table.id)
+    if (delError) {
+      alert(delError.code === '23503'
+        ? 'No se puede eliminar: esta mesa tiene pedidos en el historial.'
+        : 'No se pudo eliminar la mesa: ' + delError.message)
+      return
+    }
     fetchData()
   }
 

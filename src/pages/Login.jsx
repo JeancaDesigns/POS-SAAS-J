@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
-import { useAuthStore, fetchProfile } from '../store/authStore'
+import { useAuthStore, fetchProfile, signOutAndClear } from '../store/authStore'
 import { useNavigate } from 'react-router-dom'
 import { useParams } from 'react-router-dom'
 
@@ -100,6 +100,12 @@ export default function Login() {
     const theme = restaurantData?.theme || 'purple'
     document.documentElement.setAttribute('data-theme', theme)
 
+    // El dev entra a cualquier restaurante: se recuerda cuál eligió para que al recargar
+    // la app no lo devuelva a su restaurante propio
+    try {
+      if (profile.roles.includes('dev')) sessionStorage.setItem('dev-restaurant-id', restaurant.id)
+    } catch { /* sin storage */ }
+
     setUser(effectiveProfile)
     useAuthStore.setState({
       slug,
@@ -113,6 +119,12 @@ export default function Login() {
     else if (profile.roles.includes('mesero')) navigate(`/${slug}/mesero`)
     else if (profile.roles.includes('admin')) navigate(`/${slug}/admin`)
     else if (profile.roles.includes('domiciliario')) navigate(`/${slug}/domiciliario`)
+    else if (profile.roles.includes('dev')) navigate(`/${slug}/admin`)
+    else {
+      // Sin ningún rol válido la pantalla se quedaba quieta, sin mensaje
+      setError('Este usuario no tiene un rol asignado. Pide a un administrador que te asigne uno.')
+      await signOutAndClear()
+    }
 
     setLoading(false)
   }

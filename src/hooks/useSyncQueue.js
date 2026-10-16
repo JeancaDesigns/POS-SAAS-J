@@ -3,6 +3,8 @@ import { db } from '../db/localDB'
 import { supabase } from '../supabaseClient'
 import { useOnlineStatus } from './useOnlineStatus'
 import { newId } from '../utils/uuid'
+import { liberarMesaSiQuedaVacia } from '../utils/mesas'
+import { marcarListoYDescontar } from '../utils/inventario'
 
 // Código de Postgres para "uuid inválido": la operación apunta a un id que nunca va a
 // existir (p. ej. ids "local_N" de versiones anteriores). Reintentarla no sirve.
@@ -123,14 +125,14 @@ export function useSyncQueue() {
         let error = null
 
         if (op.type === 'mark_item_done') {
-          const { error: e } = await supabase
-            .from('order_items')
-            .update({ status: 'done' })
-            .eq('id', op.payload.itemId)
+          // Igual que en línea: marca la línea y descuenta inventario (antes offline nunca descontaba)
+          const { error: e } = await marcarListoYDescontar({ itemId: op.payload.itemId })
           error = e
         }
 
         if (op.type === 'mark_order_done') {
+          // Las líneas pendientes también pasan a listas (antes quedaban "En cocina")
+          const { error: e0 } = await marcarListoYDescontar({ orderId: op.payload.orderId })
           const { error: e } = await supabase
             .from('orders')
             .update({
@@ -138,7 +140,7 @@ export function useSyncQueue() {
               delivered_at: op.payload.delivered_at
             })
             .eq('id', op.payload.orderId)
-          error = e
+          error = e0 || e
         }
 
         if (op.type === 'update_table_status') {
@@ -157,7 +159,9 @@ export function useSyncQueue() {
             await db.pendingOperations.update(op.id, { payload })
           }
           // order_id y table_id también son columnas de payments (antes se perdían)
-          const { paid_at, ...paymentData } = payload
+          const { paid_at, ...rest } = payload
+          // created_at = hora real del cobro: si no, el pago cae en la caja o el día de la sincronización
+          const paymentData = paid_at ? { ...rest, created_at: paid_at } : rest
 
           // 1º el pago (idempotente por id). Si falla, no marcar el pedido como pagado.
           const { error: e1 } = await supabase
@@ -168,9 +172,8 @@ export function useSyncQueue() {
           } else {
             const { error: e2 } = await supabase.from('orders')
               .update({ status: 'paid', paid_at }).eq('id', payload.order_id)
-            const { error: e3 } = await supabase.from('tables')
-              .update({ status: 'free' }).eq('id', payload.table_id)
-            error = e2 || e3
+            error = e2
+            if (!e2) await liberarMesaSiQuedaVacia(payload.table_id, payload.order_id)
           }
         }
 
@@ -188,7 +191,15 @@ export function useSyncQueue() {
   }
 
   useEffect(() => {
-    if (isOnline) syncPendingOrders()
+    if (!isOnline) return
+    syncPendingOrders()
+    // Si algo falló (p. ej. un error temporal de red), reintentar cada minuto
+    // en vez de esperar al próximo corte de internet
+    const id = setInterval(async () => {
+      const pending = await db.pendingOrders.count() + await db.pendingOperations.count()
+      if (pending > 0) syncPendingOrders()
+    }, 60000)
+    return () => clearInterval(id)
   }, [isOnline])
 
   return { syncPendingOrders }

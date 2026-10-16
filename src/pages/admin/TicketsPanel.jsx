@@ -5,6 +5,7 @@ import { fetchAll } from '../../utils/fetchAll'
 import { inicioJornada } from '../../utils/jornada'
 import { useAuthStore } from '../../store/authStore'
 import { precioUnitario } from '../../utils/precio'
+import { liberarMesaSiQuedaVacia } from '../../utils/mesas'
 
 
 export default function TicketsPanel() {
@@ -87,8 +88,18 @@ export default function TicketsPanel() {
     )
     if (!confirmed) return
     setDeletingId(order.id)
-    await supabase.from('payments').update({ voided: true }).eq('order_id', order.id)
-    await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id)
+    const { error: e1 } = await supabase.from('payments').update({ voided: true }).eq('order_id', order.id)
+    const { error: e2 } = e1 ? { error: null } : await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id)
+    if (e1 || e2) {
+      alert('No se pudo anular el pedido: ' + (e1 || e2).message)
+      setDeletingId(null)
+      return
+    }
+    // Un pedido abierto anulado sale de cocina y libera su mesa (antes la mesa quedaba ocupada)
+    if (order.status !== 'paid') {
+      await supabase.from('order_items').update({ status: 'cancelled' }).eq('order_id', order.id).neq('status', 'cancelled')
+      await liberarMesaSiQuedaVacia(order.table_id, order.id)
+    }
     setDeletingId(null)
     loadOrders()
   }

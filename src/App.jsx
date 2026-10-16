@@ -74,6 +74,7 @@ function RoleRedirect() {
   if (user.roles.includes('mesero')) return <Navigate to={`/${slug}/mesero`} />
   if (user.roles.includes('admin')) return <Navigate to={`/${slug}/admin`} />
   if (user.roles.includes('domiciliario')) return <Navigate to={`/${slug}/domiciliario`} />
+  if (user.roles.includes('dev')) return <Navigate to={`/${slug}/admin`} />
   return <Navigate to={`/${slug}/login`} />
 }
 

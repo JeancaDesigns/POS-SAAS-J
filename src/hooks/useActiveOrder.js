@@ -31,8 +31,11 @@ async function fetchOfflineOrder(tableId) {
   }
 }
 
-export function useActiveOrder(tableId) {
+// La mesa de domicilio puede tener varios pedidos activos a la vez (todos los pedidos web
+// caen en ella): se devuelven todos en `orders` y se elige uno con `orderId` (o el más reciente).
+export function useActiveOrder(tableId, orderId = null) {
   const [order, setOrder] = useState(null)
+  const [orders, setOrders] = useState([])
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -40,19 +43,22 @@ export function useActiveOrder(tableId) {
     if (!navigator.onLine) {
       const offline = await fetchOfflineOrder(tableId)
       setOrder(offline)
+      setOrders(offline ? [offline] : [])
       setItems(offline ? offline.items.filter(i => i.status !== 'cancelled') : [])
       setLoading(false)
       return
     }
 
-    const { data: orderData } = await supabase
+    const { data: list } = await supabase
       .from('orders')
       .select('*')
       .eq('table_id', tableId)
       .in('status', ACTIVE_STATUSES)
       .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
+
+    const all = list || []
+    const orderData = all.find(o => o.id === orderId) || all[0] || null
+    setOrders(all)
 
     if (!orderData) {
       setOrder(null)
@@ -83,10 +89,17 @@ export function useActiveOrder(tableId) {
         schema: 'public',
         table: 'order_items',
       }, () => fetchOrder())
+      // También cambios del pedido (cobrado, cancelado o movido desde otra pantalla)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'orders',
+        filter: `table_id=eq.${tableId}`,
+      }, () => fetchOrder())
       .subscribe()
 
     return () => supabase.removeChannel(channel)
-  }, [tableId])
+  }, [tableId, orderId])
 
-  return { order, items, loading, refetch: fetchOrder }
+  return { order, orders, items, loading, refetch: fetchOrder }
 }

@@ -59,9 +59,14 @@ export default function UsuariosPanel() {
     setSaving(true); setError('')
 
     if (editUser) {
-      await supabase.from('users')
+      // Quitarse el rol de admin a uno mismo deja el restaurante sin acceso al panel
+      if (editUser.id === user.id && !form.roles.some(r => ['admin', 'dev'].includes(r))) {
+        setError('No puedes quitarte tu propio rol de administrador'); setSaving(false); return
+      }
+      const { error } = await supabase.from('users')
         .update({ name: form.name, username: form.username, roles: form.roles })
         .eq('id', editUser.id)
+      if (error) { setError('No se pudo guardar: ' + error.message); setSaving(false); return }
     } else {
       const { data, error } = await supabase.functions.invoke('create-user', {
         body: {
@@ -82,7 +87,9 @@ export default function UsuariosPanel() {
   }
 
   async function toggleActive(u) {
-    await supabase.from('users').update({ active: !u.active }).eq('id', u.id)
+    if (u.id === user.id) { alert('No puedes desactivar tu propia cuenta'); return }
+    const { error } = await supabase.from('users').update({ active: !u.active }).eq('id', u.id)
+    if (error) { alert('No se pudo cambiar el estado: ' + error.message); return }
     fetchUsuarios()
   }
 

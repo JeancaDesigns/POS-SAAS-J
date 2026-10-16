@@ -5,6 +5,7 @@ import { useOnlineStatus } from '../../hooks/useOnlineStatus'
 import { db } from '../../db/localDB'
 import { cacheOrders, getCachedOrders } from '../../db/cacheHelpers'
 import { buildWhatsappLink } from '../../utils/whatsapp'
+import { marcarListoYDescontar } from '../../utils/inventario'
 
 // Los cancelados se muestran a cocina solo durante 12 h (o hasta que los descarte)
 const CANCELLED_VISIBLE_MS = 12 * 60 * 60 * 1000
@@ -65,8 +66,8 @@ function useCountdown(targetStr) {
 // Elementos que cocina debe preparar (las bebidas sin variantes no pasan por cocina)
 function kitchenItemsOf(order) {
   return order.items.filter(i =>
-    i.product?.category?.icon !== '🥤' && i.status !== 'cancelled' ||
-    (i.product?.variants?.length > 0)
+    i.status !== 'cancelled' &&
+    (i.product?.category?.icon !== '🥤' || i.product?.variants?.length > 0)
   )
 }
 
@@ -156,6 +157,11 @@ export default function CocinaHome() {
   const prevItemsRef = useRef({})
   const isOnline = useOnlineStatus()
   const [readyToNotify, setReadyToNotify] = useState(null)
+  const [busy, setBusy] = useState(false) // evita dobles toques mientras se guarda
+  // La suscripción en tiempo real guarda el fetchOrders del primer render: con un ref
+  // sabe qué comanda está abierta ahora (antes nunca sonaba el aviso de cambios)
+  const activeOrderIdRef = useRef(null)
+  useEffect(() => { activeOrderIdRef.current = activeOrderId }, [activeOrderId])
 
   const activeOrder = orders.find(o => o.id === activeOrderId) || null
   const dismissedKey = `cocina-descartados-${user.restaurant_id}`
@@ -184,19 +190,20 @@ export default function CocinaHome() {
       const newOrders = data || []
       await cacheOrders(newOrders, user.restaurant_id)
 
-      if (activeOrderId) {
-        const updated = newOrders.find(o => o.id === activeOrderId)
+      const currentId = activeOrderIdRef.current
+      if (currentId) {
+        const updated = newOrders.find(o => o.id === currentId)
         if (updated) {
           const currItems = JSON.stringify(
             updated.items.map(i => ({ id: i.id, qty: i.quantity, status: i.status, note: i.note }))
           )
-          const prevItems = prevItemsRef.current[activeOrderId]
+          const prevItems = prevItemsRef.current[currentId]
           if (prevItems && prevItems !== currItems) {
             playPing()
             setFlashing(true)
             setTimeout(() => setFlashing(false), 1500)
           }
-          prevItemsRef.current[activeOrderId] = currItems
+          prevItemsRef.current[currentId] = currItems
         }
       }
 
@@ -280,61 +287,13 @@ export default function CocinaHome() {
   }, [])
 
   async function markItemDone(itemId) {
+    if (busy) return
     if (isOnline) {
-      // ── Online — flujo normal ──────────────────────────────────
-      const { data: orderItem } = await supabase
-        .from('order_items')
-        .select('product_id, quantity')
-        .eq('id', itemId)
-        .single()
-
-      if (orderItem) {
-
-        const { data: recipe } = await supabase
-          .from('recipes')
-          .select('id')
-          .eq('product_id', orderItem.product_id)
-          .maybeSingle()
-
-
-        if (recipe) {
-          const { data: recipeItems } = await supabase
-            .from('recipe_items')
-            .select('inventory_item_id, quantity')
-            .eq('recipe_id', recipe.id)
-
-
-          for (const ingredient of (recipeItems || [])) {
-            const toDiscount = ingredient.quantity * orderItem.quantity
-            const { data: invItem } = await supabase
-              .from('inventory_items')
-              .select('stock')
-              .eq('id', ingredient.inventory_item_id)
-              .single()
-
-            if (invItem) {
-              const newStock = Math.max(0, invItem.stock - toDiscount)
-
-              const { error: updateError } = await supabase
-                .from('inventory_items')
-                .update({ stock: newStock, available: newStock > 0 })
-                .eq('id', ingredient.inventory_item_id)
-              if (updateError) console.error('Error descontando inventario:', updateError)
-
-              await supabase
-                .from('inventory_movements')
-                .insert({
-                  item_id: ingredient.inventory_item_id,
-                  type: 'out',
-                  quantity: toDiscount,
-                  reason: 'Descuento automático por pedido',
-                })
-            }
-          }
-        }
-      }
-
-      await supabase.from('order_items').update({ status: 'done' }).eq('id', itemId)
+      setBusy(true)
+      // Solo descuenta inventario si la línea de verdad pasó a "lista" (evita doble descuento)
+      const { error } = await marcarListoYDescontar({ itemId })
+      setBusy(false)
+      if (error) alert('No se pudo marcar como listo: ' + error.message)
 
     } else {
       // ── Offline — guardar en cola ──────────────────────────────
@@ -363,62 +322,25 @@ export default function CocinaHome() {
     const newTableStatus = isDelivery ? 'occupied' : 'waiting_payment'
     const delivered_at = new Date().toISOString()
 
+    if (busy) return
     if (isOnline) {
-      // ── Descontar inventario por cada ítem pendiente ──────────
-      const { data: pendingItems } = await supabase
-        .from('order_items')
-        .select('product_id, quantity')
-        .eq('order_id', order.id)
-        .not('status', 'in', '("done","cancelled")')
-
-      for (const orderItem of pendingItems) {
-        const { data: recipe } = await supabase
-          .from('recipes')
-          .select('id')
-          .eq('product_id', orderItem.product_id)
-          .maybeSingle()
-
-        if (recipe) {
-          const { data: recipeItems } = await supabase
-            .from('recipe_items')
-            .select('inventory_item_id, quantity')
-            .eq('recipe_id', recipe.id)
-
-          for (const ingredient of (recipeItems || [])) {
-            const toDiscount = ingredient.quantity * orderItem.quantity
-            const { data: invItem } = await supabase
-              .from('inventory_items')
-              .select('stock')
-              .eq('id', ingredient.inventory_item_id)
-              .single()
-
-            if (invItem) {
-              const newStock = Math.max(0, invItem.stock - toDiscount)
-              await supabase
-                .from('inventory_items')
-                .update({ stock: newStock, available: newStock > 0 })
-                .eq('id', ingredient.inventory_item_id)
-
-              await supabase
-                .from('inventory_movements')
-                .insert({
-                  item_id: ingredient.inventory_item_id,
-                  type: 'out',
-                  quantity: toDiscount,
-                  reason: 'Descuento automático por pedido',
-                })
-            }
-          }
-        }
+      setBusy(true)
+      try {
+        // Marca las líneas pendientes y descuenta inventario solo de esas
+        const { error } = await marcarListoYDescontar({ orderId: order.id })
+        if (error) throw error
+        const { error: e2 } = await supabase.from('orders').update({
+          status: newStatus,
+          delivered_at,
+        }).eq('id', order.id)
+        if (e2) throw e2
+        await supabase.from('tables').update({ status: newTableStatus }).eq('id', order.table_id)
+      } catch (err) {
+        alert('No se pudo marcar el pedido como listo: ' + (err.message || err))
+        return
+      } finally {
+        setBusy(false)
       }
-
-      // ── Marcar todo como done y entregar ──────────────────────
-      await supabase.from('order_items').update({ status: 'done' }).eq('order_id', order.id)
-      await supabase.from('orders').update({
-        status: newStatus,
-        delivered_at,
-      }).eq('id', order.id)
-      await supabase.from('tables').update({ status: newTableStatus }).eq('id', order.table_id)
 
     } else {
       await db.pendingOperations.add({
@@ -453,7 +375,7 @@ export default function CocinaHome() {
     const next = [...dismissedIds, order.id]
     setDismissedIds(next)
     try { localStorage.setItem(dismissedKey, JSON.stringify(next.slice(-200))) } catch { /* sin storage */ }
-    await supabase.from('tables').update({ status: 'free' }).eq('id', order.table_id)
+    // La mesa ya se liberó al cancelar; liberarla aquí pisaría un pedido nuevo en esa mesa
     setActiveOrderId(null)
   }
 
@@ -686,6 +608,7 @@ export default function CocinaHome() {
                         {!isDone && !isCancelledItem ? (
                           <button
                             onClick={() => markItemDone(item.id)}
+                            disabled={busy}
                             aria-label={`Marcar ${item.product.name} como listo`}
                             className="shrink-0 h-14 w-14 rounded-xl flex items-center justify-center text-white bg-[#16A34A] hover:bg-[#15803D] transition-colors active:scale-95"
                           >
@@ -711,6 +634,7 @@ export default function CocinaHome() {
                 ) : (
                   <button
                     onClick={() => markOrderDone(activeOrder)}
+                    disabled={busy}
                     className="w-full h-16 rounded-xl font-extrabold text-lg text-white bg-[#16A34A] hover:bg-[#15803D] transition-colors active:scale-[0.99]"
                   >
                     Pedido listo — entregar

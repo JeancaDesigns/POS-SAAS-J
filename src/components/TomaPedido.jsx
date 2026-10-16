@@ -8,6 +8,8 @@ import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import { db } from '../db/localDB'
 import { newId } from '../utils/uuid'
 import { useCartPersistence } from '../hooks/useCartPersistence'
+import { horaProgramadaISO } from '../utils/hora'
+import { ACTIVE_ORDER_STATUSES } from '../utils/mesas'
 
 const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
 // Una línea del carrito se identifica por producto + variante (la misma papa en dos tamaños son dos líneas)
@@ -65,12 +67,34 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
       return
     }
     setConfirming(true)
+    try {
+      await enviarPedido()
+    } catch (err) {
+      console.error(err)
+      alert('No se pudo guardar el pedido. Intenta de nuevo.')
+    } finally {
+      setConfirming(false)
+    }
+  }
 
-    const scheduledFor = scheduled
-      ? new Date(`${new Date().toDateString()} ${scheduled}`).toISOString()
-      : null
+  async function enviarPedido() {
+    const scheduledFor = horaProgramadaISO(scheduled)
 
     if (isOnline) {
+      // Otro mesero pudo abrir esta mesa mientras tanto: no crear un segundo pedido oculto.
+      // El carrito queda guardado y aparece como adición al abrir la mesa de nuevo.
+      if (!table.is_delivery) {
+        const { count } = await supabase.from('orders')
+          .select('id', { count: 'exact', head: true })
+          .eq('table_id', table.id)
+          .in('status', ACTIVE_ORDER_STATUSES)
+        if (count > 0) {
+          alert('Esta mesa ya tiene un pedido abierto. Vuelve a abrirla: tus productos quedan listos para agregar.')
+          onClose()
+          return
+        }
+      }
+
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -88,8 +112,13 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
         .single()
 
       if (orderError) {
+        // 23505 = la BD rechazó un segundo pedido en la mesa (migración 0600)
+        if (orderError.code === '23505') {
+          alert('Esta mesa ya tiene un pedido abierto. Vuelve a abrirla: tus productos quedan listos para agregar.')
+          onClose()
+          return
+        }
         alert('No se pudo crear el pedido. Intenta de nuevo.')
-        setConfirming(false)
         return
       }
 
@@ -109,14 +138,12 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
         // No dejar un pedido vacío en cocina: se borra y el carrito se conserva para reintentar
         await supabase.from('orders').delete().eq('id', order.id)
         alert('No se pudieron guardar los productos. El pedido no se envió; intenta de nuevo.')
-        setConfirming(false)
         return
       }
 
       await supabase.from('tables').update({ status: 'occupied' }).eq('id', table.id)
       sessionStorage.removeItem(`cart-mesa-${table.id}`)
       setItems([])
-      setConfirming(false)
       onConfirmed(order)
 
     } else {
@@ -156,7 +183,6 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
       })
       sessionStorage.removeItem(`cart-mesa-${table.id}`)
       setItems([])
-      setConfirming(false)
       onConfirmed(null)
     }
   }

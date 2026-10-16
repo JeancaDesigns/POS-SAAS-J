@@ -7,7 +7,10 @@ import { useOnlineStatus } from '../../hooks/useOnlineStatus'
 import { db } from '../../db/localDB'
 import { cacheOrders, getCachedOrders } from '../../db/cacheHelpers'
 import { buildWhatsappLink, getEstimatedTime } from '../../utils/whatsapp'
+import { orderTotal } from '../../utils/totales'
 import { precioUnitario } from '../../utils/precio'
+import { newId } from '../../utils/uuid'
+import { liberarMesaSiQuedaVacia } from '../../utils/mesas'
 import { inicioJornada } from '../../utils/jornada'
 import { useCajaResumen } from '../../hooks/useCajaResumen'
 import { Bell, Search } from 'lucide-react'
@@ -106,29 +109,6 @@ function tableName(order) {
   return `Mesa ${order.table?.number} · ${order.table?.zone?.name}`
 }
 
-// ─── Descuentos ──────────────────────────────────────────────────────────────
-// discount_type: 'percent' | 'fixed'. Aplica sobre un monto base y nunca deja el resultado negativo.
-function calcDiscount(baseAmount, discountType, discountValue) {
-  const val = Number(discountValue) || 0
-  if (!val || !discountType) return 0
-  if (discountType === 'percent') return Math.round(baseAmount * (Math.min(val, 100) / 100))
-  return Math.min(val, baseAmount) // fixed
-}
-
-// Total de un pedido incluyendo descuentos por producto (order_items) y descuento general (orders)
-function orderTotal(order, deliveryFee) {
-  const itemsTotal = order.items.filter(i => i.status !== 'cancelled')
-    .reduce((sum, i) => {
-      const lineTotal = precioUnitario(i) * i.quantity
-      const lineDiscount = calcDiscount(lineTotal, i.discount_type, i.discount_value)
-      return sum + (lineTotal - lineDiscount)
-    }, 0)
-  const isDelivery = order.delivery_type === 'delivery' && order.table?.is_delivery
-  const subtotal = itemsTotal + (isDelivery ? deliveryFee : 0)
-  const orderDiscount = calcDiscount(subtotal, order.discount_type, order.discount_value)
-  return subtotal - orderDiscount
-}
-
 // Un pedido se cobra cuando ya salió de cocina (mesa/recoger) o fue entregado (domicilio).
 // Misma regla para el botón del ticket y para handleCobrar.
 function puedeCobrar(order) {
@@ -216,12 +196,17 @@ export default function CajeroHome() {
   const canDiscount = user?.roles?.some(r => ['admin', 'dev'].includes(r))
   const [discountType, setDiscountType] = useState('percent')
   const [discountValue, setDiscountValue] = useState('')
-  const [deliveryFee, setDeliveryFee] = useState(0)
+  // Se recuerda en el dispositivo para cobrar bien los domicilios sin conexión
+  const feeKey = `delivery-fee-${user?.restaurant_id}`
+  const [deliveryFee, setDeliveryFee] = useState(() => {
+    try { return Number(localStorage.getItem(feeKey)) || 0 } catch { return 0 }
+  })
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [view, setView] = useState('cobrar') // 'cobrar' | 'curso' | 'historial'
   const [payMethod, setPayMethod] = useState('cash') // 'cash' | 'transfer' | 'mixed'
   const caja = useCajaResumen(user?.restaurant_id)
   const [cobrarOrder, setCobrarOrder] = useState(null)
+  const [paymentId, setPaymentId] = useState(null)
   const [efectivo, setEfectivo] = useState('')
   const [transferencia, setTransferencia] = useState('')
   const [historial, setHistorial] = useState([])
@@ -255,7 +240,9 @@ export default function CajeroHome() {
     if (!user?.restaurant_id || !isOnline) return
     supabase.from('restaurants').select('delivery_fee').eq('id', user.restaurant_id).single()
       .then(({ data }) => {
-        if (data) setDeliveryFee(data.delivery_fee || 0)
+        if (!data) return
+        setDeliveryFee(data.delivery_fee || 0)
+        try { localStorage.setItem(feeKey, String(data.delivery_fee || 0)) } catch { /* sin storage */ }
       })
   }, [user?.restaurant_id, isOnline])
 
@@ -396,111 +383,105 @@ export default function CajeroHome() {
       alert('El efectivo + transferencia debe ser igual al total')
       return
     }
+    const debtValue = fiado ? Number(debtAmount) || 0 : 0
+    if (fiado && sumaPagos + debtValue !== total) {
+      alert(`Lo pagado (${money(sumaPagos)}) + lo fiado (${money(debtValue)}) debe ser igual al total (${money(total)})`)
+      return
+    }
     setProcesando(true)
+    const payment = {
+      // id fijo por cobro: si algo falla y se reintenta, el pago no se duplica
+      id: paymentId || newId(),
+      restaurant_id: user.restaurant_id,
+      order_id: cobrarOrder.id,
+      table_id: cobrarOrder.table_id,
+      cash: parseInt(efectivo) || 0,
+      transfer: parseInt(transferencia) || 0,
+      total: sumaPagos, // lo que realmente pagó
+      voided: false,
+      is_delivery: cobrarOrder.delivery_type === 'delivery' && !!cobrarOrder.table?.is_delivery,
+    }
     try {
       if (isOnline) {
-        // Guardar el descuento en el pedido (solo si el usuario es admin/dev; la BD también lo valida vía trigger)
-        if (canDiscount && Number(discountValue) > 0) {
-          await supabase.from('orders')
-            .update({ discount_type: discountType, discount_value: Number(discountValue) })
+        // Cada paso se verifica: antes, si fallaba el pago el pedido igual quedaba "pagado"
+        const fail = (msg, error) => { throw new Error(`${msg}${error?.message ? `: ${error.message}` : ''}`) }
+
+        // Guardar el descuento en el pedido (solo admin/dev; la BD también lo valida vía trigger).
+        // También cuando lo quitan (0), para que el pedido no quede con un descuento que no se aplicó.
+        if (canDiscount && (Number(discountValue) > 0 || Number(cobrarOrder.discount_value) > 0)) {
+          const { error } = await supabase.from('orders')
+            .update({ discount_type: discountType, discount_value: Number(discountValue) || 0 })
             .eq('id', cobrarOrder.id)
+          if (error) fail('No se pudo guardar el descuento', error)
         }
 
-        // Registrar pago normal
-        await supabase.from('payments').insert({
-          restaurant_id: user.restaurant_id,
-          order_id: cobrarOrder.id,
-          table_id: cobrarOrder.table_id,
-          cash: parseInt(efectivo) || 0,
-          transfer: parseInt(transferencia) || 0,
-          total: sumaPagos, // lo que realmente pagó
-          voided: false,
-          is_delivery: cobrarOrder.delivery_type === 'delivery' && cobrarOrder.table?.is_delivery,
-        })
+        const { error: payError } = await supabase.from('payments')
+          .upsert(payment, { onConflict: 'id', ignoreDuplicates: true })
+        if (payError) fail('No se pudo registrar el pago', payError)
 
         // Registrar fiado si aplica
-        if (fiado && debtorName.trim() && Number(debtAmount) > 0) {
-          const debtValue = Number(debtAmount)
-
-          // Buscar o crear deudor
-          let debtorId = selectedDebtor?.id || null
-
-          if (!debtorId) {
-            // Intentar encontrar deudor existente con ese nombre
-            const { data: existing } = await supabase
-              .from('debtors')
-              .select('id, total_debt')
-              .eq('restaurant_id', user.restaurant_id)
-              .eq('name', debtorName.trim())
-              .maybeSingle()
-
-            if (existing) {
-              debtorId = existing.id
-              // Actualizar total
-              await supabase
-                .from('debtors')
-                .update({ total_debt: Number(existing.total_debt) + debtValue })
-                .eq('id', existing.id)
+        if (fiado && debtorName.trim() && debtValue > 0) {
+          // Reintento: si este pedido ya tiene su fiado registrado, no se suma otra vez
+          const { data: already } = await supabase.from('debt_movements')
+            .select('id').eq('order_id', cobrarOrder.id).eq('type', 'debt').limit(1)
+          if (!already?.length) {
+            let debtorId = selectedDebtor?.id || null
+            if (!debtorId) {
+              const { data: existing, error } = await supabase
+                .from('debtors').select('id')
+                .eq('restaurant_id', user.restaurant_id)
+                .eq('name', debtorName.trim())
+                .limit(1)
+              if (error) fail('No se pudo buscar el deudor', error)
+              debtorId = existing?.[0]?.id || null
+            }
+            if (debtorId) {
+              // Se lee el saldo justo antes de sumar (el de la lista puede estar viejo)
+              const { data: fresh, error: e1 } = await supabase
+                .from('debtors').select('total_debt').eq('id', debtorId).single()
+              if (e1) fail('No se pudo leer la deuda', e1)
+              const { error: e2 } = await supabase.from('debtors')
+                .update({ total_debt: Number(fresh.total_debt) + debtValue })
+                .eq('id', debtorId)
+              if (e2) fail('No se pudo actualizar la deuda', e2)
             } else {
-              // Crear nuevo deudor
-              const { data: newDebtor } = await supabase
-                .from('debtors')
-                .insert({
-                  restaurant_id: user.restaurant_id,
-                  name: debtorName.trim(),
-                  total_debt: debtValue,
-                })
-                .select()
-                .single()
+              const { data: newDebtor, error } = await supabase.from('debtors')
+                .insert({ restaurant_id: user.restaurant_id, name: debtorName.trim(), total_debt: debtValue })
+                .select().single()
+              if (error || !newDebtor) fail('No se pudo crear el deudor', error)
               debtorId = newDebtor.id
             }
-          } else {
-            // Actualizar total del deudor existente
-            await supabase
-              .from('debtors')
-              .update({ total_debt: Number(selectedDebtor.total_debt) + debtValue })
-              .eq('id', debtorId)
-          }
 
-          // Registrar movimiento de deuda
-          await supabase.from('debt_movements').insert({
-            debtor_id: debtorId,
-            order_id: cobrarOrder.id,
-            type: 'debt',
-            amount: debtValue,
-            note: `Fiado en ${tableName(cobrarOrder)}`,
-          })
+            const { error: mvError } = await supabase.from('debt_movements').insert({
+              debtor_id: debtorId,
+              order_id: cobrarOrder.id,
+              type: 'debt',
+              amount: debtValue,
+              note: `Fiado en ${tableName(cobrarOrder)}`,
+            })
+            if (mvError) fail('No se pudo registrar el fiado', mvError)
+          }
         }
 
-        await supabase.from('orders')
+        const { error: orderError } = await supabase.from('orders')
           .update({ status: 'paid', paid_at: new Date().toISOString() })
           .eq('id', cobrarOrder.id)
-        await supabase.from('tables')
-          .update({ status: 'free' })
-          .eq('id', cobrarOrder.table_id)
+        if (orderError) fail('El pago quedó registrado, pero no se pudo cerrar el pedido. Intenta cobrar de nuevo', orderError)
+
+        // La mesa de domicilio la comparten varios pedidos: solo se libera si no queda ninguno activo
+        await liberarMesaSiQuedaVacia(cobrarOrder.table_id, cobrarOrder.id)
 
       } else {
         // Offline — cola de sincronización
         await db.pendingOperations.add({
           type: 'register_payment',
-          payload: {
-            // id generado en el cliente: si la sincronización se reintenta, no duplica el pago
-            id: crypto.randomUUID(),
-            restaurant_id: user.restaurant_id,
-            order_id: cobrarOrder.id,
-            table_id: cobrarOrder.table_id,
-            cash: parseInt(efectivo) || 0,
-            transfer: parseInt(transferencia) || 0,
-            total: sumaPagos,
-            voided: false,
-            is_delivery: cobrarOrder.delivery_type === 'delivery' && cobrarOrder.table?.is_delivery,
-            paid_at: new Date().toISOString(),
-          },
+          payload: { ...payment, paid_at: new Date().toISOString() },
           created_at: new Date().toISOString(),
         })
       }
 
       setCobrarOrder(null)
+      setPaymentId(null)
       setEfectivo('')
       setRecibido('')
       setTransferencia('')
@@ -510,6 +491,8 @@ export default function CajeroHome() {
       setSelectedDebtor(null)
       setDiscountType('percent')
       setDiscountValue('')
+    } catch (err) {
+      alert(err.message || 'No se pudo cobrar. Intenta de nuevo.')
     } finally {
       setProcesando(false)
       refetch()
@@ -521,8 +504,10 @@ export default function CajeroHome() {
     const confirm = window.confirm('¿Anular este pago? Dejará de contar en caja y reportes.')
     if (!confirm) return
     // Anulación lógica: queda el registro para auditoría
-    await supabase.from('payments').update({ voided: true }).eq('id', payment.id)
+    const { error } = await supabase.from('payments').update({ voided: true }).eq('id', payment.id)
+    if (error) { alert('No se pudo anular el pago: ' + error.message); return }
     fetchHistorial()
+    caja.refresh()
   }
 
   const filteredHistorial = historial.filter(p => {
@@ -542,6 +527,7 @@ export default function CajeroHome() {
   // ─── Selección y filtros ─────────────────────────────────────────────────────
   function selectOrder(o) {
     setCobrarOrder(o)
+    setPaymentId(newId())
     setPayMethod('cash')
     setEfectivo(String(orderTotal(o, deliveryFee)))
     setTransferencia('0')
@@ -1044,6 +1030,7 @@ export default function CajeroHome() {
       {selectedOrder && (
         <PedidoActivo
           table={{ ...selectedOrder.table, id: selectedOrder.table_id }}
+          orderId={selectedOrder.id}
           onClose={() => { setSelectedOrder(null); refetch() }}
         />
       )}

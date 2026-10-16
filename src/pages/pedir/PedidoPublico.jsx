@@ -84,11 +84,14 @@ export default function PedidoPublico() {
   function isOpen(restaurant) {
     if (!restaurant?.opening_time || !restaurant?.closing_time) return true
 
-    const now = new Date()
     const [openH, openM] = restaurant.opening_time.split(':').map(Number)
     const [closeH, closeM] = restaurant.closing_time.split(':').map(Number)
 
-    const nowMinutes = now.getHours() * 60 + now.getMinutes()
+    // Hora del restaurante (Colombia), no la del celular del cliente
+    const [h, m] = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).format(new Date()).split(':').map(Number)
+    const nowMinutes = h * 60 + m
     const openMinutes = openH * 60 + openM
     const closeMinutes = closeH * 60 + closeM
 
@@ -176,17 +179,20 @@ export default function PedidoPublico() {
     })
   }
 
-  function removeProduct(productId) {
+  // Con variantes hay varias líneas del mismo producto: se quita de la variante indicada
+  // (o de la última agregada) y la cantidad suma todas las variantes
+  function removeProduct(productId, variant) {
     setItems(prev => {
-      const existing = prev.find(i => i.product.id === productId)
+      const lines = prev.filter(i => i.product.id === productId && (variant === undefined || i.variant === variant))
+      const existing = lines[lines.length - 1]
       if (!existing) return prev
-      if (existing.quantity === 1) return prev.filter(i => i.product.id !== productId)
-      return prev.map(i => i.product.id === productId ? { ...i, quantity: i.quantity - 1 } : i)
+      if (existing.quantity === 1) return prev.filter(i => i !== existing)
+      return prev.map(i => i === existing ? { ...i, quantity: i.quantity - 1 } : i)
     })
   }
 
   function getQuantity(productId) {
-    return items.find(i => i.product.id === productId)?.quantity || 0
+    return items.filter(i => i.product.id === productId).reduce((s, i) => s + i.quantity, 0)
   }
 
   const total = useMemo(() => {
@@ -228,7 +234,9 @@ export default function PedidoPublico() {
     if (error || !order) {
       alert(error?.message?.includes('mesa de domicilio')
         ? 'Error: no hay una mesa de domicilio configurada para este restaurante'
-        : 'Error creando pedido')
+        : error?.message?.includes('fuera del horario')
+          ? 'El restaurante está cerrado en este momento'
+          : 'Error creando pedido')
       setConfirming(false)
       return
     }

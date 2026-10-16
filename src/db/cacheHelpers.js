@@ -1,11 +1,16 @@
 import { db } from './localDB'
 
 export async function cacheOrders(orders, restaurantId) {
-  if (!orders?.length) return
+  if (!restaurantId || !Array.isArray(orders)) return
 
-  // Guardar pedidos
+  // Borrar siempre lo anterior: si hoy no hay pedidos, la caché no debe mostrar los ya pagados
+  const oldIds = await db.cachedOrders
+    .where('restaurant_id').equals(restaurantId).primaryKeys()
   await db.cachedOrders
     .where('restaurant_id').equals(restaurantId).delete()
+  if (oldIds.length > 0) await db.cachedOrderItems.where('order_id').anyOf(oldIds).delete()
+  if (orders.length === 0) return
+
   await db.cachedOrders.bulkPut(
     orders.map(({ items, table, ...order }) => order)
   )
