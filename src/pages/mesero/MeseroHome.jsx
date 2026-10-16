@@ -202,7 +202,7 @@ function MesaSVG({ status, number, isDelivery }) {
 }
 
 export default function MeseroHome() {
-  const { zones, tables, loading } = useTables()
+  const { zones, tables, loading, refetch } = useTables()
 
   const [activeZone, setActiveZone] = useState(null)
   const [showModal, setShowModal] = useState(false)
@@ -525,7 +525,12 @@ export default function MeseroHome() {
         <TomaPedido
           table={selectedTable}
           onClose={() => setSelectedTable(null)}
-          onConfirmed={() => setSelectedTable(null)}
+          onConfirmed={() => {
+            setSelectedTable(null)
+            // Offline no hay realtime: recargar para que la mesa se vea ocupada
+            // y no se tome un segundo pedido sobre ella
+            refetch()
+          }}
         />
       )}
 

@@ -50,13 +50,18 @@ export function useTables() {
         .then(arr => arr.sort((a, b) => a.number - b.number))
 
       // Aplicar estados pendientes de mesas
-      const pendingTableOps = await db.pendingOperations
-        .filter(op => op.type === 'update_table_status')
-        .toArray()
+      // (un cobro offline libera la mesa igual que update_table_status 'free')
+      const pendingTableOps = (await db.pendingOperations
+        .filter(op => ['update_table_status', 'register_payment'].includes(op.type))
+        .toArray())
+        .map(op => op.type === 'register_payment'
+          ? { tableId: op.payload.table_id, status: 'free' }
+          : op.payload)
 
+      // La última operación de cada mesa es la que vale (ej. ocupada → por cobrar)
       tbs = tbs.map(table => {
-        const op = pendingTableOps.find(o => o.payload.tableId === table.id)
-        return op ? { ...table, status: op.payload.status } : table
+        const op = [...pendingTableOps].reverse().find(o => o.tableId === table.id)
+        return op ? { ...table, status: op.status } : table
       })
 
       setZones(zns)
@@ -83,5 +88,5 @@ export function useTables() {
     return () => supabase.removeChannel(channel)
   }, [isOnline])
 
-  return { zones, tables, loading }
+  return { zones, tables, loading, refetch: fetchData }
 }
