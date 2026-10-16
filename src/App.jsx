@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useEffect, useState, useCallback } from 'react'
-import { useAuthStore } from './store/authStore'
+import { useAuthStore, signOutAndClear } from './store/authStore'
 import { useInactivityTimer } from './hooks/useInactivityTimer'
 import { useLocation, useParams } from 'react-router-dom'
 import { supabase } from './supabaseClient'
@@ -107,7 +107,7 @@ function ProtectedRoute({ children, roles }) {
 
 // ── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const { user, init, clearUser } = useAuthStore()
+  const { user, init } = useAuthStore()
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -118,10 +118,9 @@ export default function App() {
     location.pathname === '/dev'
 
   const handleInactivityLogout = useCallback(async () => {
-    await supabase.auth.signOut()
-    clearUser()
+    await signOutAndClear()
     navigate('/')
-  }, [clearUser, navigate])
+  }, [navigate])
 
   const { showWarning, countdown, cancelLogout } = useInactivityTimer(
     user && !isPublicRoute ? handleInactivityLogout : null

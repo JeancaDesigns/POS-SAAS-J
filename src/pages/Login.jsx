@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
-import { useAuthStore } from '../store/authStore'
+import { useAuthStore, fetchProfile } from '../store/authStore'
 import { useNavigate } from 'react-router-dom'
 import { useParams } from 'react-router-dom'
 
@@ -51,13 +51,9 @@ export default function Login() {
       return
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', authData.user.email)
-      .single()
+    const profile = await fetchProfile(authData.user)
 
-    if (profileError || !profile) {
+    if (!profile) {
       setError('Perfil no encontrado')
       await supabase.auth.signOut()
       setLoading(false)
@@ -73,7 +69,7 @@ export default function Login() {
 
     const { data: restaurant } = await supabase
       .from('restaurants')
-      .select('id')
+      .select('id, active')
       .eq('slug', slug)
       .single()
 

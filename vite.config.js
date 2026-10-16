@@ -27,7 +27,9 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/hthubjuykjrpupjmdpih\.supabase\.co\/.*/i,
+            // Solo catálogo (menú, mesas, config). Pedidos, pagos, usuarios y auth no se
+            // guardan en Cache Storage: offline se usan Dexie y la cola pendiente.
+            urlPattern: /^https:\/\/hthubjuykjrpupjmdpih\.supabase\.co\/rest\/v1\/(products|categories|zones|tables|restaurants)\b.*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'supabase-cache',

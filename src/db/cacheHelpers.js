@@ -101,3 +101,21 @@ export async function addPendingOrderToCache(localOrder, localItems, tables, zon
     }))
   )
 }
+// Al cerrar sesión: borrar datos cacheados (catálogo, pedidos, respuestas de la API)
+// para que el siguiente usuario del dispositivo no los vea. La cola pendiente
+// (pendingOrders / pendingOperations) se conserva para no perder ventas sin sincronizar.
+export async function clearLocalCache() {
+  try {
+    await Promise.all([
+      db.cachedCategories.clear(),
+      db.cachedProducts.clear(),
+      db.cachedZones.clear(),
+      db.cachedTables.clear(),
+      db.cachedOrders.clear(),
+      db.cachedOrderItems.clear(),
+    ])
+    if ('caches' in window) await caches.delete('supabase-cache')
+  } catch (e) {
+    console.error('No se pudo limpiar la caché local:', e)
+  }
+}
