@@ -8,6 +8,69 @@ import { useAuthStore } from '../../store/authStore'
 import { inicioJornada } from '../../utils/jornada'
 import { fetchAll } from '../../utils/fetchAll'
 
+// Ventas por día (últimos 14 días) — una serie, color de la marca, tooltip al pasar
+function DailySalesChart({ days }) {
+  const [hover, setHover] = useState(null)
+  const max = Math.max(1, ...days.map(d => d.total))
+  const money = n => `$${Math.round(n).toLocaleString('es-CO')}`
+  const best = days.reduce((a, d) => (d.total > (a?.total ?? -1) ? d : a), null)
+  const shown = hover != null ? days[hover] : null
+
+  return (
+    <div className="rounded-2xl bg-surface border border-zinc-200 shadow-card p-5 flex flex-col gap-4">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h3 className="text-base font-extrabold tracking-tight text-zinc-900">Ventas por día</h3>
+          <p className="text-sm text-zinc-500">Últimos 14 días · cobros registrados</p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{shown ? shown.label : 'Mejor día'}</p>
+          <p className="font-mono text-lg font-semibold text-zinc-900 tabular">{shown ? money(shown.total) : best ? `${money(best.total)}` : '—'}</p>
+          {!shown && best && <p className="text-xs text-zinc-500">{best.label}</p>}
+          {shown && <p className="text-xs text-zinc-500">{shown.count} cobro{shown.count !== 1 ? 's' : ''}</p>}
+        </div>
+      </div>
+
+      <div className="relative h-44" onMouseLeave={() => setHover(null)}>
+        {/* Líneas guía recesivas */}
+        {[0.5, 1].map(f => (
+          <div key={f} className="absolute inset-x-0 border-t border-dashed border-zinc-200" style={{ bottom: `${f * 100}%` }} aria-hidden="true" />
+        ))}
+        <div className="absolute inset-0 flex items-end gap-[2px]" aria-hidden="true">
+          {days.map((d, i) => (
+            <button
+              key={d.key}
+              type="button"
+              tabIndex={-1}
+              onMouseEnter={() => setHover(i)}
+              onFocus={() => setHover(i)}
+              onTouchStart={() => setHover(i)}
+              className="flex-1 h-full flex items-end group"
+            >
+              <span
+                className={`w-full rounded-t-[4px] transition-opacity ${hover == null || hover === i ? 'opacity-100' : 'opacity-40'} ${d.total ? 'bg-[var(--brand)]' : 'bg-zinc-200'}`}
+                style={{ height: `${Math.max(d.total ? 3 : 1.5, (d.total / max) * 100)}%` }}
+              />
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="flex justify-between text-[11px] font-semibold text-zinc-500" aria-hidden="true">
+        <span>{days[0]?.short}</span>
+        <span>{days[Math.floor(days.length / 2)]?.short}</span>
+        <span>{days[days.length - 1]?.short}</span>
+      </div>
+
+      {/* Vista de tabla para lectores de pantalla */}
+      <table className="sr-only">
+        <caption>Ventas por día, últimos 14 días</caption>
+        <thead><tr><th>Día</th><th>Ventas</th><th>Cobros</th></tr></thead>
+        <tbody>{days.map(d => <tr key={d.key}><td>{d.label}</td><td>{money(d.total)}</td><td>{d.count}</td></tr>)}</tbody>
+      </table>
+    </div>
+  )
+}
+
 export default function ReportesPanel() {
   const { user } = useAuthStore()
 
@@ -247,6 +310,31 @@ export default function ReportesPanel() {
     return Object.values(map).sort((a, b) => b.orders - a.orders).slice(0, 5)
   }, [orders])
 
+  // Últimos 14 días a partir de los pagos ya cargados (por fecha local)
+  const dailySales = useMemo(() => {
+    const all = monthlyReports.flatMap(r => r.payments)
+    const map = {}
+    all.forEach(p => {
+      const d = new Date(p.created_at)
+      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+      if (!map[key]) map[key] = { total: 0, count: 0 }
+      map[key].total += Number(p.total || 0)
+      map[key].count += 1
+    })
+    return [...Array(14)].map((_, i) => {
+      const d = new Date()
+      d.setDate(d.getDate() - (13 - i))
+      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+      return {
+        key,
+        total: map[key]?.total || 0,
+        count: map[key]?.count || 0,
+        label: d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'short' }),
+        short: d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' }),
+      }
+    })
+  }, [monthlyReports])
+
   const cards = [
     { title: 'Ventas hoy', value: `$${stats.totalSales.toLocaleString('es-CO')}`, icon: DollarSign, accent: 'text-[var(--brand-text)]', bg: 'bg-[var(--brand-light)]', border: 'border-[var(--brand-border)]' },
     { title: 'Pedidos', value: stats.totalOrders, icon: ShoppingBag, accent: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' },
@@ -270,38 +358,30 @@ export default function ReportesPanel() {
 
       {!loading && (
         <>
-          {/* ── Cards stats ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {cards.map(card => {
+          {/* ── Cifras del día ── */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="col-span-2 rounded-2xl bg-surface border border-[var(--brand)] border-[1.5px] shadow-card p-5 flex flex-col justify-between gap-3">
+              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Ventas de hoy</p>
+              <p className="font-mono text-4xl font-semibold tracking-tight text-zinc-900 tabular">${stats.totalSales.toLocaleString('es-CO')}</p>
+              <p className="text-sm text-zinc-500">
+                {stats.totalOrders} pedido{stats.totalOrders !== 1 ? 's' : ''} · ticket promedio <span className="font-mono font-semibold text-zinc-700">${Math.round(stats.averageTicket).toLocaleString('es-CO')}</span>
+              </p>
+            </div>
+            {cards.slice(2).map(card => {
               const Icon = card.icon
               return (
-                <div
-                  key={card.title}
-                  className={`
-                    rounded-2xl border p-5
-                    bg-surface
-                    shadow-card
-                  `}
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-sm text-zinc-400">{card.title}</p>
-                      <h2 className={`text-3xl font-black mt-2 ${card.accent}`}>
-                        {card.value}
-                      </h2>
-                    </div>
-                    <div className={`
-                      w-12 h-12 rounded-2xl
-                      flex items-center justify-center
-                      ${card.bg} ${card.border} border
-                    `}>
-                      <Icon size={22} className={card.accent} />
-                    </div>
+                <div key={card.title} className="rounded-2xl bg-surface border border-zinc-200 shadow-card p-4 flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{card.title}</p>
+                    <Icon size={16} className="text-zinc-400" aria-hidden="true" />
                   </div>
+                  <p className="font-mono text-2xl font-semibold text-zinc-900 tabular">{card.value}</p>
                 </div>
               )
             })}
           </div>
+
+          <DailySalesChart days={dailySales} />
 
           {/* ── Top productos + clientes ── */}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
