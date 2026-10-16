@@ -8,6 +8,8 @@ import { useAuthStore } from '../store/authStore'
 import { useCartPersistence } from '../hooks/useCartPersistence'
 import { precioUnitario } from '../utils/precio'
 import ProductPicker, { VariantSheet } from './ProductPicker'
+import { liberarMesaSiQuedaVacia } from '../utils/mesas'
+import { horaProgramadaISO } from '../utils/hora'
 
 const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
 const lineKey = (productId, variant) => `${productId}::${variant || ''}`
@@ -17,10 +19,11 @@ const ITEM_STATUS = {
   done: { text: 'Listo', cls: 'text-green-700' },
 }
 
-export default function PedidoActivo({ table, onClose }) {
+export default function PedidoActivo({ table, orderId = null, onClose }) {
   const { user } = useAuthStore()
   const isOnline = useOnlineStatus()
-  const { order, items, loading, refetch } = useActiveOrder(table.id)
+  const [selectedOrderId, setSelectedOrderId] = useState(orderId)
+  const { order, orders, items, loading, refetch } = useActiveOrder(table.id, selectedOrderId)
   const { categories, products } = useProducts()
 
   const [newItems, setNewItems] = useState([])
@@ -37,6 +40,7 @@ export default function PedidoActivo({ table, onClose }) {
   const [zonaSeleccionada, setZonaSeleccionada] = useState(null)
   const [moviendoMesa, setMoviendoMesa] = useState(false)
   const [variantModal, setVariantModal] = useState(null)
+  const [busyItem, setBusyItem] = useState(null) // evita que dos toques rápidos pierdan una unidad
   useCartPersistence(`cart-mesa-${table.id}`, newItems, setNewItems)
 
   const activeItems = items.filter(i => i.status !== 'cancelled')
@@ -73,17 +77,35 @@ export default function PedidoActivo({ table, onClose }) {
 
   // ── Productos ya enviados ───────────────────────────────────────────────────
   async function decreaseConfirmedItem(item) {
-    if (item.quantity === 1) {
-      await supabase.from('order_items').update({ status: 'cancelled' }).eq('id', item.id)
-    } else {
-      await supabase.from('order_items').update({ quantity: item.quantity - 1 }).eq('id', item.id)
-    }
-    refetch()
+    if (busyItem) return
+    setBusyItem(item.id)
+    const { error } = item.quantity === 1
+      ? await supabase.from('order_items').update({ status: 'cancelled' }).eq('id', item.id)
+      : await supabase.from('order_items').update({ quantity: item.quantity - 1 }).eq('id', item.id)
+    if (error) alert('No se pudo quitar el producto: ' + error.message)
+    await refetch()
+    setBusyItem(null)
   }
 
   async function increaseConfirmedItem(item) {
-    await supabase.from('order_items').update({ quantity: item.quantity + 1 }).eq('id', item.id)
-    refetch()
+    if (busyItem) return
+    setBusyItem(item.id)
+    // Si cocina ya lo marcó como listo, la unidad extra va como línea nueva pendiente;
+    // subir la cantidad de una línea "lista" hacía que cocina nunca la preparara
+    const { error } = item.status === 'done'
+      ? await supabase.from('order_items').insert({
+          order_id: item.order_id,
+          product_id: item.product_id,
+          quantity: 1,
+          note: item.note || null,
+          variant: item.variant || null,
+          status: 'pending',
+          kitchen_only: false,
+        })
+      : await supabase.from('order_items').update({ quantity: item.quantity + 1 }).eq('id', item.id)
+    if (error) alert('No se pudo agregar el producto: ' + error.message)
+    await refetch()
+    setBusyItem(null)
   }
 
   async function saveNote(itemId, note) {
@@ -111,9 +133,23 @@ export default function PedidoActivo({ table, onClose }) {
 
   async function moverPedido(nuevaMesa) {
     setMoviendoMesa(true)
-    await supabase.from('tables').update({ status: 'free' }).eq('id', table.id)
-    await supabase.from('tables').update({ status: 'occupied' }).eq('id', nuevaMesa.id)
-    await supabase.from('orders').update({ table_id: nuevaMesa.id }).eq('id', order.id)
+    // Primero el pedido: si esto falla, nada más cambia (antes la mesa vieja quedaba libre con el pedido adentro)
+    const { error } = await supabase.from('orders').update({ table_id: nuevaMesa.id }).eq('id', order.id)
+    if (error) {
+      alert('No se pudo mover el pedido: ' + error.message)
+      setMoviendoMesa(false)
+      return
+    }
+    await supabase.from('tables').update({ status: table.status === 'waiting_payment' ? 'waiting_payment' : 'occupied' }).eq('id', nuevaMesa.id)
+    await liberarMesaSiQuedaVacia(table.id)
+    // El carrito sin enviar se va con el pedido a la mesa nueva
+    try {
+      const pending = sessionStorage.getItem(`cart-mesa-${table.id}`)
+      if (pending) {
+        sessionStorage.setItem(`cart-mesa-${nuevaMesa.id}`, pending)
+        sessionStorage.removeItem(`cart-mesa-${table.id}`)
+      }
+    } catch { /* sin storage */ }
     setMoviendoMesa(false)
     setShowMoverMesa(false)
     onClose()
@@ -124,9 +160,14 @@ export default function PedidoActivo({ table, onClose }) {
     // Única confirmación del flujo: es irreversible
     if (!window.confirm('¿Cancelar TODO el pedido de esta mesa?')) return
     setCancelling(true)
+    const { error } = await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id)
+    if (error) {
+      alert('No se pudo cancelar el pedido: ' + error.message)
+      setCancelling(false)
+      return
+    }
     await supabase.from('order_items').update({ status: 'cancelled' }).eq('order_id', order.id)
-    await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id)
-    await supabase.from('tables').update({ status: 'free' }).eq('id', order.table_id)
+    await liberarMesaSiQuedaVacia(order.table_id, order.id)
     setCancelling(false)
     onClose()
   }
@@ -139,7 +180,7 @@ export default function PedidoActivo({ table, onClose }) {
   }
 
   async function handleAddMore() {
-    if (newItems.length === 0) return
+    if (newItems.length === 0 || !order) return
     setConfirming(true)
     const { error } = await supabase.from('order_items').insert(
       newItems.map(i => ({
@@ -159,7 +200,7 @@ export default function PedidoActivo({ table, onClose }) {
     }
     if (scheduledMore) {
       await supabase.from('orders').update({
-        scheduled_for: new Date(`${new Date().toDateString()} ${scheduledMore}`).toISOString()
+        scheduled_for: horaProgramadaISO(scheduledMore)
       }).eq('id', order.id)
     }
     setNewItems([])
@@ -214,7 +255,7 @@ export default function PedidoActivo({ table, onClose }) {
                         <span className="font-mono text-sm font-semibold text-zinc-900 tabular">{money(precioUnitario(item) * item.quantity)}</span>
                       </div>
                       <div className="flex items-center justify-between gap-2">
-                        <div className={`flex items-center rounded-lg border border-zinc-200 bg-surface ${!editable ? 'opacity-50 pointer-events-none' : ''}`}>
+                        <div className={`flex items-center rounded-lg border border-zinc-200 bg-surface ${!editable || busyItem === item.id ? 'opacity-50 pointer-events-none' : ''}`}>
                           <button onClick={() => decreaseConfirmedItem(item)} aria-label={`Quitar uno de ${item.product?.name}`} className="w-10 h-9 flex items-center justify-center text-zinc-600 hover:bg-zinc-50 rounded-l-lg"><Minus size={15} /></button>
                           <span className="w-8 text-center font-mono text-sm font-semibold text-zinc-900">{item.quantity}</span>
                           <button onClick={() => increaseConfirmedItem(item)} aria-label={`Agregar uno de ${item.product?.name}`} className="w-10 h-9 flex items-center justify-center text-zinc-600 hover:bg-zinc-50 rounded-r-lg"><Plus size={15} /></button>
@@ -383,6 +424,23 @@ export default function PedidoActivo({ table, onClose }) {
           </div>
         )}
       </header>
+
+      {/* Mesa de domicilio con varios pedidos activos: elegir cuál ver */}
+      {orders.length > 1 && (
+        <div role="tablist" aria-label="Pedidos de esta mesa" className="shrink-0 px-3 lg:px-5 py-2 flex gap-1.5 overflow-x-auto bg-surface border-b border-zinc-200">
+          {orders.map(o => (
+            <button
+              key={o.id}
+              role="tab"
+              aria-selected={o.id === order?.id}
+              onClick={() => { setSelectedOrderId(o.id); setNewItems([]) }}
+              className={`h-9 px-3 shrink-0 rounded-full border text-sm font-bold transition-colors ${o.id === order?.id ? 'bg-zinc-900 text-surface border-zinc-900' : 'bg-surface text-zinc-700 border-zinc-200 hover:bg-zinc-50'}`}
+            >
+              {o.order_number ? `#${String(o.order_number).padStart(3, '0')} · ` : ''}{o.customer_name || 'Pedido'}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="flex-1 min-h-0 flex">
         {/* Catálogo: siempre visible en escritorio */}

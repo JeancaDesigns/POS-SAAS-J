@@ -3,6 +3,7 @@ import { db } from '../db/localDB'
 import { supabase } from '../supabaseClient'
 import { useOnlineStatus } from './useOnlineStatus'
 import { newId } from '../utils/uuid'
+import { liberarMesaSiQuedaVacia } from '../utils/mesas'
 
 // Código de Postgres para "uuid inválido": la operación apunta a un id que nunca va a
 // existir (p. ej. ids "local_N" de versiones anteriores). Reintentarla no sirve.
@@ -170,9 +171,8 @@ export function useSyncQueue() {
           } else {
             const { error: e2 } = await supabase.from('orders')
               .update({ status: 'paid', paid_at }).eq('id', payload.order_id)
-            const { error: e3 } = await supabase.from('tables')
-              .update({ status: 'free' }).eq('id', payload.table_id)
-            error = e2 || e3
+            error = e2
+            if (!e2) await liberarMesaSiQuedaVacia(payload.table_id, payload.order_id)
           }
         }
 

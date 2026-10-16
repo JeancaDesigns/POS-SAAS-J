@@ -8,6 +8,7 @@ import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import { db } from '../db/localDB'
 import { newId } from '../utils/uuid'
 import { useCartPersistence } from '../hooks/useCartPersistence'
+import { horaProgramadaISO } from '../utils/hora'
 
 const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
 // Una línea del carrito se identifica por producto + variante (la misma papa en dos tamaños son dos líneas)
@@ -66,9 +67,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
     }
     setConfirming(true)
 
-    const scheduledFor = scheduled
-      ? new Date(`${new Date().toDateString()} ${scheduled}`).toISOString()
-      : null
+    const scheduledFor = horaProgramadaISO(scheduled)
 
     if (isOnline) {
       const { data: order, error: orderError } = await supabase
