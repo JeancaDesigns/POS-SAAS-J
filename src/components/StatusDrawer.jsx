@@ -6,7 +6,8 @@ import DevPanel from './DevPanel'
 import DebtPanel from './DebtPanel'
 import ReportsPanel from './ReportsPanel'
 import { useNavigate } from 'react-router-dom'
-import { LogOut, Wifi, WifiOff, Clock } from 'lucide-react'
+import { LogOut, Wifi, WifiOff, X, CreditCard, BarChart3, Wrench, ChevronRight } from 'lucide-react'
+import ModeSwitch from './ModeSwitch'
 
 export default function StatusDrawer() {
   const isOnline = useOnlineStatus()
@@ -64,213 +65,159 @@ export default function StatusDrawer() {
     : pendingCount > 0 ? `Sincronizando ${pendingCount}`
       : 'Conectado'
 
+  const tone = !isOnline ? 'offline' : pendingCount > 0 ? 'sync' : 'ok'
+  const toneStyles = {
+    offline: { box: 'bg-red-50 border-red-200', icon: 'text-red-600', title: 'text-red-700', sub: 'text-red-600' },
+    sync: { box: 'bg-yellow-50 border-yellow-200', icon: 'text-yellow-600', title: 'text-yellow-700', sub: 'text-yellow-600' },
+    ok: { box: 'bg-green-50 border-green-200', icon: 'text-green-600', title: 'text-green-700', sub: 'text-green-600' },
+  }[tone]
+
+  const menuItem = `
+    w-full h-12 px-3 rounded-xl flex items-center gap-3
+    text-sm font-semibold text-zinc-700
+    hover:bg-zinc-50 transition-colors
+  `
+
   return (
     <>
       {/* Overlay al abrir */}
       {open && (
         <div
-          className="fixed inset-0 z-[90] bg-black/20 backdrop-blur-[2px]"
+          className="fixed inset-0 z-[90] bg-black/30 backdrop-blur-[2px]"
           onClick={() => setOpen(false)}
         />
       )}
 
-      {/* Etiqueta lateral — siempre visible */}
+      {/* Pestaña lateral — siempre visible: estado de conexión y acceso al menú */}
       <button
         onClick={() => setOpen(prev => !prev)}
+        aria-label={`Estado: ${statusLabel}. Abrir menú`}
         className={`
-          fixed right-0 z-[100]
-          top-1/2 -translate-y-1/2
-          flex items-center gap-1.5 pb-2 pt-2
-          pl-2 pr-1 py-6
-          rounded-l-2xl
-          border border-r-0
-          shadow-[-4px_0_12px_rgba(0,0,0,0.08)]
-          transition-all duration-300
-          ${!isOnline
-            ? 'bg-red-50 border-red-200'
-            : pendingCount > 0
-              ? 'bg-yellow-50 border-yellow-200'
-              : 'bg-white border-zinc-200'
-          }
+          fixed right-0 z-[100] top-1/2 -translate-y-1/2
+          flex items-center gap-1.5 py-4 pl-1.5 pr-1
+          rounded-l-xl border border-r-0 shadow-card
+          transition-colors
+          ${tone === 'offline' ? 'bg-red-50 border-red-200'
+            : tone === 'sync' ? 'bg-yellow-50 border-yellow-200'
+              : 'bg-surface border-zinc-200'}
         `}
         style={{ writingMode: 'vertical-rl' }}
       >
-        <span className={`w-2 h-2 rounded-full shrink-0 ${statusColor} ${!isOnline || pendingCount > 0 ? 'animate-pulse' : ''}`} />
-        <span className={`
-          text-[11px] font-semibold tracking-wide
-          ${!isOnline ? 'text-red-500'
-            : pendingCount > 0 ? 'text-yellow-600'
-              : 'text-zinc-400'
-          }
-        `}>
+        <span className={`w-2 h-2 rounded-full shrink-0 ${statusColor} ${tone !== 'ok' ? 'animate-pulse' : ''}`} />
+        <span className={`text-[11px] font-semibold tracking-wide ${tone === 'offline' ? 'text-red-600' : tone === 'sync' ? 'text-yellow-600' : 'text-zinc-500'}`}>
           {statusLabel}
         </span>
       </button>
 
-      {/* Drawer */}
-      <div className={`
-        fixed top-0 right-0 bottom-0 z-[100]
-        w-72
-        bg-white
-        border-l border-zinc-200
-        shadow-[-8px_0_40px_rgba(0,0,0,0.10)]
-        flex flex-col
-        transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]
-        ${open ? 'translate-x-0' : 'translate-x-full'}
-      `}>
-
-        {/* Header drawer */}
-        <div className="flex items-center justify-between px-5 pt-8 pb-4 border-b border-zinc-100">
-          <h2 className="font-bold text-zinc-900 tracking-tight">Estado</h2>
+      {/* Panel */}
+      <aside
+        aria-label="Menú y estado"
+        className={`
+          fixed top-0 right-0 bottom-0 z-[100] w-80 max-w-[90vw]
+          bg-surface border-l border-zinc-200 shadow-pop
+          flex flex-col
+          transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]
+          ${open ? 'translate-x-0' : 'translate-x-full'}
+        `}
+      >
+        <div className="flex items-center justify-between px-5 pt-6 pb-4">
+          <h2 className="text-lg font-extrabold text-zinc-900 tracking-tight">Menú</h2>
           <button
             onClick={() => setOpen(false)}
-            className="text-sm font-semibold text-zinc-400 hover:text-zinc-600 transition-colors"
+            aria-label="Cerrar menú"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
           >
-            ✕
+            <X size={18} />
           </button>
         </div>
 
-        {/* Contenido */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
+        <div className="flex-1 overflow-y-auto px-5 pb-4 flex flex-col gap-5">
 
-          {/* Estado de conexión */}
-          <div className={`
-            rounded-2xl p-4 flex items-center gap-3
-            ${!isOnline
-              ? 'bg-red-50 border border-red-200'
-              : pendingCount > 0
-                ? 'bg-yellow-50 border border-yellow-200'
-                : 'bg-green-50 border border-green-200'
-            }
-          `}>
+          {/* Sesión */}
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-[var(--brand-light)] border border-[var(--brand-border)] text-[var(--brand-text)] flex items-center justify-center font-extrabold">
+              {user.name?.[0]?.toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <p className="font-bold text-zinc-900 truncate">{user.name}</p>
+              <p className="text-xs text-zinc-500 truncate capitalize">{user.roles.join(' · ')}</p>
+            </div>
+          </div>
+
+          {/* Conexión */}
+          <div className={`rounded-xl p-3.5 flex items-center gap-3 border ${toneStyles.box}`}>
             {!isOnline
-              ? <WifiOff size={20} className="text-red-500 shrink-0" />
-              : <Wifi size={20} className={pendingCount > 0 ? 'text-yellow-600 shrink-0' : 'text-green-600 shrink-0'} />
-            }
+              ? <WifiOff size={18} className={`${toneStyles.icon} shrink-0`} />
+              : <Wifi size={18} className={`${toneStyles.icon} shrink-0`} />}
             <div>
-              <p className={`font-semibold text-sm ${!isOnline ? 'text-red-600'
-                : pendingCount > 0 ? 'text-yellow-700'
-                  : 'text-green-700'
-                }`}>
+              <p className={`font-bold text-sm ${toneStyles.title}`}>
                 {!isOnline ? 'Sin conexión'
-                  : pendingCount > 0 ? 'Sincronizando...'
-                    : justSynced ? '¡Todo sincronizado!'
-                      : 'Conectado'
-                }
+                  : pendingCount > 0 ? 'Sincronizando…'
+                    : justSynced ? 'Todo sincronizado'
+                      : 'Conectado'}
               </p>
-              <p className={`text-xs mt-0.5 ${!isOnline ? 'text-red-400'
-                : pendingCount > 0 ? 'text-yellow-600'
-                  : 'text-green-600'
-                }`}>
+              <p className={`text-xs mt-0.5 ${toneStyles.sub}`}>
                 {!isOnline
-                  ? 'Los cambios se guardan localmente'
+                  ? 'Los cambios se guardan en este dispositivo'
                   : pendingCount > 0
                     ? `${pendingCount} operación${pendingCount !== 1 ? 'es' : ''} pendiente${pendingCount !== 1 ? 's' : ''}`
-                    : 'Todos los datos están actualizados'
-                }
+                    : 'Los datos están al día'}
               </p>
             </div>
           </div>
 
-          {/* Info usuario */}
-          <div className="rounded-2xl p-4 bg-zinc-50 border border-zinc-100">
-            <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-2">
-              SESIÓN ACTIVA
-            </p>
-            <p className="font-bold text-zinc-900">{user.name}</p>
-            <p className="text-sm text-zinc-400 mt-0.5">@{user.username}</p>
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {user.roles.map(r => (
-                <span
-                  key={r}
-                  className="text-xs px-2 py-0.5 rounded-full bg-[var(--brand-light)] border border-[var(--brand-border)] text-[var(--brand-text)] font-semibold capitalize"
-                >
-                  {r}
-                </span>
-              ))}
-            </div>
+          {/* Apariencia */}
+          <div className="flex flex-col gap-2">
+            <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Apariencia</p>
+            <ModeSwitch />
+            <p className="text-xs text-zinc-500">Se guarda solo en este dispositivo.</p>
           </div>
 
+          {/* Herramientas */}
+          {(isAdminOrCajero || isDev) && (
+            <div className="flex flex-col gap-1">
+              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">Herramientas</p>
+              {isAdminOrCajero && (
+                <button onClick={() => { setOpen(false); setShowDebtPanel(true) }} className={menuItem}>
+                  <CreditCard size={18} className="text-zinc-500" />
+                  <span className="flex-1 text-left">Gestión de deudas</span>
+                  <ChevronRight size={16} className="text-zinc-400" />
+                </button>
+              )}
+              {isAdminOrCajero && (
+                <button onClick={() => { setOpen(false); setShowReportsPanel(true) }} className={menuItem}>
+                  <BarChart3 size={18} className="text-zinc-500" />
+                  <span className="flex-1 text-left">Desglose de ventas</span>
+                  <ChevronRight size={16} className="text-zinc-400" />
+                </button>
+              )}
+              {isDev && (
+                <button onClick={() => { setOpen(false); setShowDevPanel(true) }} className={menuItem}>
+                  <Wrench size={18} className="text-[var(--brand-text)]" />
+                  <span className="flex-1 text-left">Panel de desarrollo</span>
+                  <ChevronRight size={16} className="text-zinc-400" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        {isDev && (
-          <button
-            onClick={() => { setOpen(false); setShowDevPanel(true) }}
-            className="
-              w-full py-3 rounded-2xl
-              flex items-center justify-center gap-2
-              text-sm font-semibold
-              text-[var(--brand-text)]
-              bg-[var(--brand-light)] border border-[var(--brand-border)]
-              hover:bg-[var(--brand-light)]
-              transition-all duration-200
-              active:scale-[0.98]
-              mb-3
-            "
-          >
-            <span className="text-xs font-black bg-violet-200 text-[var(--brand-text)] px-1.5 py-0.5 rounded-md">DEV</span>
-            Panel de desarrollo
-          </button>
-        )}
-
-        {isAdminOrCajero && (
-          <button
-            onClick={() => { setOpen(false); setShowDebtPanel(true) }}
-            className="
-              w-full py-3 rounded-2xl
-              flex items-center justify-center gap-2
-              text-sm font-semibold
-              text-red-600
-              bg-red-50 border border-red-200
-              hover:bg-red-100
-              transition-all duration-200
-              active:scale-[0.98]
-              mb-3
-            "
-          >
-            💳 Gestión de deudas
-          </button>
-        )}
-
-        {isAdminOrCajero && (
-          <button
-            onClick={() => { setOpen(false); setShowReportsPanel(true) }}
-            className="
-              w-full py-3 rounded-2xl
-              flex items-center justify-center gap-2
-              text-sm font-semibold
-              text-[var(--brand-text)]
-              bg-[var(--brand-light)] border border-[var(--brand-border)]
-              hover:bg-[var(--brand-light)]
-              transition-all duration-200
-              active:scale-[0.98]
-            "
-          >
-            📊 Desglose de ventas
-          </button>
-        )}
-
-        {/* Footer — logout */}
-        <div className="px-5 pb-8 pt-4 border-t border-zinc-100">
+        <div className="px-5 pb-6 pt-4 border-t border-zinc-200">
           <button
             onClick={handleLogout}
             className="
-              w-full py-3 rounded-2xl
+              w-full h-12 rounded-xl
               flex items-center justify-center gap-2
-              text-sm font-semibold
-              text-red-500 hover:text-red-600
-              bg-red-50 hover:bg-red-100
-              border border-red-200
-              transition-all duration-200
-              active:scale-[0.98]
+              text-sm font-bold text-red-600
+              border border-zinc-200 hover:bg-red-50 hover:border-red-200
+              transition-colors
             "
           >
             <LogOut size={16} />
             Cerrar sesión
           </button>
         </div>
-
-      </div>
+      </aside>
       {showDevPanel && <DevPanel onClose={() => setShowDevPanel(false)} />}
       {showDebtPanel && <DebtPanel onClose={() => setShowDebtPanel(false)} />}
       {showReportsPanel && <ReportsPanel onClose={() => setShowReportsPanel(false)} />}

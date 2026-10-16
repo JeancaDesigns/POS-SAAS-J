@@ -1,20 +1,33 @@
 import { useState } from 'react'
+import { ArrowLeft, Plus, Minus, X, StickyNote, Clock, ArrowRightLeft, Ban, Bike, Store } from 'lucide-react'
 import { useActiveOrder } from '../hooks/useActiveOrder'
 import { useProducts } from '../hooks/useProducts'
+import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import { supabase } from '../supabaseClient'
 import { useAuthStore } from '../store/authStore'
 import { useCartPersistence } from '../hooks/useCartPersistence'
 import { precioUnitario } from '../utils/precio'
+import ProductPicker, { VariantSheet } from './ProductPicker'
+
+const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
+const lineKey = (productId, variant) => `${productId}::${variant || ''}`
+
+const ITEM_STATUS = {
+  pending: { text: 'En cocina', cls: 'text-zinc-500' },
+  done: { text: 'Listo', cls: 'text-green-700' },
+}
 
 export default function PedidoActivo({ table, onClose }) {
   const { user } = useAuthStore()
+  const isOnline = useOnlineStatus()
   const { order, items, loading, refetch } = useActiveOrder(table.id)
   const { categories, products } = useProducts()
-  const [addingMore, setAddingMore] = useState(false)
-  const [activeCategory, setActiveCategory] = useState(null)
+
   const [newItems, setNewItems] = useState([])
-  const [noteTarget, setNoteTarget] = useState(null)
+  const [pickerOpen, setPickerOpen] = useState(false) // celular
   const [editingNote, setEditingNote] = useState(null)
+  const [noteDraft, setNoteDraft] = useState('')
+  const [editingNewNote, setEditingNewNote] = useState(null)
   const [confirming, setConfirming] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [scheduledMore, setScheduledMore] = useState('')
@@ -26,44 +39,39 @@ export default function PedidoActivo({ table, onClose }) {
   const [variantModal, setVariantModal] = useState(null)
   useCartPersistence(`cart-mesa-${table.id}`, newItems, setNewItems)
 
-  const displayCategory = activeCategory || categories[0]?.id
-  const categoryProducts = products.filter(p => p.category_id === displayCategory && p.available)
   const activeItems = items.filter(i => i.status !== 'cancelled')
   const total = activeItems.reduce((sum, i) => sum + precioUnitario(i) * i.quantity, 0)
   const newTotal = newItems.reduce((sum, i) => sum + i.product.price * i.quantity, 0)
+  const newCount = newItems.reduce((s, i) => s + i.quantity, 0)
+  const editable = isOnline && !!order
 
+  // ── Productos nuevos (adición) ──────────────────────────────────────────────
   function addProduct(product, variant = null) {
     if (product.variants?.length > 0 && !variant) {
       setVariantModal(product)
       return
     }
+    const key = lineKey(product.id, variant)
     setNewItems(prev => {
-      const existing = prev.find(i => i.product.id === product.id && i.variant === variant)
-      if (existing) return prev.map(i =>
-        i.product.id === product.id && i.variant === variant
-          ? { ...i, quantity: i.quantity + 1 }
-          : i
-      )
+      const existing = prev.find(i => lineKey(i.product.id, i.variant) === key)
+      if (existing) return prev.map(i => lineKey(i.product.id, i.variant) === key ? { ...i, quantity: i.quantity + 1 } : i)
       return [...prev, { product, quantity: 1, note: '', variant }]
     })
   }
 
-  function removeProduct(productId) {
-    setNewItems(prev => {
-      const existing = prev.find(i => i.product.id === productId)
-      if (existing?.quantity === 1) return prev.filter(i => i.product.id !== productId)
-      return prev.map(i => i.product.id === productId ? { ...i, quantity: i.quantity - 1 } : i)
-    })
+  function changeNewQty(key, delta) {
+    setNewItems(prev => prev
+      .map(i => lineKey(i.product.id, i.variant) === key ? { ...i, quantity: i.quantity + delta } : i)
+      .filter(i => i.quantity > 0))
   }
 
-  function getQuantity(productId) {
-    return newItems.find(i => i.product.id === productId)?.quantity || 0
+  function updateNewNote(key, note) {
+    setNewItems(prev => prev.map(i => lineKey(i.product.id, i.variant) === key ? { ...i, note } : i))
   }
 
-  function updateNewNote(productId, note) {
-    setNewItems(prev => prev.map(i => i.product.id === productId ? { ...i, note } : i))
-  }
+  const qtyOfProduct = productId => newItems.filter(i => i.product.id === productId).reduce((s, i) => s + i.quantity, 0)
 
+  // ── Productos ya enviados ───────────────────────────────────────────────────
   async function decreaseConfirmedItem(item) {
     if (item.quantity === 1) {
       await supabase.from('order_items').update({ status: 'cancelled' }).eq('id', item.id)
@@ -79,30 +87,22 @@ export default function PedidoActivo({ table, onClose }) {
   }
 
   async function saveNote(itemId, note) {
-    await supabase.from('order_items').update({ note }).eq('id', itemId)
+    await supabase.from('order_items').update({ note: note || null }).eq('id', itemId)
     setEditingNote(null)
     refetch()
   }
 
+  // ── Acciones del pedido ─────────────────────────────────────────────────────
   async function cargarMesas() {
     const { data: zonasData } = await supabase
-      .from('zones')
-      .select('*')
-      .eq('restaurant_id', user.restaurant_id)
-      .order('name')
-
+      .from('zones').select('*')
+      .eq('restaurant_id', user.restaurant_id).order('name')
     const { data: mesasData } = await supabase
-      .from('tables')
-      .select('*')
+      .from('tables').select('*')
       .eq('restaurant_id', user.restaurant_id)
-      .eq('status', 'free')
-      .eq('is_delivery', false)
-      .order('number')
+      .eq('status', 'free').eq('is_delivery', false).order('number')
 
-    const zonasConMesas = (zonasData || []).filter(zona =>
-      (mesasData || []).some(m => m.zone_id === zona.id)
-    )
-
+    const zonasConMesas = (zonasData || []).filter(zona => (mesasData || []).some(m => m.zone_id === zona.id))
     setZonas(zonasConMesas)
     setTodasMesas(mesasData || [])
     setZonaSeleccionada(zonasConMesas?.[0]?.id || null)
@@ -121,7 +121,7 @@ export default function PedidoActivo({ table, onClose }) {
 
   async function cancelFullOrder() {
     if (!order) return
-    // Única confirmación del flujo: es irreversible y el botón está junto a "Mover"
+    // Única confirmación del flujo: es irreversible
     if (!window.confirm('¿Cancelar TODO el pedido de esta mesa?')) return
     setCancelling(true)
     await supabase.from('order_items').update({ status: 'cancelled' }).eq('order_id', order.id)
@@ -141,7 +141,7 @@ export default function PedidoActivo({ table, onClose }) {
   async function handleAddMore() {
     if (newItems.length === 0) return
     setConfirming(true)
-    await supabase.from('order_items').insert(
+    const { error } = await supabase.from('order_items').insert(
       newItems.map(i => ({
         order_id: order.id,
         product_id: i.product.id,
@@ -152,498 +152,331 @@ export default function PedidoActivo({ table, onClose }) {
         kitchen_only: false,
       }))
     )
+    if (error) {
+      alert('No se pudieron agregar los productos. Intenta de nuevo.')
+      setConfirming(false)
+      return
+    }
     if (scheduledMore) {
       await supabase.from('orders').update({
         scheduled_for: new Date(`${new Date().toDateString()} ${scheduledMore}`).toISOString()
       }).eq('id', order.id)
     }
     setNewItems([])
-    setAddingMore(false)
+    setScheduledMore('')
+    setPickerOpen(false)
     setConfirming(false)
     refetch()
   }
 
-  // ─── Loading ────────────────────────────────────────────────────────────────
   if (loading) return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#F6F6F8]">
-      <p className="text-zinc-400 text-sm font-medium">Cargando pedido...</p>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-canvas">
+      <p className="text-zinc-500 text-sm font-medium">Cargando pedido…</p>
     </div>
   )
 
-  // ─── UI ─────────────────────────────────────────────────────────────────────
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-6"
-      style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
-    >
+  const title = table.is_delivery ? `Domicilio ${table.number}` : `Mesa ${String(table.number).padStart(2, '0')}`
+  const minutes = order?.started_at ? Math.max(0, Math.round((Date.now() - new Date(order.started_at)) / 60000)) : null
+  const mesasZona = todasMesas.filter(m => m.zone_id === zonaSeleccionada)
 
-      <div className="
-        w-full h-full
-        md:max-w-4xl md:h-[90vh] md:rounded-3xl
-        flex flex-col relative overflow-hidden
-        bg-white
-        shadow-2xl
-      ">
+  // ── Panel del pedido ────────────────────────────────────────────────────────
+  const orderPanel = (
+    <div className="flex flex-col h-full min-h-0">
+      <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-5">
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 pt-6 pb-3 border-b border-zinc-100">
-          <button
-            onClick={onClose}
-            className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors cursor-pointer"
-          >
-            ← Volver
-          </button>
-
-          <h2 className="text-zinc-900 font-bold text-lg tracking-tight">
-            {table.is_delivery ? `Domicilio ${table.number}` : `Mesa ${table.number}`}
-          </h2>
-
-          <div className="flex flex-col items-end gap-1">
-            <button
-              onClick={cargarMesas}
-              className="text-sm font-semibold cursor-pointer text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
-            >
-              Mover
-            </button>
-            <button
-              onClick={cancelFullOrder}
-              disabled={cancelling}
-              className="text-sm font-semibold cursor-pointer text-red-500 hover:text-red-600 transition-colors disabled:opacity-50"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-
-        {/* Info domicilio */}
-        {table.is_delivery && order?.customer_name && (
-          <div className="mx-4 mt-3 rounded-2xl px-4 py-3 bg-[var(--brand-light)] border border-[var(--brand-border)]">
-            <p className="text-xs font-semibold mb-1 text-[var(--brand-text)] tracking-wide">CLIENTE</p>
-            <p className="text-zinc-900 font-semibold">{order.customer_name}</p>
-            {order.customer_phone && (
-              <p className="text-sm text-[var(--brand-text)]">{order.customer_phone}</p>
-            )}
-            <button
-              onClick={toggleDeliveryType}
-              className={`
-                mt-2 w-full py-1.5 rounded-xl cursor-pointer text-sm font-semibold
-                border transition-all duration-200
-                ${order.delivery_type === 'delivery'
-                  ? 'bg-[var(--brand-light)] text-[var(--brand-text)] border-[var(--brand-border)] hover:bg-violet-200'
-                  : 'bg-zinc-50 text-zinc-400 border-zinc-200 hover:bg-zinc-100'
-                }
-              `}
-            >
-              {order.delivery_type === 'delivery'
-                ? '🛵 A domicilio — cambiar a recoger'
-                : '🏠 Recoge en local — cambiar a domicilio'
-              }
-            </button>
-          </div>
+        {!isOnline && (
+          <p className="rounded-xl px-3.5 py-2.5 text-sm font-semibold bg-yellow-50 border border-yellow-200 text-yellow-700">
+            Sin conexión: puedes ver el pedido, pero los cambios se habilitan al volver la conexión.
+          </p>
         )}
 
-        {!addingMore ? (
-          <>
-            {/* Lista pedido activo */}
-            <div className="flex-1 overflow-y-auto px-4 py-3">
-              <p className="text-xs font-semibold mb-3 text-[var(--brand-text)] tracking-wide">
-                PEDIDO ACTIVO
-              </p>
-
-              <div className="flex flex-col gap-2">
-                {activeItems.map(item => (
-                  <div
-                    key={item.id}
-                    className="rounded-2xl p-4 bg-zinc-50 border border-zinc-100"
-                  >
-                    <div className="flex items-center justify-between">
-                      <p className="text-zinc-900 font-semibold">{item.product.name}</p>
-                      {item.variant && (
-                        <p className="text-xs font-semibold text-[var(--brand-text)]">→ {item.variant}</p>
-                      )}
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => decreaseConfirmedItem(item)}
-                          className="
-                            w-8 h-8 rounded-full cursor-pointer
-                            flex items-center justify-center
-                            font-bold text-red-500
-                            bg-red-50 border border-red-200
-                            hover:bg-red-100 transition-colors
-                          "
-                        >
-                          −
-                        </button>
-                        <span className="text-zinc-900 font-bold w-4 text-center">
-                          {item.quantity}
-                        </span>
-                        <button
-                          onClick={() => increaseConfirmedItem(item)}
-                          className="
-                            w-8 h-8 rounded-full cursor-pointer
-                            flex items-center justify-center
-                            font-bold text-[var(--brand-text)]
-                            bg-[var(--brand-light)] border border-[var(--brand-border)]
-                            hover:bg-[var(--brand-light)] transition-colors
-                          "
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center mt-1">
-                      <span className="text-sm font-bold text-[var(--brand-text)]">
-                        ${(precioUnitario(item) * item.quantity).toLocaleString('es-CO')}
-                      </span>
-                      {editingNote === item.id ? (
-                        <input
-                          autoFocus
-                          type="text"
-                          defaultValue={item.note || ''}
-                          onBlur={e => saveNote(item.id, e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && saveNote(item.id, e.target.value)}
-                          className="
-                            rounded-xl px-3 py-1 text-zinc-800 text-xs outline-none w-40
-                            bg-white border border-[var(--brand-border)]
-                            focus:border-[var(--brand)] transition-colors
-                          "
-                        />
-                      ) : (
-                        <button
-                          onClick={() => setEditingNote(item.id)}
-                          className={`text-xs cursor-pointer transition-colors ${
-                            item.note ? 'text-[var(--brand-text)]' : 'text-zinc-300 hover:text-zinc-400'
-                          }`}
-                        >
-                          {item.note ? `📝 ${item.note}` : '+ Nota'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Footer pedido activo */}
-            <div className="px-4 pb-24 pt-3 md:pb-4 border-t border-zinc-100 bg-white">
-              <div className="flex justify-between mb-4">
-                <span className="text-zinc-400">Total</span>
-                <span className="text-zinc-900 font-bold text-lg">
-                  ${total.toLocaleString('es-CO')}
-                </span>
-              </div>
-              <button
-                onClick={() => setAddingMore(true)}
-                className="
-                  w-full cursor-pointer text-white font-bold
-                  rounded-2xl py-4
-                  bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-                  shadow-[0_4px_20px_var(--brand-shadow)
-                  transition-all duration-200
-                  active:scale-[0.98]
-                "
-              >
-                + Agregar más ítems
-              </button>
-            </div>
-          </>
+        {!order ? (
+          <p className="py-10 text-center text-sm text-zinc-500">Esta mesa no tiene un pedido activo.</p>
         ) : (
-          <>
-            {/* Tabs categorías */}
-            <div className="flex gap-2 px-4 py-3 overflow-x-auto border-b border-zinc-100">
-              {categories.map(cat => (
-                <button
-                  key={cat.id}
-                  onClick={() => setActiveCategory(cat.id)}
-                  className={`
-                    px-4 py-1.5 cursor-pointer rounded-full
-                    text-sm font-semibold whitespace-nowrap
-                    border transition-all duration-200
-                    ${displayCategory === cat.id
-                      ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
-                      : 'bg-white text-zinc-400 border-zinc-200 hover:border-[var(--brand-border)] hover:text-[var(--brand-text)]'
-                    }
-                  `}
-                >
-                  {cat.icon && <span className="mr-1">{cat.icon}</span>}
-                  {cat.name}
-                </button>
-              ))}
-            </div>
-
-            {/* Lista productos */}
-            <div className="flex-1 overflow-y-auto px-4 py-3 sm:pb-3 pb-[90px]">
-              <div className="flex flex-col gap-2">
-                {categoryProducts.map(product => {
-                  const qty = getQuantity(product.id)
-                  const item = newItems.find(i => i.product.id === product.id)
+          <section aria-label="En el pedido" className="flex flex-col gap-2">
+            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">En el pedido</h3>
+            {activeItems.length === 0 ? (
+              <p className="text-sm text-zinc-500 py-4">Sin productos</p>
+            ) : (
+              <ul className="flex flex-col divide-y divide-zinc-100">
+                {activeItems.map(item => {
+                  const st = ITEM_STATUS[item.status] || ITEM_STATUS.pending
                   return (
-                    <div
-                      key={product.id}
-                      className="rounded-2xl p-4 bg-zinc-50 border border-zinc-100"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-zinc-900 font-semibold">{product.name}</p>
-                          <p className="text-sm font-bold mt-0.5 text-[var(--brand-text)]">
-                            ${product.price.toLocaleString('es-CO')}
+                    <li key={item.id} className="py-3 flex flex-col gap-2">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-zinc-900">{item.product?.name}</p>
+                          <p className="text-xs mt-0.5">
+                            {item.variant && <span className="font-semibold text-[var(--brand-text)]">{item.variant} · </span>}
+                            <span className={`font-semibold ${st.cls}`}>{st.text}</span>
                           </p>
                         </div>
-                        <div className="flex items-center gap-3">
-                          {qty > 0 && (
-                            <>
-                              <button
-                                onClick={() => removeProduct(product.id)}
-                                className="
-                                  w-8 h-8 rounded-full cursor-pointer
-                                  flex items-center justify-center
-                                  font-bold text-red-500
-                                  bg-red-50 border border-red-200
-                                  hover:bg-red-100 transition-colors
-                                "
-                              >
-                                −
-                              </button>
-                              <span className="text-zinc-900 font-bold w-4 text-center">{qty}</span>
-                            </>
-                          )}
-                          <button
-                            onClick={() => addProduct(product)}
-                            className="
-                              w-8 h-8 rounded-full cursor-pointer
-                              flex items-center justify-center
-                              font-bold text-white
-                              bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-                              transition-colors
-                            "
-                          >
-                            +
-                          </button>
-                        </div>
+                        <span className="font-mono text-sm font-semibold text-zinc-900 tabular">{money(precioUnitario(item) * item.quantity)}</span>
                       </div>
-
-                      {qty > 0 && (
-                        <div className="mt-2">
-                          {noteTarget === product.id ? (
-                            <input
-                              autoFocus
-                              type="text"
-                              placeholder="Ej: sin cebolla"
-                              value={item?.note || ''}
-                              onChange={e => updateNewNote(product.id, e.target.value)}
-                              onBlur={() => setNoteTarget(null)}
-                              className="
-                                w-full rounded-xl px-3 py-1.5
-                                text-zinc-800 text-sm outline-none
-                                bg-white border border-[var(--brand-border)]
-                                focus:border-[var(--brand)] transition-colors
-                              "
-                            />
-                          ) : (
-                            <button
-                              onClick={() => setNoteTarget(product.id)}
-                              className={`text-xs cursor-pointer transition-colors ${
-                                item?.note ? 'text-[var(--brand-text)]' : 'text-zinc-300 hover:text-zinc-400'
-                              }`}
-                            >
-                              {item?.note ? `📝 ${item.note}` : '+ Agregar nota'}
-                            </button>
-                          )}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className={`flex items-center rounded-lg border border-zinc-200 bg-surface ${!editable ? 'opacity-50 pointer-events-none' : ''}`}>
+                          <button onClick={() => decreaseConfirmedItem(item)} aria-label={`Quitar uno de ${item.product?.name}`} className="w-10 h-9 flex items-center justify-center text-zinc-600 hover:bg-zinc-50 rounded-l-lg"><Minus size={15} /></button>
+                          <span className="w-8 text-center font-mono text-sm font-semibold text-zinc-900">{item.quantity}</span>
+                          <button onClick={() => increaseConfirmedItem(item)} aria-label={`Agregar uno de ${item.product?.name}`} className="w-10 h-9 flex items-center justify-center text-zinc-600 hover:bg-zinc-50 rounded-r-lg"><Plus size={15} /></button>
                         </div>
-                      )}
-                    </div>
+                        <button
+                          disabled={!editable}
+                          onClick={() => { setEditingNote(item.id); setNoteDraft(item.note || '') }}
+                          className={`h-9 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50 ${item.note ? 'text-orange-700 bg-orange-50' : 'text-zinc-500 hover:bg-zinc-100'}`}
+                        >
+                          <StickyNote size={14} aria-hidden="true" />
+                          {item.note ? 'Editar nota' : 'Nota'}
+                        </button>
+                      </div>
+                      {editingNote === item.id ? (
+                        <div className="flex gap-2">
+                          <input
+                            autoFocus
+                            value={noteDraft}
+                            onChange={e => setNoteDraft(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && saveNote(item.id, noteDraft)}
+                            placeholder="Ej: sin cebolla"
+                            aria-label={`Nota para ${item.product?.name}`}
+                            className="flex-1 h-10 px-3 rounded-lg bg-surface border border-zinc-300 text-sm text-zinc-900 outline-none focus:border-[var(--brand)] placeholder:text-zinc-400"
+                          />
+                          <button onClick={() => saveNote(item.id, noteDraft)} className="h-10 px-3 rounded-lg bg-zinc-900 text-surface text-sm font-bold">Guardar</button>
+                        </div>
+                      ) : item.note ? (
+                        <p className="text-xs text-orange-700">Nota: {item.note}</p>
+                      ) : null}
+                    </li>
                   )
                 })}
-              </div>
-            </div>
-
-            {/* Footer agregar más */}
-            {newItems.length > 0 && (
-              <div className="px-4 pb-24 pt-3 md:pb-4 border-t border-zinc-100 bg-white">
-                <div className="flex justify-between mb-3">
-                  <span className="text-zinc-400 text-sm">
-                    {newItems.reduce((s, i) => s + i.quantity, 0)} ítems nuevos
-                  </span>
-                  <span className="font-bold text-[var(--brand-text)]">
-                    +${newTotal.toLocaleString('es-CO')}
-                  </span>
-                </div>
-                <div className="mb-3">
-                  <p className="text-xs mb-1 text-[var(--brand-text)] font-medium">
-                    ¿Programar entrega? (opcional)
-                  </p>
-                  <input
-                    type="time"
-                    value={scheduledMore}
-                    onChange={e => setScheduledMore(e.target.value)}
-                    className="
-                      w-full rounded-xl px-4 py-2
-                      text-zinc-800 text-sm outline-none
-                      bg-zinc-50 border border-zinc-200
-                      focus:border-[var(--brand-border)] transition-colors
-                    "
-                  />
-                </div>
-                <button
-                  onClick={handleAddMore}
-                  disabled={confirming}
-                  className="
-                    w-full cursor-pointer text-white font-bold
-                    rounded-2xl py-4
-                    bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-                    shadow-[0_4px_20px_var(--brand-shadow)
-                    transition-all duration-200
-                    active:scale-[0.98]
-                    disabled:opacity-50
-                  "
-                >
-                  {confirming ? 'Agregando...' : 'Confirmar adición'}
-                </button>
-              </div>
+              </ul>
             )}
-          </>
+          </section>
+        )}
+
+        {newItems.length > 0 && (
+          <section aria-label="Por agregar" className="flex flex-col gap-2 p-3.5 rounded-xl border border-[var(--brand-border)] bg-[var(--brand-light)]">
+            <h3 className="text-xs font-bold text-[var(--brand-text)] uppercase tracking-wider">Por agregar</h3>
+            <ul className="flex flex-col divide-y divide-[var(--brand-border)]">
+              {newItems.map(i => {
+                const key = lineKey(i.product.id, i.variant)
+                return (
+                  <li key={key} className="py-2.5 flex flex-col gap-2">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-zinc-900">{i.product.name}</p>
+                        {i.variant && <p className="text-xs font-semibold text-[var(--brand-text)]">{i.variant}</p>}
+                      </div>
+                      <span className="font-mono text-sm font-semibold text-zinc-900 tabular">{money(i.product.price * i.quantity)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center rounded-lg border border-zinc-200 bg-surface">
+                        <button onClick={() => changeNewQty(key, -1)} aria-label={`Quitar uno de ${i.product.name}`} className="w-10 h-9 flex items-center justify-center text-zinc-600 hover:bg-zinc-50 rounded-l-lg"><Minus size={15} /></button>
+                        <span className="w-8 text-center font-mono text-sm font-semibold text-zinc-900">{i.quantity}</span>
+                        <button onClick={() => changeNewQty(key, 1)} aria-label={`Agregar uno de ${i.product.name}`} className="w-10 h-9 flex items-center justify-center text-zinc-600 hover:bg-zinc-50 rounded-r-lg"><Plus size={15} /></button>
+                      </div>
+                      <button
+                        onClick={() => setEditingNewNote(editingNewNote === key ? null : key)}
+                        className={`h-9 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 ${i.note ? 'text-orange-700 bg-orange-50' : 'text-zinc-600 hover:bg-surface'}`}
+                      >
+                        <StickyNote size={14} aria-hidden="true" /> {i.note ? 'Editar nota' : 'Nota'}
+                      </button>
+                    </div>
+                    {editingNewNote === key ? (
+                      <input
+                        autoFocus
+                        value={i.note}
+                        onChange={e => updateNewNote(key, e.target.value)}
+                        onBlur={() => setEditingNewNote(null)}
+                        onKeyDown={e => e.key === 'Enter' && setEditingNewNote(null)}
+                        placeholder="Ej: sin cebolla"
+                        aria-label={`Nota para ${i.product.name}`}
+                        className="h-10 px-3 rounded-lg bg-surface border border-zinc-300 text-sm text-zinc-900 outline-none focus:border-[var(--brand)] placeholder:text-zinc-400"
+                      />
+                    ) : i.note ? <p className="text-xs text-orange-700">Nota: {i.note}</p> : null}
+                  </li>
+                )
+              })}
+            </ul>
+            <label className="flex items-center justify-between gap-3 pt-2">
+              <span className="text-sm font-bold text-zinc-700 flex items-center gap-1.5"><Clock size={15} aria-hidden="true" /> Programar (opcional)</span>
+              <input
+                type="time"
+                value={scheduledMore}
+                onChange={e => setScheduledMore(e.target.value)}
+                className="h-10 px-2 rounded-lg bg-surface border border-zinc-300 text-sm text-zinc-900 outline-none focus:border-[var(--brand)]"
+              />
+            </label>
+          </section>
         )}
       </div>
 
-      {/* Modal mover mesa — pega aquí la continuación */}
-      {/* Modal — Mover mesa */}
-      {showMoverMesa && (
-        <div
-          className="fixed inset-0 z-[60] flex items-end justify-center"
-          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
-        >
-          <div className="
-            w-full max-w-lg
-            bg-white
-            rounded-t-3xl
-            border border-b-0 border-zinc-200
-            shadow-[0_-8px_40px_rgba(0,0,0,0.10)]
-            p-6 pb-[90px] sm:pb-6
-          ">
+      <div className="p-5 border-t border-zinc-200 bg-surface-2 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-bold text-zinc-600">Total del pedido</span>
+          <span className="font-mono text-2xl font-semibold tracking-tight text-zinc-900 tabular">{money(total + newTotal)}</span>
+        </div>
+        {newItems.length > 0 ? (
+          <button
+            onClick={handleAddMore}
+            disabled={confirming || !editable}
+            className="h-14 rounded-xl text-base font-extrabold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] transition-colors disabled:opacity-50"
+          >
+            {confirming ? 'Enviando…' : `Enviar ${newCount} producto${newCount !== 1 ? 's' : ''} a cocina · ${money(newTotal)}`}
+          </button>
+        ) : (
+          <button
+            onClick={() => setPickerOpen(true)}
+            disabled={!editable}
+            className="lg:hidden h-14 rounded-xl text-base font-extrabold text-zinc-900 border border-zinc-300 bg-surface hover:bg-zinc-50 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            <Plus size={18} aria-hidden="true" /> Agregar productos
+          </button>
+        )}
+      </div>
+    </div>
+  )
 
-            <div className="flex items-center justify-between mb-4">
+  return (
+    <div className="fixed inset-0 z-[60] bg-canvas flex flex-col">
+
+      {/* Encabezado */}
+      <header className="shrink-0 min-h-16 px-3 lg:px-5 py-2 flex items-center gap-3 bg-surface border-b border-zinc-200">
+        <button onClick={onClose} aria-label="Volver" className="w-11 h-11 rounded-xl flex items-center justify-center text-zinc-700 hover:bg-zinc-100">
+          <ArrowLeft size={20} />
+        </button>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-lg font-extrabold tracking-tight text-zinc-900 truncate">{title}</h2>
+          <p className="text-xs text-zinc-500 truncate">
+            {[order?.customer_name, minutes != null ? `abierto hace ${minutes} min` : null].filter(Boolean).join(' · ') || 'Pedido activo'}
+          </p>
+        </div>
+        {order && (
+          <div className="flex items-center gap-1.5 shrink-0">
+            {table.is_delivery && (
               <button
-                onClick={() => setShowMoverMesa(false)}
-                className="text-sm cursor-pointer font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
+                onClick={toggleDeliveryType}
+                disabled={!editable}
+                className="h-10 px-3 rounded-xl border border-zinc-200 text-sm font-bold text-zinc-700 hover:bg-zinc-50 flex items-center gap-1.5 disabled:opacity-50"
               >
-                ✕ Cerrar
+                {order.delivery_type === 'delivery' ? <Bike size={16} aria-hidden="true" /> : <Store size={16} aria-hidden="true" />}
+                <span className="hidden sm:inline">{order.delivery_type === 'delivery' ? 'A domicilio' : 'Recoger'}</span>
               </button>
-              <h2 className="text-zinc-900 font-bold tracking-tight">Mover pedido</h2>
-              <div className="w-16" />
-            </div>
+            )}
+            {!table.is_delivery && (
+              <button
+                onClick={cargarMesas}
+                disabled={!editable}
+                className="h-10 px-3 rounded-xl border border-zinc-200 text-sm font-bold text-zinc-700 hover:bg-zinc-50 flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <ArrowRightLeft size={16} aria-hidden="true" />
+                <span className="hidden sm:inline">Mover</span>
+              </button>
+            )}
+            <button
+              onClick={cancelFullOrder}
+              disabled={cancelling || !editable}
+              aria-label="Cancelar pedido completo"
+              className="h-10 px-3 rounded-xl border border-zinc-200 text-sm font-bold text-red-600 hover:bg-red-50 hover:border-red-200 flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <Ban size={16} aria-hidden="true" />
+              <span className="hidden sm:inline">Cancelar</span>
+            </button>
+          </div>
+        )}
+      </header>
 
-            {/* Tabs zonas */}
-            <div className="flex gap-2 mb-4 overflow-x-auto">
-              {zonas.map(zona => (
-                <button
-                  key={zona.id}
-                  onClick={() => setZonaSeleccionada(zona.id)}
-                  className={`
-                    px-4 py-2 cursor-pointer rounded-full
-                    text-sm font-semibold whitespace-nowrap
-                    border transition-all duration-200
-                    ${zonaSeleccionada === zona.id
-                      ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
-                      : 'bg-white text-zinc-400 border-zinc-200 hover:border-[var(--brand-border)] hover:text-[var(--brand-text)]'
-                    }
-                  `}
-                >
-                  {zona.name}
-                </button>
-              ))}
-            </div>
+      <div className="flex-1 min-h-0 flex">
+        {/* Catálogo: siempre visible en escritorio */}
+        {editable && (
+          <div className="hidden lg:flex flex-1 min-w-0">
+            <ProductPicker products={products} categories={categories} qtyOf={qtyOfProduct} onAdd={p => addProduct(p)} bottomPadding="pb-6" />
+          </div>
+        )}
+        <aside aria-label="Pedido" className={`flex-1 lg:flex-none lg:w-[400px] shrink-0 bg-surface flex flex-col ${editable ? 'lg:border-l border-zinc-200' : 'lg:mx-auto lg:border-x border-zinc-200'}`}>
+          {orderPanel}
+        </aside>
+      </div>
 
-            {/* Mesas libres */}
-            {todasMesas.filter(m => m.zone_id === zonaSeleccionada && m.id !== table.id).length === 0 ? (
-              <p className="text-center py-8 text-sm text-zinc-400">
-                No hay mesas libres en esta zona
-              </p>
+      {/* Catálogo en celular */}
+      {pickerOpen && (
+        <div className="lg:hidden fixed inset-0 z-[70] bg-canvas flex flex-col">
+          <header className="shrink-0 h-16 px-3 flex items-center gap-3 bg-surface border-b border-zinc-200">
+            <button onClick={() => setPickerOpen(false)} aria-label="Volver al pedido" className="w-11 h-11 rounded-xl flex items-center justify-center text-zinc-700 hover:bg-zinc-100">
+              <ArrowLeft size={20} />
+            </button>
+            <h2 className="text-lg font-extrabold tracking-tight text-zinc-900">Agregar a {title}</h2>
+          </header>
+          <ProductPicker products={products} categories={categories} qtyOf={qtyOfProduct} onAdd={p => addProduct(p)} />
+          <div className="fixed bottom-0 inset-x-0 p-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-surface border-t border-zinc-200">
+            <button
+              onClick={() => setPickerOpen(false)}
+              className="w-full h-14 px-4 rounded-xl bg-[var(--brand)] text-white flex items-center justify-between font-extrabold"
+            >
+              <span className="flex items-center gap-2">
+                <span className="min-w-7 h-7 px-1.5 rounded-full bg-white/20 font-mono text-sm flex items-center justify-center">{newCount}</span>
+                Revisar adición
+              </span>
+              <span className="font-mono tabular">{money(newTotal)}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      <VariantSheet
+        product={variantModal}
+        onPick={v => { addProduct(variantModal, v); setVariantModal(null) }}
+        onClose={() => setVariantModal(null)}
+      />
+
+      {/* Mover a otra mesa */}
+      {showMoverMesa && (
+        <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-[2px]" onClick={() => setShowMoverMesa(false)}>
+          <div
+            role="dialog"
+            aria-label="Mover pedido a otra mesa"
+            onClick={e => e.stopPropagation()}
+            className="w-full sm:max-w-lg bg-surface rounded-t-3xl sm:rounded-2xl border border-zinc-200 shadow-pop p-5 pb-8 sm:pb-5 flex flex-col gap-4 max-h-[85vh]"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-extrabold tracking-tight text-zinc-900">Mover {title}</h3>
+                <p className="text-sm text-zinc-500">Elige una mesa libre</p>
+              </div>
+              <button onClick={() => setShowMoverMesa(false)} aria-label="Cerrar" className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-500 hover:bg-zinc-100"><X size={18} /></button>
+            </div>
+            {zonas.length === 0 ? (
+              <p className="py-8 text-center text-sm text-zinc-500">No hay mesas libres en este momento</p>
             ) : (
-              <div className="grid grid-cols-3 gap-3">
-                {todasMesas
-                  .filter(m => m.zone_id === zonaSeleccionada && m.id !== table.id && !m.is_delivery)
-                  .map(mesa => (
+              <>
+                <div role="tablist" aria-label="Zonas" className="flex gap-2 overflow-x-auto">
+                  {zonas.map(z => (
+                    <button
+                      key={z.id}
+                      role="tab"
+                      aria-selected={zonaSeleccionada === z.id}
+                      onClick={() => setZonaSeleccionada(z.id)}
+                      className={`shrink-0 h-10 px-4 rounded-full text-sm font-bold border transition-colors ${zonaSeleccionada === z.id ? 'bg-zinc-900 text-surface border-zinc-900' : 'bg-surface text-zinc-600 border-zinc-200 hover:bg-zinc-50'}`}
+                    >
+                      {z.name}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-4 gap-2 overflow-y-auto">
+                  {mesasZona.map(mesa => (
                     <button
                       key={mesa.id}
                       onClick={() => moverPedido(mesa)}
                       disabled={moviendoMesa}
-                      className="
-                        py-4 rounded-2xl cursor-pointer
-                        font-bold text-[var(--brand-text)]
-                        bg-[var(--brand-light)] border border-[var(--brand-border)]
-                        hover:bg-[var(--brand-light)] hover:border-[var(--brand-border)]
-                        transition-all duration-200
-                        active:scale-95 disabled:opacity-50
-                      "
+                      className="h-16 rounded-xl border border-zinc-200 bg-surface text-xl font-extrabold text-zinc-900 hover:border-[var(--brand)] hover:bg-[var(--brand-light)] transition-colors disabled:opacity-50"
                     >
-                      {mesa.is_delivery ? `D-${mesa.number}` : `Mesa ${mesa.number}`}
+                      {String(mesa.number).padStart(2, '0')}
                     </button>
                   ))}
-              </div>
+                </div>
+              </>
             )}
           </div>
         </div>
       )}
-
-      {/* Modal — Variantes */}
-      {variantModal && (
-        <div
-          className="fixed inset-0 z-[60] flex items-end justify-center"
-          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
-        >
-          <div className="
-            w-full max-w-lg
-            bg-white
-            rounded-t-3xl
-            border border-b-0 border-zinc-200
-            shadow-[0_-8px_40px_rgba(0,0,0,0.10)]
-            p-6 pb-20 sm:pb-8
-          ">
-
-            <div className="flex items-center justify-between mb-6">
-              <button
-                onClick={() => setVariantModal(null)}
-                className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
-              >
-                ✕ Cancelar
-              </button>
-              <h2 className="text-zinc-900 font-bold text-lg tracking-tight">
-                {variantModal.name}
-              </h2>
-              <div className="w-16" />
-            </div>
-
-            <p className="text-center text-sm mb-4 text-zinc-400">
-              Elige una opción
-            </p>
-
-            <div className="flex flex-col gap-3">
-              {variantModal.variants.map(v => (
-                <button
-                  key={v}
-                  onClick={() => {
-                    addProduct(variantModal, v)
-                    setVariantModal(null)
-                  }}
-                  className="
-                    w-full py-4 rounded-2xl
-                    font-bold text-[var(--brand-text)]
-                    bg-[var(--brand-light)] border border-[var(--brand-border)]
-                    hover:bg-[var(--brand-light)] hover:border-[var(--brand-border)]
-                    transition-all duration-200
-                    active:scale-95
-                  "
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
-
-          </div>
-        </div>
-      )}
-
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuthStore } from '../store/authStore'
 import { supabase } from '../supabaseClient'
 import { X, ChevronDown } from 'lucide-react'
+import { fetchAll } from '../utils/fetchAll'
 
 function paymentMethodLabel(payment) {
   const cash = payment.cash > 0
@@ -39,13 +40,13 @@ export default function ReportsPanel({ onClose }) {
       since.setDate(since.getDate() - 30)
       since.setHours(0, 0, 0, 0)
 
-      const { data } = await supabase
+      const data = await fetchAll(() => supabase
         .from('payments')
         .select('*, table:tables(number, is_delivery, zone:zones(name))')
         .eq('restaurant_id', user.restaurant_id)
         .eq('voided', false)
         .gte('created_at', since.toISOString())
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: false }))
 
       const grouped = {}
       for (const payment of data || []) {
@@ -67,81 +68,58 @@ export default function ReportsPanel({ onClose }) {
     if (user?.restaurant_id) load()
   }, [user?.restaurant_id])
 
+  const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
+  const monthTotal = days.reduce((sum, d) => sum + d.total, 0)
+
   return (
-    <div
-      className="fixed inset-0 z-[110] flex items-end justify-center"
-      style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
-    >
-      <div className="
-        w-full max-w-lg
-        bg-white rounded-t-3xl
-        border border-b-0 border-zinc-200
-        shadow-[0_-8px_40px_rgba(0,0,0,0.10)]
-        p-6 pb-10
-        max-h-[85vh] flex flex-col
-      ">
-        <div className="flex items-center justify-between mb-5 shrink-0">
+    <div className="fixed inset-0 z-[110] flex justify-end bg-black/40 backdrop-blur-[2px]" onClick={onClose}>
+      <div role="dialog" aria-label="Desglose de ventas" onClick={e => e.stopPropagation()} className="w-full max-w-md h-full bg-surface border-l border-zinc-200 shadow-pop flex flex-col">
+        <div className="px-5 py-4 border-b border-zinc-200 flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-zinc-900 font-bold text-lg tracking-tight">Desglose de ventas</h2>
-            <p className="text-zinc-400 text-xs mt-0.5">Último mes, agrupado por día</p>
+            <h2 className="text-lg font-extrabold tracking-tight text-zinc-900">Desglose de ventas</h2>
+            <p className="text-xs text-zinc-500">Últimos 30 días · <span className="font-mono font-semibold text-zinc-700">{money(monthTotal)}</span></p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-zinc-400 hover:text-zinc-600 transition-colors"
-          >
-            <X size={20} />
-          </button>
+          <button onClick={onClose} aria-label="Cerrar" className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-500 hover:bg-zinc-100"><X size={18} /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto space-y-2">
-          {loading && (
-            <p className="text-center py-16 text-sm text-zinc-400">Cargando...</p>
-          )}
+        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2">
+          {loading && <p className="text-center py-16 text-sm text-zinc-500">Cargando…</p>}
+          {!loading && days.length === 0 && <p className="text-center py-16 text-sm text-zinc-500">Sin cobros en los últimos 30 días</p>}
 
-          {!loading && days.length === 0 && (
-            <p className="text-center py-16 text-sm text-zinc-400">Sin registros en el último mes</p>
-          )}
-
-          {!loading && days.map(day => (
-            <div key={day.key} className="rounded-2xl border border-zinc-100 overflow-hidden">
-              <button
-                onClick={() => setOpenDay(prev => prev === day.key ? null : day.key)}
-                className="w-full flex items-center justify-between px-4 py-3 bg-zinc-50"
-              >
-                <div className="text-left">
-                  <p className="text-sm font-semibold text-zinc-900 capitalize">{day.label}</p>
-                  <p className="text-xs text-zinc-400">{day.payments.length} venta{day.payments.length !== 1 ? 's' : ''}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-[var(--brand-text)]">
-                    ${day.total.toLocaleString('es-CO')}
+          {!loading && days.map(day => {
+            const open = openDay === day.key
+            return (
+              <div key={day.key} className="rounded-xl border border-zinc-200 overflow-hidden">
+                <button
+                  onClick={() => setOpenDay(prev => prev === day.key ? null : day.key)}
+                  aria-expanded={open}
+                  className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-left transition-colors ${open ? 'bg-zinc-50' : 'hover:bg-zinc-50'}`}
+                >
+                  <div>
+                    <p className="text-sm font-bold text-zinc-900 first-letter:uppercase">{day.label}</p>
+                    <p className="text-xs text-zinc-500">{day.payments.length} cobro{day.payments.length !== 1 ? 's' : ''}</p>
+                  </div>
+                  <span className="flex items-center gap-2">
+                    <span className="font-mono text-sm font-semibold text-zinc-900 tabular">{money(day.total)}</span>
+                    <ChevronDown size={16} className={`text-zinc-400 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
                   </span>
-                  <ChevronDown
-                    size={16}
-                    className={`text-zinc-400 transition-transform ${openDay === day.key ? 'rotate-180' : ''}`}
-                  />
-                </div>
-              </button>
-
-              {openDay === day.key && (
-                <div className="divide-y divide-zinc-100">
-                  {day.payments.map(payment => (
-                    <div key={payment.id} className="flex items-center justify-between px-4 py-2.5">
-                      <div className="min-w-0">
-                        <p className="text-sm text-zinc-800 truncate">{tableLabel(payment)}</p>
-                        <p className="text-xs text-zinc-400">
-                          {paymentMethodLabel(payment)} · {new Date(payment.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
-                      <span className="text-sm font-semibold text-zinc-700 shrink-0">
-                        ${payment.total.toLocaleString('es-CO')}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+                </button>
+                {open && (
+                  <ul className="divide-y divide-zinc-100 border-t border-zinc-200">
+                    {day.payments.map(payment => (
+                      <li key={payment.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-zinc-800 truncate">{tableLabel(payment)}</p>
+                          <p className="text-xs text-zinc-500">{paymentMethodLabel(payment)} · {new Date(payment.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</p>
+                        </div>
+                        <span className="font-mono text-sm font-semibold text-zinc-700 tabular shrink-0">{money(payment.total)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>

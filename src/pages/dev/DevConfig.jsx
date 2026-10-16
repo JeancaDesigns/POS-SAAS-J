@@ -313,24 +313,23 @@ export default function DevConfig() {
     w-full rounded-xl px-4 py-3
     text-zinc-800 outline-none
     bg-zinc-50 border border-zinc-200
-    focus:border-violet-400 transition-colors
+    focus:border-[var(--brand-border)] transition-colors
     placeholder:text-zinc-400 text-sm
   `
 
   // ── Cargando sesión ────────────────────────────────────────────────────────
-  if (checkingSession) return <div className="min-h-screen bg-[#0F0A1A]" />
+  if (checkingSession) return <div className="min-h-screen bg-canvas" />
 
   // ── Login ──────────────────────────────────────────────────────────────────
   if (!devUser) return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-[#0F0A1A]">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-canvas">
       <div className="
         w-full max-w-sm
-        rounded-[2.5rem] p-8
-        bg-white/[0.04] backdrop-blur-[40px]
-        border border-white/10
+        rounded-2xl p-6
+        bg-surface border border-zinc-200 shadow-card
       ">
-        <h1 className="text-white text-2xl font-bold mb-1">Panel Dev</h1>
-        <p className="text-white/40 text-sm mb-8">Acceso restringido</p>
+        <h1 className="text-zinc-900 text-2xl font-extrabold tracking-tight mb-1">Panel Dev</h1>
+        <p className="text-zinc-500 text-sm mb-6">Acceso restringido</p>
 
         <div className="flex flex-col gap-4">
           <input
@@ -338,7 +337,7 @@ export default function DevConfig() {
             placeholder="correo@dev.com"
             value={email}
             onChange={e => setEmail(e.target.value)}
-            className="w-full rounded-2xl px-5 py-4 text-white outline-none bg-white/5 border border-white/10 focus:border-violet-400 placeholder:text-white/20"
+            className="w-full h-12 rounded-xl px-4 text-zinc-900 outline-none bg-surface border border-zinc-300 focus:border-[var(--brand)] placeholder:text-zinc-400"
           />
           <input
             type="password"
@@ -346,19 +345,19 @@ export default function DevConfig() {
             value={password}
             onChange={e => setPassword(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleLogin()}
-            className="w-full rounded-2xl px-5 py-4 text-white outline-none bg-white/5 border border-white/10 focus:border-violet-400 placeholder:text-white/20"
+            className="w-full h-12 rounded-xl px-4 text-zinc-900 outline-none bg-surface border border-zinc-300 focus:border-[var(--brand)] placeholder:text-zinc-400"
           />
 
           {loginError && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-xl py-3 px-4">
-              <p className="text-red-400 text-xs text-center font-medium">{loginError}</p>
+            <div className="bg-red-50 border border-red-200 rounded-xl py-2.5 px-3">
+              <p className="text-red-600 text-sm font-semibold">{loginError}</p>
             </div>
           )}
 
           <button
             onClick={handleLogin}
             disabled={loggingIn}
-            className="w-full rounded-2xl py-4 font-bold text-white bg-violet-600 hover:bg-violet-500 transition-all active:scale-[0.98] disabled:opacity-50"
+            className="w-full h-12 rounded-xl font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] transition-colors disabled:opacity-60"
           >
             {loggingIn ? 'Verificando...' : 'Entrar'}
           </button>
@@ -369,7 +368,7 @@ export default function DevConfig() {
 
   // ── Panel ──────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#F6F6F8] p-4 md:p-8">
+    <div className="min-h-screen bg-canvas p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
 
         <div className="flex items-center justify-between mb-6">
@@ -389,7 +388,7 @@ export default function DevConfig() {
               }
               setShowCreateForm(!showCreateForm)
             }}
-            className="px-5 py-3 rounded-2xl font-bold text-white bg-violet-600 hover:bg-violet-500 transition-all active:scale-95"
+            className="px-5 py-3 rounded-2xl font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand)] transition-all active:scale-95"
           >
             {showCreateForm ? 'Cancelar' : '+ Nuevo restaurante'}
           </button>
@@ -397,8 +396,8 @@ export default function DevConfig() {
 
         {/* ── Formulario de creación ── */}
         {showCreateForm && (
-          <div className="rounded-2xl bg-white border border-zinc-200 p-6 mb-6 shadow-sm">
-            <p className="text-xs font-semibold text-violet-600 tracking-wide mb-4">
+          <div className="rounded-2xl bg-surface border border-zinc-200 p-6 mb-6 shadow-sm">
+            <p className="text-xs font-bold text-zinc-500 tracking-wider mb-4">
               {editingId ? 'EDITAR RESTAURANTE' : 'DATOS DEL RESTAURANTE'}
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
@@ -428,7 +427,7 @@ export default function DevConfig() {
             </div>
             {!editingId && (
               <>
-                <p className="text-xs font-semibold text-violet-600 tracking-wide mb-4">USUARIO ADMIN</p>
+                <p className="text-xs font-bold text-zinc-500 tracking-wider mb-4">USUARIO ADMIN</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
                   <input placeholder="Nombre" value={form.admin_name} onChange={e => updateForm('admin_name', e.target.value)} className={inputClass} />
                   <input type="email" placeholder="Correo" value={form.admin_email} onChange={e => updateForm('admin_email', e.target.value)} className={inputClass} />
@@ -445,7 +444,7 @@ export default function DevConfig() {
 
             {deleteTarget && (
               <div className="fixed inset-0 z-[90] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
-                <div className="w-full max-w-sm bg-white rounded-3xl p-6 text-center shadow-2xl">
+                <div className="w-full max-w-sm bg-surface rounded-3xl p-6 text-center shadow-pop">
                   <p className="text-3xl mb-3">⚠️</p>
                   <p className="font-bold text-zinc-900 mb-1">
                     ¿Eliminar {deleteTarget.name}?
@@ -457,7 +456,7 @@ export default function DevConfig() {
                     <button
                       onClick={confirmDelete}
                       disabled={deleting}
-                      className="w-full py-3 rounded-2xl font-bold text-white bg-red-500 hover:bg-red-600 disabled:opacity-50"
+                      className="w-full py-3 rounded-2xl font-bold text-white bg-[#DC2626] hover:bg-[#B91C1C] disabled:opacity-50"
                     >
                       {deleting ? 'Eliminando...' : 'Sí, eliminar todo'}
                     </button>
@@ -475,7 +474,7 @@ export default function DevConfig() {
             <button
               onClick={editingId ? handleUpdateRestaurant : handleCreateRestaurant}
               disabled={creating}
-              className="w-full rounded-2xl py-4 font-bold text-white bg-violet-600 hover:bg-violet-500 transition-all active:scale-[0.98] disabled:opacity-50"
+              className="w-full h-12 rounded-xl font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] transition-colors disabled:opacity-60"
             >
               {creating ? 'Guardando...' : editingId ? 'Guardar cambios' : 'Crear restaurante'}
             </button>
@@ -488,7 +487,7 @@ export default function DevConfig() {
             <div
               key={r.id}
               onClick={() => openEdit(r)}
-              className="rounded-2xl bg-white border border-zinc-200 p-4 flex items-center gap-4 shadow-sm">
+              className="rounded-2xl bg-surface border border-zinc-200 p-4 flex items-center gap-4 shadow-sm">
               <div className="w-12 h-12 rounded-xl overflow-hidden bg-zinc-100 flex items-center justify-center shrink-0">
                 {r.logo_url
                   ? <img src={r.logo_url} alt={r.name} className="w-full h-full object-contain" />

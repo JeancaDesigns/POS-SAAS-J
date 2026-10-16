@@ -9,6 +9,8 @@ import { cacheOrders, getCachedOrders } from '../../db/cacheHelpers'
 import { buildWhatsappLink, getEstimatedTime } from '../../utils/whatsapp'
 import { precioUnitario } from '../../utils/precio'
 import { inicioJornada } from '../../utils/jornada'
+import { useCajaResumen } from '../../hooks/useCajaResumen'
+import { Bell, Search } from 'lucide-react'
 
 function useCajaOrders(restaurantId) {
   const [orders, setOrders] = useState([])
@@ -104,23 +106,6 @@ function tableName(order) {
   return `Mesa ${order.table?.number} · ${order.table?.zone?.name}`
 }
 
-// ─── Borde dentado ───────────────────────────────────────────────────────────
-function DentedEdge({ flipped = false }) {
-  return (
-    <svg
-      width="100%" height="12"
-      viewBox="0 0 300 12"
-      preserveAspectRatio="none"
-      style={{ display: 'block', transform: flipped ? 'rotate(180deg)' : 'none' }}
-    >
-      <path
-        d="M0,0 L0,6 L7.5,0 L15,6 L22.5,0 L30,6 L37.5,0 L45,6 L52.5,0 L60,6 L67.5,0 L75,6 L82.5,0 L90,6 L97.5,0 L105,6 L112.5,0 L120,6 L127.5,0 L135,6 L142.5,0 L150,6 L157.5,0 L165,6 L172.5,0 L180,6 L187.5,0 L195,6 L202.5,0 L210,6 L217.5,0 L225,6 L232.5,0 L240,6 L247.5,0 L255,6 L262.5,0 L270,6 L277.5,0 L285,6 L292.5,0 L300,6 L300,0 Z"
-        fill="#F5F0E8"
-      />
-    </svg>
-  )
-}
-
 // ─── Descuentos ──────────────────────────────────────────────────────────────
 // discount_type: 'percent' | 'fixed'. Aplica sobre un monto base y nunca deja el resultado negativo.
 function calcDiscount(baseAmount, discountType, discountValue) {
@@ -150,142 +135,80 @@ function puedeCobrar(order) {
   return ['delivered', 'dispatched'].includes(order.status)
 }
 
-// ─── Ticket ──────────────────────────────────────────────────────────────────
-function TicketActivo({ order, deliveryFee, restaurantName, onVerPedido, onCobrar }) {
-  const activeItems = order.items.filter(i => i.status !== 'cancelled')
-  const isDelivery = order.delivery_type === 'delivery' && order.table?.is_delivery
-  const total = orderTotal(order, deliveryFee)
-  const hasDraft = order.status === 'draft'
-  const isReady = ['delivered', 'inDelivery', 'dispatched'].includes(order.status)
-  const canPay = puedeCobrar(order)
+// ─── Piezas de la pantalla ───────────────────────────────────────────────────
+const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
 
-  const now = new Date()
-  const timeStr = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
-  const dateStr = now.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: '2-digit' })
+function orderTitle(order) {
+  return order.table?.is_delivery
+    ? `Domicilio ${String(order.table.number).padStart(2, '0')}`
+    : `Mesa ${String(order.table?.number ?? '').padStart(2, '0')}`
+}
+
+function minutesSince(dateStr) {
+  return dateStr ? Math.max(0, Math.round((Date.now() - new Date(dateStr)) / 60000)) : null
+}
+
+function statusInfo(order) {
+  if (order.status === 'draft') return { text: 'Por confirmar', cls: 'bg-orange-50 text-orange-700 border-orange-200' }
+  if (puedeCobrar(order)) return { text: 'Listo para cobrar', cls: 'bg-[var(--brand-light)] text-[var(--brand-text)] border-[var(--brand-border)]' }
+  if (order.status === 'inDelivery') return { text: 'En camino', cls: 'bg-blue-50 text-blue-700 border-blue-200' }
+  return { text: 'En cocina', cls: 'bg-zinc-100 text-zinc-600 border-zinc-200' }
+}
+
+// Fila de la lista de pedidos
+function OrderRow({ order, deliveryFee, selected, onClick }) {
+  const items = order.items.filter(i => i.status !== 'cancelled')
+  const mins = minutesSince(order.started_at)
+  const sub = [
+    order.table?.is_delivery ? (order.customer_name || 'Domicilio') : order.table?.zone?.name,
+    `${items.length} producto${items.length !== 1 ? 's' : ''}`,
+    mins != null ? `${mins} min` : null,
+  ].filter(Boolean).join(' · ')
+  const st = statusInfo(order)
 
   return (
-    <div className="
-      mx-auto w-full max-w-sm md:max-w-md
-      rounded-sm
-      border border-[#C4B89A]
-      drop-shadow-[0_6px_20px_rgba(0,0,0,0.13)]
-    ">
-      <DentedEdge flipped />
-
-      <div style={{ background: '#F5F0E8', padding: '12px 16px' }}>
-
-        {/* Header ticket */}
-        <div style={{
-          textAlign: 'center',
-          borderBottom: '1px dashed #C4B89A',
-          paddingBottom: '8px',
-          marginBottom: '8px'
-        }}>
-          <p style={{ fontFamily: 'monospace', fontSize: '13px', fontWeight: 'bold', color: '#2D1B0E' }}>
-            {(restaurantName || '').toUpperCase()}
-          </p>
-          <p style={{ fontFamily: 'monospace', fontSize: '10px', color: '#795548' }}>
-            {dateStr} · {timeStr}
-          </p>
-        </div>
-
-        {/* Mesa / domicilio */}
-        <div style={{ marginBottom: '8px' }}>
-          <p style={{ fontFamily: 'monospace', fontSize: '13px', fontWeight: 'bold', color: '#2D1B0E' }}>
-            {order.table?.is_delivery
-              ? `DOMICILIO #${order.table.number}`
-              : `MESA #${order.table?.number} — ${order.table?.zone?.name?.toUpperCase()}`}
-          </p>
-          {order.customer_name && (
-            <p style={{ fontFamily: 'monospace', fontSize: '11px', color: '#795548' }}>
-              Cliente: {order.customer_name}
-            </p>
-          )}
-          {hasDraft && (
-            <p style={{ fontFamily: 'monospace', fontSize: '10px', color: '#E65100', marginTop: '2px' }}>
-              ⚠ PENDIENTE DE CONFIRMAR
-            </p>
-          )}
-          {isReady && (
-            <p style={{ fontFamily: 'monospace', fontSize: '12px', color: '#2E7D32', marginTop: '2px' }}>
-              ✓ LISTO PARA COBRAR
-            </p>
-          )}
-        </div>
-
-        {/* Ítems */}
-        <div style={{
-          borderTop: '1px dashed #C4B89A',
-          borderBottom: '1px dashed #C4B89A',
-          padding: '8px 0',
-          marginBottom: '8px'
-        }}>
-          {activeItems.map(item => (
-            <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-              <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#2D1B0E' }}>
-                {item.quantity}x {item.product.name}
-              </span>
-              <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#2D1B0E' }}>
-                ${(precioUnitario(item) * item.quantity).toLocaleString('es-CO')}
-              </span>
-            </div>
-          ))}
-          {isDelivery && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
-              <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#795548' }}>Domicilio</span>
-              <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#795548' }}>
-                ${deliveryFee.toLocaleString('es-CO')}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Total */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-          <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 'bold', color: '#2D1B0E' }}>
-            TOTAL
-          </span>
-          <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 'bold', color: '#2D1B0E' }}>
-            ${total.toLocaleString('es-CO')}
-          </span>
-        </div>
-
-        {/* Botones */}
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={() => onVerPedido(order)}
-            style={{
-              flex: 1, padding: '8px', borderRadius: '6px',
-              fontFamily: 'monospace', fontSize: '11px', fontWeight: 'bold',
-              cursor: 'pointer', background: 'transparent',
-              border: '1px solid #C4B89A', color: '#795548',
-            }}
-          >
-            VER PEDIDO
-          </button>
-          <button
-            onClick={() => canPay && onCobrar(order)}
-            disabled={!canPay}
-            style={{
-              flex: 1, padding: '8px', borderRadius: '6px',
-              fontFamily: 'monospace', fontSize: '11px', fontWeight: 'bold',
-              cursor: canPay ? 'pointer' : 'not-allowed',
-              background: canPay ? 'var(--brand)' : '#E0D6C8',
-              color: canPay ? 'white' : '#9E9E9E',
-              border: 'none',
-            }}
-          >
-            {canPay ? 'COBRAR' : 'ESPERANDO'}
-          </button>
-        </div>
-
+    <button
+      onClick={onClick}
+      aria-current={selected ? 'true' : undefined}
+      className={`
+        w-full text-left px-3.5 py-3 rounded-xl border transition-colors
+        flex items-center justify-between gap-3
+        ${selected
+          ? 'bg-surface border-[var(--brand)] border-[1.5px] shadow-card'
+          : 'bg-transparent border-transparent hover:bg-surface hover:border-zinc-200'}
+      `}
+    >
+      <div className="min-w-0">
+        <p className="text-[15px] font-bold text-zinc-900 truncate">{orderTitle(order)}</p>
+        <p className="text-xs text-zinc-500 mt-0.5 truncate">{sub}</p>
       </div>
-      <DentedEdge />
-    </div>
+      <div className="shrink-0 flex flex-col items-end gap-1.5">
+        <span className="font-mono text-sm font-semibold text-zinc-900 tabular">{money(orderTotal(order, deliveryFee))}</span>
+        <span className={`h-5 px-1.5 inline-flex items-center rounded-full border text-[10px] font-bold ${st.cls}`}>{st.text}</span>
+      </div>
+    </button>
   )
 }
 
-// ─── Page ────────────────────────────────────────────────────────────────────
+const inputBase = `
+  w-full h-12 rounded-xl px-3.5
+  bg-surface border border-zinc-300 text-zinc-900
+  font-mono text-lg font-semibold tabular
+  outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--brand-soft)]
+  transition-[border-color,box-shadow] placeholder:text-zinc-400 placeholder:font-sans placeholder:text-sm placeholder:font-medium
+`
+
+// Billetes sugeridos para "Recibido": el total exacto y los redondeos útiles hacia arriba
+function quickBills(total) {
+  const out = [total]
+  for (const step of [5000, 10000, 20000, 50000, 100000]) {
+    const v = Math.ceil(total / step) * step
+    if (v > total && !out.includes(v)) out.push(v)
+    if (out.length >= 4) break
+  }
+  return out
+}
+
 export default function CajeroHome() {
   const { user } = useAuthStore()
   const { orders, refetch } = useCajaOrders(user?.restaurant_id)
@@ -294,9 +217,10 @@ export default function CajeroHome() {
   const [discountType, setDiscountType] = useState('percent')
   const [discountValue, setDiscountValue] = useState('')
   const [deliveryFee, setDeliveryFee] = useState(0)
-  const [restaurantName, setRestaurantName] = useState('')
   const [selectedOrder, setSelectedOrder] = useState(null)
-  const [view, setView] = useState('mesas')
+  const [view, setView] = useState('cobrar') // 'cobrar' | 'curso' | 'historial'
+  const [payMethod, setPayMethod] = useState('cash') // 'cash' | 'transfer' | 'mixed'
+  const caja = useCajaResumen(user?.restaurant_id)
   const [cobrarOrder, setCobrarOrder] = useState(null)
   const [efectivo, setEfectivo] = useState('')
   const [transferencia, setTransferencia] = useState('')
@@ -329,9 +253,9 @@ export default function CajeroHome() {
 
   useEffect(() => {
     if (!user?.restaurant_id || !isOnline) return
-    supabase.from('restaurants').select('delivery_fee, name').eq('id', user.restaurant_id).single()
+    supabase.from('restaurants').select('delivery_fee').eq('id', user.restaurant_id).single()
       .then(({ data }) => {
-        if (data) { setDeliveryFee(data.delivery_fee || 0); setRestaurantName(data.name || '') }
+        if (data) setDeliveryFee(data.delivery_fee || 0)
       })
   }, [user?.restaurant_id, isOnline])
 
@@ -350,10 +274,6 @@ export default function CajeroHome() {
   function dismissToast(orderId) {
     setToastQueue(prev => prev.filter(o => o.id !== orderId))
     setShowNotifications(true)
-  }
-
-  function handleRecibidoChange(val) {
-    setRecibido(val)
   }
 
   const vuelto = (parseInt(recibido) || 0) - (parseInt(efectivo) || 0)
@@ -432,6 +352,7 @@ export default function CajeroHome() {
     setDiscountValue(value)
     if (fiado || !cobrarOrder) return
     const t = orderTotal({ ...cobrarOrder, discount_type: type, discount_value: Number(value) || 0 }, deliveryFee)
+    if (payMethod === 'transfer') { setTransferencia(String(t)); return }
     const tr = parseInt(transferencia) || 0
     setEfectivo(String(Math.max(0, t - tr)))
   }
@@ -458,7 +379,6 @@ export default function CajeroHome() {
     : 0
   const discountAmount = subtotalSinDescuentoGeneral - total
   const sumaPagos = (parseInt(efectivo) || 0) + (parseInt(transferencia) || 0)
-  const cambio = (parseInt(efectivo) || 0) - total
   const descuadre = sumaPagos !== total
 
   async function handleCobrar() {
@@ -593,6 +513,7 @@ export default function CajeroHome() {
     } finally {
       setProcesando(false)
       refetch()
+      caja.refresh()
     }
   }
 
@@ -618,511 +539,156 @@ export default function CajeroHome() {
 
   const totalHistorial = filteredHistorial.reduce((s, p) => s + p.total, 0)
 
+  // ─── Selección y filtros ─────────────────────────────────────────────────────
+  function selectOrder(o) {
+    setCobrarOrder(o)
+    setPayMethod('cash')
+    setEfectivo(String(orderTotal(o, deliveryFee)))
+    setTransferencia('0')
+    setRecibido('')
+    setFiado(false)
+    setDebtorName('')
+    setDebtAmount('')
+    setSelectedDebtor(null)
+    setDebtorSuggestions([])
+    setDiscountType(o.discount_type || 'percent')
+    setDiscountValue(o.discount_value ? String(o.discount_value) : '')
+  }
+
+  function changePayMethod(method) {
+    setPayMethod(method)
+    if (!cobrarOrder) return
+    if (method === 'cash') { setEfectivo(String(total)); setTransferencia('0') }
+    if (method === 'transfer') { setEfectivo('0'); setTransferencia(String(total)); setRecibido('') }
+  }
+
+  const q = searchQuery.trim().toLowerCase()
+  const matches = o => !q || `${orderTitle(o)} ${o.customer_name || ''} ${o.table?.zone?.name || ''}`.toLowerCase().includes(q)
+  const porCobrar = orders.filter(o => puedeCobrar(o))
+  const enCurso = orders.filter(o => !puedeCobrar(o))
+  const listOrders = (view === 'curso' ? enCurso : porCobrar).filter(matches)
+  const historialTotals = filteredHistorial.reduce((acc, p) => ({
+    cash: acc.cash + Number(p.cash || 0),
+    transfer: acc.transfer + Number(p.transfer || 0),
+  }), { cash: 0, transfer: 0 })
+
+  const showDetailOnMobile = !!cobrarOrder && view !== 'historial'
+  const today = new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })
+  const canPayCurrent = cobrarOrder && puedeCobrar(cobrarOrder)
+  const fiadoIncompleto = fiado && (!debtorName.trim() || !debtAmount || Number(debtAmount) <= 0)
+
+  const navItems = [
+    { key: 'cobrar', label: 'Por cobrar', count: porCobrar.length },
+    { key: 'curso', label: 'En curso', count: enCurso.length },
+    { key: 'historial', label: 'Historial de hoy', count: null },
+  ]
+
   // ─── Page ────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen flex flex-col bg-[#F6F6F8] relative overflow-hidden pt-[88px]">
+    <div className="min-h-screen lg:h-screen flex flex-col lg:flex-row bg-canvas">
 
-      {/* ── Header fijo — SOLO bloque morado ── */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-[var(--brand)] sm:left-[92px] px-4 pt-6 pb-4 shadow-md">
-        <div className="flex items-center justify-between">
-
-          <div className="w-10" />
-
-          <div className="text-center">
-            <h1 className="text-2xl font-semibold tracking-tight text-white">
-              Caja
-            </h1>
-            <p className="text-sm text-white/70 mt-0.5">
-              {deliveryCount > 0
-                ? `🛵 ${deliveryCount} domicilios esta semana`
-                : 'Gestión de cobros'
-              }
-            </p>
+      {/* ── Columna 1: resumen de caja ── */}
+      <aside className={`
+        lg:w-[280px] shrink-0 bg-surface border-b lg:border-b-0 lg:border-r border-zinc-200
+        flex-col gap-5 p-5 lg:overflow-y-auto
+        ${showDetailOnMobile ? 'hidden lg:flex' : 'flex'}
+      `}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900">Caja</h1>
+            <p className="text-sm text-zinc-500 first-letter:uppercase">{today}</p>
           </div>
-
-          {/* Campanita */}
           <button
-            onClick={() => {
-              setShowNotifications(true)
-              setUnreadCount(0)
-            }}
-            className="
-              w-10 h-10 rounded-2xl
-              flex items-center justify-center
-              bg-white/10 hover:bg-white/20
-              border border-white/20
-              transition-all duration-200
-              active:scale-95
-              relative
-            "
+            onClick={() => { setShowNotifications(true); setUnreadCount(0) }}
+            aria-label={`Pedidos online${unreadCount > 0 ? `, ${unreadCount} nuevos` : ''}`}
+            className="relative w-11 h-11 rounded-xl border border-zinc-200 bg-surface hover:bg-zinc-50 flex items-center justify-center text-zinc-700 transition-colors"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5 text-white"
-              fill="none" viewBox="0 0 24 24"
-              stroke="currentColor" strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round"
-                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-              />
-            </svg>
-
-            {/* Badge */}
+            <Bell size={19} aria-hidden="true" />
             {unreadCount > 0 && (
-              <div className="
-                absolute -top-1.5 -right-1.5
-                min-w-[18px] h-[18px]
-                rounded-full
-                bg-red-500
-                border-2 border-[var(--brand)]
-                flex items-center justify-center
-                animate-bounce
-              ">
-                <span className="text-white text-[10px] font-black px-1">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              </div>
+              <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-[var(--brand)] text-white text-[11px] font-bold flex items-center justify-center">
+                {unreadCount}
+              </span>
             )}
           </button>
-
         </div>
-      </div>
 
-      {/* ── Tabs — fuera del morado, no fijas ── */}
-      <div className="px-4 pt-4 pb-2 flex gap-2 justify-center">
-        {[
-          { key: 'mesas', label: 'Activas' },
-          { key: 'historial', label: 'Historial' },
-        ].map(v => (
-          <button
-            key={v.key}
-            onClick={() => setView(v.key)}
-            className={`
-            px-5 py-2.5 rounded-2xl
-            text-sm font-semibold
-            whitespace-nowrap border
-            transition-all duration-200
-            active:scale-95
-            ${view === v.key
-                ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
-                : 'bg-white text-[#71717A] border-[#ECECF0] hover:bg-[#FAFAFA]'
-              }
-          `}
-          >
-            {v.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Vista mesas activas ── */}
-      {
-        view === 'mesas' && !cobrarOrder && !selectedOrder && (
-          <div className="flex-1 overflow-y-auto p-4">
-            {orders.length === 0 && (
-              <p className="text-center py-16 text-sm text-zinc-400">
-                Sin mesas activas
-              </p>
-            )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {orders.map(order => (
-                <TicketActivo
-                  key={order.id}
-                  order={order}
-                  deliveryFee={deliveryFee}
-                  restaurantName={restaurantName}
-                  onVerPedido={o => setSelectedOrder(o)}
-                  onCobrar={o => {
-                    setCobrarOrder(o)
-                    setEfectivo(String(orderTotal(o, deliveryFee)))
-                    setTransferencia('0')
-                    setFiado(false)
-                    setDebtorName('')
-                    setDebtAmount('')
-                    setSelectedDebtor(null)
-                    setDebtorSuggestions([])
-                    setDiscountType(o.discount_type || 'percent')
-                    setDiscountValue(o.discount_value ? String(o.discount_value) : '')
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        )
-      }
-
-      {/* ── Ver pedido ── */}
-      {
-        selectedOrder && (
-          <PedidoActivo
-            table={{ ...selectedOrder.table, id: selectedOrder.table_id }}
-            onClose={() => setSelectedOrder(null)}
-          />
-        )
-      }
-
-      {/* ── Vista cobrar ── */}
-      {cobrarOrder && !selectedOrder && (
-        <div className="flex-1 overflow-y-auto p-4">
-
-          <div className="flex items-center gap-3 mb-4">
-            <button
-              onClick={() => setCobrarOrder(null)}
-              className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
-            >
-              ← Volver
-            </button>
-            <h2 className="text-zinc-900 font-bold">{tableName(cobrarOrder)}</h2>
-          </div>
-
-          {/* Ticket cobro */}
-          <div className="mx-auto w-full max-w-xs mb-4 drop-shadow-[0_4px_16px_rgba(0,0,0,0.10)]">
-            <DentedEdge flipped />
-            <div style={{ background: '#F5F0E8', padding: '16px' }}>
-              <p style={{
-                fontFamily: 'monospace', fontSize: '13px', fontWeight: 'bold',
-                textAlign: 'center', marginBottom: '12px', color: '#2D1B0E'
-              }}>
-                CUENTA
-              </p>
-              {cobrarOrder.items.filter(i => i.status !== 'cancelled').map(item => (
-                <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                  <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#2D1B0E' }}>
-                    {item.quantity}x {item.product.name}
-                  </span>
-                  <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#2D1B0E' }}>
-                    ${(precioUnitario(item) * item.quantity).toLocaleString('es-CO')}
-                  </span>
-                </div>
-              ))}
-              {cobrarOrder.delivery_type === 'delivery' && cobrarOrder.table?.is_delivery && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                  <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#795548' }}>Domicilio</span>
-                  <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#795548' }}>
-                    ${deliveryFee.toLocaleString('es-CO')}
-                  </span>
-                </div>
-              )}
-              {discountAmount > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                  <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#C62828' }}>
-                    Descuento{discountType === 'percent' && discountValue ? ` (${discountValue}%)` : ''}
-                  </span>
-                  <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#C62828' }}>
-                    -${discountAmount.toLocaleString('es-CO')}
-                  </span>
-                </div>
-              )}
-              <div style={{
-                borderTop: '1px dashed #C4B89A', marginTop: '8px', paddingTop: '8px',
-                display: 'flex', justifyContent: 'space-between'
-              }}>
-                <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 'bold', color: '#2D1B0E' }}>
-                  TOTAL
-                </span>
-                <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 'bold', color: '#2D1B0E' }}>
-                  ${total.toLocaleString('es-CO')}
-                </span>
+        {/* Efectivo esperado */}
+        <div className="rounded-2xl border border-zinc-200 bg-surface-2 p-4 flex flex-col gap-3">
+          {caja.loading ? (
+            <p className="text-sm text-zinc-500">Cargando caja…</p>
+          ) : !caja.register ? (
+            <>
+              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Caja cerrada</p>
+              <p className="text-sm text-zinc-600">Abre la caja en Administración › Caja para llevar el efectivo esperado.</p>
+            </>
+          ) : (
+            <>
+              <div>
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Efectivo esperado</p>
+                <p className="font-mono text-2xl font-semibold tracking-tight text-zinc-900 tabular mt-1">{money(caja.expected)}</p>
               </div>
-            </div>
-            <DentedEdge />
-          </div>
-
-          {/* Descuento — solo admin/dev */}
-          {canDiscount && (
-            <div className="rounded-2xl p-4 mb-4 bg-white border border-zinc-100 shadow-sm">
-              <p className="text-xs font-semibold mb-3 text-[var(--brand-text)] tracking-wide">
-                DESCUENTO
-              </p>
-              <div className="flex items-center gap-2">
-                <div className="flex rounded-xl border border-zinc-200 overflow-hidden shrink-0">
-                  <button
-                    onClick={() => handleDiscountChange('percent', discountValue)}
-                    className={`px-3 py-2 text-sm font-semibold transition-colors ${discountType === 'percent'
-                      ? 'bg-[var(--brand)] text-white'
-                      : 'bg-zinc-50 text-zinc-500'
-                      }`}
-                  >
-                    %
-                  </button>
-                  <button
-                    onClick={() => handleDiscountChange('fixed', discountValue)}
-                    className={`px-3 py-2 text-sm font-semibold transition-colors ${discountType === 'fixed'
-                      ? 'bg-[var(--brand)] text-white'
-                      : 'bg-zinc-50 text-zinc-500'
-                      }`}
-                  >
-                    $
-                  </button>
-                </div>
-                <input
-                  type="number"
-                  value={discountValue}
-                  onChange={e => handleDiscountChange(discountType, e.target.value)}
-                  placeholder={discountType === 'percent' ? '0%' : '$0'}
-                  className="
-                    flex-1 rounded-xl px-4 py-2
-                    text-zinc-800 outline-none
-                    bg-zinc-50 border border-zinc-200
-                    focus:border-[var(--brand-border)] transition-colors
-                  "
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Método de pago */}
-          <div className="rounded-2xl p-4 mb-4 bg-white border border-zinc-100 shadow-sm">
-            <p className="text-xs font-semibold mb-3 text-[var(--brand-text)] tracking-wide">
-              MÉTODO DE PAGO
-            </p>
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-3">
-                <label className="text-zinc-600 text-sm w-28">Efectivo</label>
-                <input
-                  type="number"
-                  value={efectivo}
-                  onChange={e => handleEfectivoChange(e.target.value)}
-                  placeholder="0"
-                  className="
-                    flex-1 rounded-xl px-4 py-2
-                    text-zinc-800 outline-none
-                    bg-zinc-50 border border-zinc-200
-                    focus:border-[var(--brand-border)] transition-colors
-                  "
-                />
-              </div>
-              <div className="flex items-center gap-3">
-                <label className="text-zinc-600 text-sm w-28">Transferencia</label>
-                <input
-                  type="number"
-                  value={transferencia}
-                  onChange={e => handleTransferenciaChange(e.target.value)}
-                  placeholder="0"
-                  className="
-                    flex-1 rounded-xl px-4 py-2
-                    text-zinc-800 outline-none
-                    bg-zinc-50 border border-zinc-200
-                    focus:border-[var(--brand-border)] transition-colors
-                  "
-                />
-              </div>
-
-              {(parseInt(efectivo) || 0) > 0 && (
-                <div className="flex items-center gap-3 pt-2 border-t border-zinc-100">
-                  <label className="text-zinc-500 text-xs w-28">¿Con cuánto pagó?</label>
-                  <input
-                    type="number"
-                    value={recibido}
-                    onChange={e => setRecibido(e.target.value)}
-                    placeholder="Opcional"
-                    className="
-                      flex-1 rounded-xl px-4 py-2
-                      text-zinc-800 outline-none
-                      bg-zinc-50 border border-zinc-200
-                      focus:border-[var(--brand-border)] transition-colors
-                    "
-                  />
-                </div>
-              )}
-            </div>
-
-            {recibido && vuelto > 0 && (
-              <div className="mt-3 rounded-xl px-4 py-2 flex justify-between bg-blue-50 border border-blue-200">
-                <span className="text-sm text-blue-600">Vuelto a entregar</span>
-                <span className="font-bold text-blue-600">${vuelto.toLocaleString('es-CO')}</span>
-              </div>
-            )}
-
-            {descuadre && sumaPagos > 0 && (
-              <div className="mt-3 rounded-xl px-4 py-2 flex justify-between bg-yellow-50 border border-yellow-200">
-                <span className="text-sm text-yellow-600">
-                  {sumaPagos > total ? 'Excede el total' : 'Falta por cubrir'}
-                </span>
-                <span className="font-bold text-yellow-600">
-                  ${Math.abs(sumaPagos - total).toLocaleString('es-CO')}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* ── Fiado ── */}
-          <div className="rounded-2xl p-4 mb-4 bg-white border border-zinc-100 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">
-                FIADO
-              </p>
-              <button
-                onClick={() => {
-                  setFiado(prev => !prev)
-                  setEfectivo('')        // ← limpiar al activar/desactivar
-                  setTransferencia('')   // ← limpiar al activar/desactivar
-                }}
-                className="w-12 h-6 rounded-full transition-colors relative flex-shrink-0"
-                style={{ background: fiado ? 'var(--brand)' : '#E4E4E7' }}
-              >
-                <div className={`
-                  absolute top-0.5 w-5 h-5 bg-white rounded-full
-                  shadow-sm transition-transform duration-200
-                  ${fiado ? 'translate-x-6' : 'translate-x-0.5'}
-                `} />
-              </button>
-            </div>
-
-            {fiado && (
-              <div className="flex flex-col gap-3">
-                {/* Nombre del deudor */}
-                <div>
-                  <p className="text-sm text-zinc-500 mb-1.5">Nombre del cliente</p>
-                  <input
-                    type="text"
-                    placeholder="¿A nombre de quién?"
-                    value={debtorName}
-                    onChange={e => {
-                      setDebtorName(e.target.value)
-                      // Buscar en deudores existentes
-                      if (e.target.value.length > 1) {
-                        const matches = existingDebtors.filter(d =>
-                          d.name.toLowerCase().includes(e.target.value.toLowerCase())
-                        )
-                        setDebtorSuggestions(matches)
-                      } else {
-                        setDebtorSuggestions([])
-                      }
-                    }}
-                    className="
-                w-full rounded-xl px-4 py-3
-                text-zinc-800 outline-none
-                bg-zinc-50 border border-zinc-200
-                focus:border-[var(--brand-border)] transition-colors
-                placeholder:text-zinc-400
-              "
-                  />
-                  {/* Sugerencias de deudores existentes */}
-                  {debtorSuggestions.length > 0 && (
-                    <div className="mt-1 rounded-xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
-                      {debtorSuggestions.map(d => (
-                        <button
-                          key={d.id}
-                          onClick={() => {
-                            setDebtorName(d.name)
-                            setSelectedDebtor(d)
-                            setDebtorSuggestions([])
-                          }}
-                          className="w-full px-4 py-2.5 text-left text-sm hover:bg-[var(--brand-light)] transition-colors flex items-center justify-between"
-                        >
-                          <span className="text-zinc-800 font-medium">{d.name}</span>
-                          <span className="text-red-500 text-xs font-semibold">
-                            Debe ${Number(d.total_debt).toLocaleString('es-CO')}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Monto a fiar */}
-                <div>
-                  <p className="text-sm text-zinc-500 mb-1.5">Monto a fiar</p>
-                  <div className="flex gap-2 mb-2">
-                    <button
-                      onClick={() => setDebtAmount(String(Math.max(0, total - sumaPagos)))}
-                      className={`
-                  flex-1 py-2 rounded-xl text-sm font-semibold border
-                  transition-all duration-200
-                  ${debtAmount === String(Math.max(0, total - sumaPagos))
-                          ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
-                          : 'bg-zinc-50 text-zinc-500 border-zinc-200 hover:border-[var(--brand-border)]'
-                        }
-                `}
-                    >
-                      Todo lo que falta
-                    </button>
-                    <button
-                      onClick={() => setDebtAmount('')}
-                      className={`
-                  flex-1 py-2 rounded-xl text-sm font-semibold border
-                  transition-all duration-200
-                  ${debtAmount !== String(Math.max(0, total - sumaPagos)) && debtAmount !== ''
-                          ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
-                          : 'bg-zinc-50 text-zinc-500 border-zinc-200 hover:border-[var(--brand-border)]'
-                        }
-                `}
-                    >
-                      Monto específico
-                    </button>
-                  </div>
-                  <input
-                    type="number"
-                    placeholder="¿Cuánto queda debiendo?"
-                    value={debtAmount}
-                    onChange={e => setDebtAmount(e.target.value)}
-                    className="
-                w-full rounded-xl px-4 py-3
-                text-zinc-800 outline-none
-                bg-zinc-50 border border-zinc-200
-                focus:border-[var(--brand-border)] transition-colors
-                placeholder:text-zinc-400
-              "
-                  />
-                </div>
-
-                {/* Resumen fiado */}
-                {debtAmount && Number(debtAmount) > 0 && debtorName.trim() && (
-                  <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3">
-                    <p className="text-sm text-red-600">
-                      <span className="font-bold">{debtorName}</span> quedará debiendo{' '}
-                      <span className="font-bold">${Number(debtAmount).toLocaleString('es-CO')}</span>
-                    </p>
-                  </div>
+              <dl className="flex flex-col gap-1.5 text-sm">
+                <div className="flex justify-between"><dt className="text-zinc-500">Apertura</dt><dd className="font-mono font-semibold text-zinc-700 tabular">{money(caja.opening)}</dd></div>
+                <div className="flex justify-between"><dt className="text-zinc-500">Ventas en efectivo</dt><dd className="font-mono font-semibold text-zinc-700 tabular">{money(caja.cash)}</dd></div>
+                {(caja.income > 0 || caja.expense > 0) && (
+                  <div className="flex justify-between"><dt className="text-zinc-500">Ingresos − egresos</dt><dd className="font-mono font-semibold text-zinc-700 tabular">{money(caja.income - caja.expense)}</dd></div>
                 )}
-              </div>
-            )}
-          </div>
-
-          {/* Botón cobrar */}
-          <button
-            onClick={handleCobrar}
-            disabled={procesando || (!fiado && descuadre) || (fiado && (!debtorName.trim() || !debtAmount || Number(debtAmount) <= 0))}
-            className="
-              w-full text-white font-bold
-              rounded-2xl py-4
-              bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-              shadow-[0_4px_20px_var(--brand-shadow)]
-              transition-all duration-200
-              active:scale-[0.98] disabled:opacity-50
-            "
-          >
-            {procesando
-              ? 'Procesando...'
-              : fiado
-                ? `Registrar — $${(sumaPagos).toLocaleString('es-CO')} pagado + $${Number(debtAmount || 0).toLocaleString('es-CO')} fiado`
-                : 'Registrar pago y liberar mesa'
-            }
-          </button>
-
+                <div className="flex justify-between pt-1.5 border-t border-zinc-200"><dt className="text-zinc-500">Transferencias <span className="text-zinc-400">(aparte)</span></dt><dd className="font-mono font-semibold text-zinc-700 tabular">{money(caja.transfer)}</dd></div>
+              </dl>
+              <p className="text-xs text-zinc-500">{caja.sales} cobro{caja.sales !== 1 ? 's' : ''} desde la apertura</p>
+            </>
+          )}
         </div>
-      )}
 
-      {/* ── Historial ── */}
-      {view === 'historial' && (
-        <div className="flex-1 overflow-y-auto p-4">
+        {/* Vistas */}
+        <nav aria-label="Vistas de caja" className="grid grid-cols-3 lg:grid-cols-1 gap-1">
+          {navItems.map(item => {
+            const active = view === item.key
+            return (
+              <button
+                key={item.key}
+                onClick={() => { setView(item.key); setCobrarOrder(null) }}
+                aria-current={active ? 'page' : undefined}
+                className={`
+                  h-11 px-3 rounded-xl flex items-center justify-center lg:justify-between gap-2
+                  text-sm font-bold transition-colors
+                  ${active ? 'bg-[var(--brand-light)] text-zinc-900 lg:shadow-[inset_3px_0_0_var(--brand)]' : 'text-zinc-600 hover:bg-zinc-50'}
+                `}
+              >
+                <span className="truncate">{item.label}</span>
+                {item.count != null && (
+                  <span className={`font-mono text-xs min-w-6 h-6 px-1.5 rounded-full flex items-center justify-center ${active ? 'bg-[var(--brand)] text-white' : 'bg-zinc-100 text-zinc-600'}`}>
+                    {item.count}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </nav>
 
-          {/* Buscador y filtros */}
-          <div className="flex flex-col gap-2 mb-4">
+        {deliveryCount > 0 && (
+          <p className="hidden lg:block text-xs text-zinc-500 mt-auto">{deliveryCount} domicilios esta semana</p>
+        )}
+      </aside>
+
+      {/* ── Columna 2: lista ── */}
+      <section className={`
+        lg:w-[360px] shrink-0 border-r border-zinc-200 flex-col min-h-0
+        ${showDetailOnMobile ? 'hidden lg:flex' : 'flex'}
+      `}>
+        <div className="p-4 pb-3 flex flex-col gap-3">
+          <label className="flex items-center gap-2 h-11 px-3 rounded-xl bg-surface border border-zinc-200 focus-within:border-[var(--brand)] transition-colors">
+            <Search size={17} className="text-zinc-400 shrink-0" aria-hidden="true" />
             <input
-              type="text"
-              placeholder="Buscar por mesa o domicilio..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="
-              w-full rounded-xl px-4 py-2.5
-              text-zinc-800 text-sm outline-none
-              bg-white border border-zinc-200
-              focus:border-[var(--brand-border)] transition-colors
-              placeholder:text-zinc-400
-            "
+              placeholder={view === 'historial' ? 'Buscar mesa o domicilio' : 'Buscar mesa, cliente o zona'}
+              aria-label="Buscar"
+              className="flex-1 bg-transparent outline-none text-sm text-zinc-900 placeholder:text-zinc-400"
             />
-            <div className="flex gap-2">
+          </label>
+          {view === 'historial' && (
+            <div className="flex gap-1.5 flex-wrap">
               {[
                 { key: 'all', label: 'Todos' },
                 { key: 'cash', label: 'Efectivo' },
@@ -1132,89 +698,356 @@ export default function CajeroHome() {
                 <button
                   key={f.key}
                   onClick={() => setFilterMethod(f.key)}
-                  className={`
-                  px-3 py-1.5 rounded-full
-                  text-xs font-semibold
-                  border transition-all duration-200
-                  ${filterMethod === f.key
-                      ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
-                      : 'bg-white text-zinc-400 border-zinc-200 hover:border-[var(--brand-border)] hover:text-[var(--brand-text)]'
-                    }
-                `}
+                  aria-pressed={filterMethod === f.key}
+                  className={`h-8 px-3 rounded-full text-xs font-bold border transition-colors ${filterMethod === f.key ? 'bg-zinc-900 text-surface border-zinc-900' : 'bg-surface text-zinc-600 border-zinc-200 hover:bg-zinc-50'}`}
                 >
                   {f.label}
                 </button>
               ))}
             </div>
-          </div>
+          )}
+        </div>
 
-          {/* Total del día */}
-          {filteredHistorial.length > 0 && (
-            <div className="rounded-2xl px-4 py-3 mb-4 flex justify-between items-center bg-[var(--brand-light)] border border-[var(--brand-border)]">
-              <span className="text-sm font-semibold text-[var(--brand-text)]">
-                Total ({filteredHistorial.length} pagos)
-              </span>
-              <span className="font-bold text-zinc-900">
-                ${totalHistorial.toLocaleString('es-CO')}
-              </span>
-            </div>
+        <div className="flex-1 overflow-y-auto px-3 pb-24 lg:pb-4 flex flex-col gap-1">
+          {view !== 'historial' && (
+            listOrders.length === 0 ? (
+              <div className="py-16 text-center px-6">
+                <p className="text-sm font-bold text-zinc-700">{view === 'curso' ? 'Nada en curso' : 'Nada por cobrar'}</p>
+                <p className="text-xs text-zinc-500 mt-1">{q ? 'Prueba con otra búsqueda.' : 'Los pedidos aparecerán aquí en tiempo real.'}</p>
+              </div>
+            ) : listOrders.map(order => (
+              <OrderRow
+                key={order.id}
+                order={order}
+                deliveryFee={deliveryFee}
+                selected={cobrarOrder?.id === order.id}
+                onClick={() => selectOrder(order)}
+              />
+            ))
           )}
 
-          {filteredHistorial.length === 0 && (
-            <p className="text-center py-16 text-sm text-zinc-400">
-              Sin registros
-            </p>
-          )}
-
-          <div className="flex flex-col gap-2">
-            {filteredHistorial.map(payment => (
-              <div
-                key={payment.id}
-                className="rounded-2xl p-4 bg-white border border-zinc-100 shadow-sm"
-              >
-                <div className="flex justify-between items-start mb-1">
-                  <span className="font-semibold text-zinc-900 text-sm">
-                    {payment.table?.is_delivery
-                      ? `Domicilio ${payment.table.number}`
-                      : `Mesa ${payment.table?.number} · ${payment.table?.zone?.name}`}
-                  </span>
-                  <span className="font-bold text-[var(--brand-text)]">
-                    ${payment.total.toLocaleString('es-CO')}
-                  </span>
-                </div>
-
-                <div className="flex gap-2 mb-2 flex-wrap">
-                  {payment.cash > 0 && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-600 border border-green-200">
-                      Efectivo ${payment.cash.toLocaleString('es-CO')}
-                    </span>
-                  )}
-                  {payment.transfer > 0 && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
-                      Transf. ${payment.transfer.toLocaleString('es-CO')}
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <p className="text-xs text-zinc-400">
-                    {new Date(payment.created_at).toLocaleTimeString('es-CO', {
-                      hour: '2-digit', minute: '2-digit'
-                    })}
+          {view === 'historial' && (
+            filteredHistorial.length === 0 ? (
+              <p className="py-16 text-center text-sm text-zinc-500">Sin cobros registrados hoy</p>
+            ) : filteredHistorial.map(payment => (
+              <div key={payment.id} className="px-3.5 py-3 rounded-xl bg-surface border border-zinc-200 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-zinc-900 truncate">
+                    {payment.table?.is_delivery ? `Domicilio ${payment.table.number}` : `Mesa ${payment.table?.number} · ${payment.table?.zone?.name || ''}`}
                   </p>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    {new Date(payment.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                    {payment.cash > 0 && ` · Efectivo ${money(payment.cash)}`}
+                    {payment.transfer > 0 && ` · Transf. ${money(payment.transfer)}`}
+                  </p>
+                </div>
+                <div className="shrink-0 flex flex-col items-end gap-1">
+                  <span className="font-mono text-sm font-semibold text-zinc-900 tabular">{money(payment.total)}</span>
+                  <button onClick={() => handleVoid(payment)} className="text-xs font-bold text-red-600 hover:underline">Anular</button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+
+      {/* ── Columna 3: detalle / cobro ── */}
+      <section className={`flex-1 min-w-0 min-h-0 flex-col ${showDetailOnMobile ? 'flex' : 'hidden lg:flex'}`}>
+
+        {/* Historial: totales del día */}
+        {view === 'historial' && (
+          <div className="flex-1 flex items-center justify-center p-8">
+            <div className="w-full max-w-sm bg-surface border border-zinc-200 rounded-2xl shadow-card p-6 flex flex-col gap-4">
+              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Cobrado hoy {filterMethod !== 'all' || q ? '(filtrado)' : ''}</p>
+              <p className="font-mono text-4xl font-semibold tracking-tight text-zinc-900 tabular">{money(totalHistorial)}</p>
+              <dl className="flex flex-col gap-2 text-sm">
+                <div className="flex justify-between"><dt className="text-zinc-500">Efectivo</dt><dd className="font-mono font-semibold text-zinc-800 tabular">{money(historialTotals.cash)}</dd></div>
+                <div className="flex justify-between"><dt className="text-zinc-500">Transferencias</dt><dd className="font-mono font-semibold text-zinc-800 tabular">{money(historialTotals.transfer)}</dd></div>
+                <div className="flex justify-between pt-2 border-t border-zinc-200"><dt className="text-zinc-500">Cobros</dt><dd className="font-mono font-semibold text-zinc-800 tabular">{filteredHistorial.length}</dd></div>
+              </dl>
+            </div>
+          </div>
+        )}
+
+        {/* Sin selección */}
+        {view !== 'historial' && !cobrarOrder && (
+          <div className="flex-1 flex items-center justify-center p-8 text-center">
+            <div>
+              <p className="text-base font-bold text-zinc-700">Selecciona un pedido</p>
+              <p className="text-sm text-zinc-500 mt-1">Elige una mesa o un domicilio de la lista para cobrarlo.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Cobro */}
+        {view !== 'historial' && cobrarOrder && (
+          <div className="flex-1 overflow-y-auto">
+            <div className="max-w-2xl mx-auto w-full p-5 lg:p-7 pb-28 lg:pb-8 flex flex-col gap-5">
+
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <button onClick={() => setCobrarOrder(null)} className="lg:hidden -ml-1 mb-2 h-9 px-2 rounded-lg text-sm font-bold text-zinc-600 hover:bg-zinc-100">
+                    ← Pedidos
+                  </button>
+                  <h2 className="text-2xl font-extrabold tracking-tight text-zinc-900">{orderTitle(cobrarOrder)}</h2>
+                  <p className="text-sm text-zinc-500 mt-0.5">
+                    {[cobrarOrder.table?.is_delivery ? cobrarOrder.customer_name : cobrarOrder.table?.zone?.name,
+                      minutesSince(cobrarOrder.started_at) != null ? `abierta hace ${minutesSince(cobrarOrder.started_at)} min` : null]
+                      .filter(Boolean).join(' · ')}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={`h-7 px-2.5 inline-flex items-center rounded-full border text-xs font-bold ${statusInfo(cobrarOrder).cls}`}>{statusInfo(cobrarOrder).text}</span>
                   <button
-                    onClick={() => handleVoid(payment)}
-                    className="text-xs text-red-400 hover:text-red-500 transition-colors"
+                    onClick={() => setSelectedOrder(cobrarOrder)}
+                    className="h-10 px-3.5 rounded-xl border border-zinc-300 bg-surface text-sm font-bold text-zinc-700 hover:bg-zinc-50 transition-colors"
                   >
-                    Eliminar
+                    Ver / editar
                   </button>
                 </div>
               </div>
-            ))}
-          </div>
 
-        </div>
+              {/* Cuenta */}
+              <div className="bg-surface border border-zinc-200 rounded-2xl shadow-card overflow-hidden">
+                <ul className="px-4">
+                  {cobrarOrder.items.filter(i => i.status !== 'cancelled').map(item => (
+                    <li key={item.id} className="flex items-baseline gap-3 py-2.5 border-b border-zinc-100">
+                      <span className="font-mono text-xs font-semibold text-zinc-500 w-6 shrink-0">{item.quantity}×</span>
+                      <span className="flex-1 text-sm font-semibold text-zinc-800">{item.product.name}</span>
+                      <span className="font-mono text-sm font-semibold text-zinc-800 tabular">{money(precioUnitario(item) * item.quantity)}</span>
+                    </li>
+                  ))}
+                  {cobrarOrder.delivery_type === 'delivery' && cobrarOrder.table?.is_delivery && (
+                    <li className="flex items-baseline gap-3 py-2.5 border-b border-zinc-100">
+                      <span className="w-6 shrink-0" />
+                      <span className="flex-1 text-sm text-zinc-500">Domicilio</span>
+                      <span className="font-mono text-sm font-semibold text-zinc-500 tabular">{money(deliveryFee)}</span>
+                    </li>
+                  )}
+                  {discountAmount > 0 && (
+                    <li className="flex items-baseline gap-3 py-2.5 border-b border-zinc-100">
+                      <span className="w-6 shrink-0" />
+                      <span className="flex-1 text-sm font-semibold text-red-600">
+                        Descuento{discountType === 'percent' && discountValue ? ` (${discountValue}%)` : ''}
+                      </span>
+                      <span className="font-mono text-sm font-semibold text-red-600 tabular">−{money(discountAmount)}</span>
+                    </li>
+                  )}
+                </ul>
+                <div className="px-4 py-4 bg-surface-2 flex items-center justify-between">
+                  <span className="text-sm font-bold text-zinc-700">Total</span>
+                  <span className="font-mono text-3xl font-semibold tracking-tight text-zinc-900 tabular">{money(total)}</span>
+                </div>
+              </div>
+
+              {!canPayCurrent ? (
+                <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5 text-center">
+                  <p className="text-sm font-bold text-zinc-700">Este pedido aún no se puede cobrar</p>
+                  <p className="text-sm text-zinc-500 mt-1">
+                    {cobrarOrder.status === 'inDelivery' ? 'Va en camino: se cobra cuando el domiciliario lo entregue.' : 'Se habilita cuando cocina lo marque como listo.'}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Descuento (solo admin/dev) */}
+                  {canDiscount && (
+                    <div className="flex flex-col gap-2">
+                      <span className="text-sm font-bold text-zinc-700">Descuento</span>
+                      <div className="flex gap-2">
+                        <div role="radiogroup" aria-label="Tipo de descuento" className="flex p-1 rounded-xl bg-zinc-100 border border-zinc-200 shrink-0">
+                          {[['percent', '%'], ['fixed', '$']].map(([k, l]) => (
+                            <button
+                              key={k}
+                              role="radio"
+                              aria-checked={discountType === k}
+                              onClick={() => handleDiscountChange(k, discountValue)}
+                              className={`w-10 h-10 rounded-lg text-sm font-bold transition-colors ${discountType === k ? 'bg-surface text-zinc-900 shadow-card' : 'text-zinc-500'}`}
+                            >
+                              {l}
+                            </button>
+                          ))}
+                        </div>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          value={discountValue}
+                          onChange={e => handleDiscountChange(discountType, e.target.value)}
+                          placeholder={discountType === 'percent' ? 'Porcentaje' : 'Valor en pesos'}
+                          aria-label="Valor del descuento"
+                          className={inputBase}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Método de pago */}
+                  {!fiado && (
+                    <div className="flex flex-col gap-2">
+                      <span className="text-sm font-bold text-zinc-700">Método de pago</span>
+                      <div role="radiogroup" aria-label="Método de pago" className="grid grid-cols-3 gap-2">
+                        {[['cash', 'Efectivo'], ['transfer', 'Transferencia'], ['mixed', 'Mixto']].map(([k, l]) => (
+                          <button
+                            key={k}
+                            role="radio"
+                            aria-checked={payMethod === k}
+                            onClick={() => changePayMethod(k)}
+                            className={`h-12 rounded-xl text-sm font-bold border transition-colors ${payMethod === k ? 'border-[var(--brand)] border-[1.5px] bg-[var(--brand-light)] text-zinc-900' : 'border-zinc-200 bg-surface text-zinc-600 hover:bg-zinc-50'}`}
+                          >
+                            {l}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Montos */}
+                  {(payMethod === 'mixed' || fiado) && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="flex flex-col gap-1.5">
+                        <span className="text-sm font-bold text-zinc-700">Efectivo</span>
+                        <input type="number" inputMode="numeric" value={efectivo} onChange={e => handleEfectivoChange(e.target.value)} placeholder="0" className={inputBase} />
+                      </label>
+                      <label className="flex flex-col gap-1.5">
+                        <span className="text-sm font-bold text-zinc-700">Transferencia</span>
+                        <input type="number" inputMode="numeric" value={transferencia} onChange={e => handleTransferenciaChange(e.target.value)} placeholder="0" className={inputBase} />
+                      </label>
+                    </div>
+                  )}
+
+                  {(parseInt(efectivo) || 0) > 0 && (
+                    <div className="flex flex-col gap-2">
+                      <div className="grid grid-cols-2 gap-3">
+                        <label className="flex flex-col gap-1.5">
+                          <span className="text-sm font-bold text-zinc-700">Recibido</span>
+                          <input type="number" inputMode="numeric" value={recibido} onChange={e => setRecibido(e.target.value)} placeholder="¿Con cuánto paga?" className={inputBase} />
+                        </label>
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-sm font-bold text-zinc-700">Cambio</span>
+                          <div className={`h-12 rounded-xl px-3.5 flex items-center font-mono text-lg font-semibold tabular border ${recibido && vuelto >= 0 ? 'bg-green-50 border-green-200 text-green-700' : recibido && vuelto < 0 ? 'bg-red-50 border-red-200 text-red-600' : 'bg-zinc-50 border-zinc-200 text-zinc-400'}`}>
+                            {recibido ? (vuelto >= 0 ? money(vuelto) : `Faltan ${money(-vuelto)}`) : '—'}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 flex-wrap">
+                        {quickBills(parseInt(efectivo) || 0).map(v => (
+                          <button
+                            key={v}
+                            onClick={() => setRecibido(String(v))}
+                            className={`h-9 px-3 rounded-full border font-mono text-sm font-semibold tabular transition-colors ${String(v) === recibido ? 'bg-zinc-900 text-surface border-zinc-900' : 'bg-surface text-zinc-700 border-zinc-200 hover:bg-zinc-50'}`}
+                          >
+                            {money(v)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {descuadre && sumaPagos > 0 && !fiado && (
+                    <p className="rounded-xl px-3.5 py-2.5 text-sm font-semibold bg-yellow-50 border border-yellow-200 text-yellow-700">
+                      {sumaPagos > total ? 'Excede el total en ' : 'Falta por cubrir '}{money(Math.abs(sumaPagos - total))}
+                    </p>
+                  )}
+
+                  {/* Fiado */}
+                  <div className="rounded-2xl border border-zinc-200 bg-surface p-4 flex flex-col gap-3">
+                    <label className="flex items-center justify-between gap-3 cursor-pointer">
+                      <span>
+                        <span className="block text-sm font-bold text-zinc-800">Dejar fiado</span>
+                        <span className="block text-xs text-zinc-500">El cliente paga una parte o nada y queda debiendo</span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={fiado}
+                        onChange={() => { setFiado(prev => !prev); setEfectivo(''); setTransferencia(''); setRecibido('') }}
+                        className="w-5 h-5 accent-[var(--brand)]"
+                      />
+                    </label>
+
+                    {fiado && (
+                      <div className="flex flex-col gap-3 pt-3 border-t border-zinc-100">
+                        <label className="flex flex-col gap-1.5 relative">
+                          <span className="text-sm font-bold text-zinc-700">Cliente</span>
+                          <input
+                            type="text"
+                            placeholder="¿A nombre de quién?"
+                            value={debtorName}
+                            onChange={e => {
+                              setDebtorName(e.target.value)
+                              setSelectedDebtor(null)
+                              setDebtorSuggestions(e.target.value.length > 1
+                                ? existingDebtors.filter(d => d.name.toLowerCase().includes(e.target.value.toLowerCase()))
+                                : [])
+                            }}
+                            className={`${inputBase} font-sans text-base`}
+                          />
+                          {debtorSuggestions.length > 0 && (
+                            <div className="rounded-xl border border-zinc-200 bg-surface shadow-pop overflow-hidden">
+                              {debtorSuggestions.map(d => (
+                                <button
+                                  key={d.id}
+                                  type="button"
+                                  onClick={() => { setDebtorName(d.name); setSelectedDebtor(d); setDebtorSuggestions([]) }}
+                                  className="w-full h-11 px-3.5 text-left text-sm hover:bg-zinc-50 flex items-center justify-between"
+                                >
+                                  <span className="font-semibold text-zinc-800">{d.name}</span>
+                                  <span className="text-xs font-bold text-red-600">Debe {money(d.total_debt)}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </label>
+                        <label className="flex flex-col gap-1.5">
+                          <span className="flex items-center justify-between">
+                            <span className="text-sm font-bold text-zinc-700">Monto que queda debiendo</span>
+                            <button type="button" onClick={() => setDebtAmount(String(Math.max(0, total - sumaPagos)))} className="text-xs font-bold text-[var(--brand-text)] hover:underline">
+                              Todo lo que falta ({money(Math.max(0, total - sumaPagos))})
+                            </button>
+                          </span>
+                          <input type="number" inputMode="numeric" placeholder="0" value={debtAmount} onChange={e => setDebtAmount(e.target.value)} className={inputBase} />
+                        </label>
+                        {debtAmount && Number(debtAmount) > 0 && debtorName.trim() && (
+                          <p className="rounded-xl px-3.5 py-2.5 text-sm bg-red-50 border border-red-200 text-red-700">
+                            <b>{debtorName}</b> quedará debiendo <b>{money(debtAmount)}</b>
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Cobrar */}
+                  <div className="sticky bottom-24 lg:bottom-0 pt-2 bg-gradient-to-t from-canvas via-canvas to-transparent">
+                    <button
+                      onClick={handleCobrar}
+                      disabled={procesando || (!fiado && descuadre) || fiadoIncompleto}
+                      className="
+                        w-full h-14 rounded-xl text-base font-extrabold text-white
+                        bg-[var(--brand)] hover:bg-[var(--brand-hover)]
+                        shadow-[0_8px_24px_-8px_var(--brand-shadow)]
+                        transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                      "
+                    >
+                      {procesando
+                        ? 'Procesando…'
+                        : fiado
+                          ? `Registrar ${money(sumaPagos)} pagado + ${money(debtAmount || 0)} fiado`
+                          : `Cobrar ${money(total)} y liberar mesa`}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* ── Ver / editar pedido ── */}
+      {selectedOrder && (
+        <PedidoActivo
+          table={{ ...selectedOrder.table, id: selectedOrder.table_id }}
+          onClose={() => { setSelectedOrder(null); refetch() }}
+        />
       )}
+
 
       {/* ── Modal notificaciones ── */}
       {showNotifications && (
@@ -1224,9 +1057,9 @@ export default function CajeroHome() {
         >
           <div className="
             w-full max-w-lg
-            bg-white rounded-t-3xl
+            bg-surface rounded-t-3xl
             border border-b-0 border-zinc-200
-            shadow-[0_-8px_40px_rgba(0,0,0,0.10)]
+            shadow-pop
             p-6 pb-10
             max-h-[80vh] flex flex-col
           ">
@@ -1252,14 +1085,11 @@ export default function CajeroHome() {
             <div className="flex-1 overflow-y-auto space-y-2">
               {onlineOrders.length === 0 ? (
                 <div className="text-center py-10">
-                  <p className="text-3xl mb-3">🛵</p>
+                  
                   <p className="text-zinc-400 text-sm">Sin pedidos online hoy</p>
                 </div>
               ) : (
                 onlineOrders.map(order => {
-                  const activeItems = order.items
-                    ? order.items.filter(i => i.status !== 'cancelled')
-                    : []
                   const timeStr = new Date(order.created_at)
                     .toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
 
@@ -1291,16 +1121,16 @@ export default function CajeroHome() {
                               onClick={e => { e.stopPropagation(); sendManualReport(order) }}
                               className="text-xs font-semibold text-green-600 hover:text-green-700 mt-2"
                             >
-                              📲 Enviar reporte
+                              Enviar reporte
                             </button>
                           </div>
                           <p className="text-xs text-zinc-400">
-                            {order.delivery_type === 'delivery' ? '🛵 Domicilio' : '🏠 Recoger'}
+                            {order.delivery_type === 'delivery' ? 'Domicilio' : 'Recoger'}
                             {order.customer_phone && ` · ${order.customer_phone}`}
                           </p>
                           {order.delivery_address && (
                             <p className="text-xs text-zinc-400 mt-0.5 truncate">
-                              📍 {order.delivery_address}
+                              {order.delivery_address}
                             </p>
                           )}
                         </div>
@@ -1323,15 +1153,15 @@ export default function CajeroHome() {
             onClick={() => dismissToast(order.id)}
             className="
               text-left
-              rounded-2xl bg-white border border-[var(--brand-border)]
-              shadow-[0_8px_30px_rgba(0,0,0,0.15)]
+              rounded-2xl bg-surface border border-[var(--brand-border)]
+              shadow-pop
               p-4
               animate-[slidein_0.3s_ease]
               hover:scale-[1.02] transition-transform
             "
           >
             <div className="flex items-start gap-3">
-              <span className="text-2xl">🛵</span>
+              
               <div className="min-w-0">
                 <p className="font-bold text-zinc-900 text-sm">
                   ¡Nuevo pedido online!

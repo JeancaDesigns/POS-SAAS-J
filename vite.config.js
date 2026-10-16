@@ -27,6 +27,16 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         runtimeCaching: [
           {
+            // Tipografías (Manrope / JetBrains Mono) disponibles también sin conexión
+            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts',
+              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
             // Solo catálogo (menú, mesas, config). Pedidos, pagos, usuarios y auth no se
             // guardan en Cache Storage: offline se usan Dexie y la cola pendiente.
             urlPattern: /^https:\/\/hthubjuykjrpupjmdpih\.supabase\.co\/rest\/v1\/(products|categories|zones|tables|restaurants)\b.*/i,
@@ -45,8 +55,8 @@ export default defineConfig({
         name: 'POS Restaurante',
         short_name: 'POS',
         description: 'Sistema POS para restaurantes',
-        theme_color: '#820AD1',
-        background_color: '#F6F6F8',
+        theme_color: '#5B3DF5',
+        background_color: '#F6F7F9',
         display: 'standalone',
         orientation: 'portrait',
         icons: [

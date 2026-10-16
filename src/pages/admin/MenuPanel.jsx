@@ -1,22 +1,33 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useAuthStore } from '../../store/authStore'
+import { Plus, Pencil, Trash2, Search, X } from 'lucide-react'
 
 const ICONS = ['🌭', '🍟', '🥤', '🍨', '🍔', '🌮', '🍕', '🍗', '🎮']
 
-const inputClass = `
-  w-full rounded-xl px-4 py-3
-  text-zinc-800 outline-none
-  bg-zinc-50 border border-zinc-200
-  focus:border-[var(--brand-border)] transition-colors
-  placeholder:text-zinc-400
-`
+// Interruptor accesible (disponible / solo en el local)
+function Toggle({ checked, onChange, label }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={onChange}
+      className={`relative w-11 h-6 rounded-full shrink-0 transition-colors ${checked ? 'bg-[var(--brand)]' : 'bg-zinc-300'}`}
+    >
+      <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-card transition-transform ${checked ? 'translate-x-5' : ''}`} />
+    </button>
+  )
+}
 
 export default function MenuPanel() {
   const { user } = useAuthStore()
   const [categories, setCategories] = useState([])
   const [products, setProducts] = useState([])
-  const [view, setView] = useState('categorias')
+  const [view, setView] = useState('productos') // qué formulario se edita: 'categorias' | 'productos'
+  const [filterCat, setFilterCat] = useState('all')
+  const [query, setQuery] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editItem, setEditItem] = useState(null)
   const [catForm, setCatForm] = useState({ name: '', icon: '🌭' })
@@ -111,436 +122,229 @@ export default function MenuPanel() {
     fetchData()
   }
 
+  // ── Vista ──────────────────────────────────────────────────────────────────
+  const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
+  const q = query.trim().toLowerCase()
+  const countIn = id => products.filter(p => p.category_id === id).length
+  const visibleProducts = products
+    .filter(p => q ? `${p.name} ${p.description || ''}`.toLowerCase().includes(q) : filterCat === 'all' || p.category_id === filterCat)
+    .sort((a, b) => a.name.localeCompare(b.name))
+  const unavailable = products.filter(p => !p.available).length
+  const isCatForm = showForm && view === 'categorias'
+  const isProdForm = showForm && view === 'productos'
+  const field = 'w-full h-11 rounded-xl px-3.5 bg-surface border border-zinc-300 text-[15px] text-zinc-900 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--brand-soft)] placeholder:text-zinc-400 transition-[border-color,box-shadow]'
+
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col lg:flex-row gap-5">
 
-      {/* ── Tabs ── */}
-      <div className="flex gap-2">
-        {[
-          { key: 'categorias', label: 'Categorías' },
-          { key: 'productos',  label: 'Productos'  },
-        ].map(v => (
-          <button
-            key={v.key}
-            onClick={() => { setView(v.key); setShowForm(false) }}
-            className={`
-              px-5 py-2.5 rounded-2xl
-              text-sm font-semibold
-              border transition-all duration-200 active:scale-95
-              ${view === v.key
-                ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
-                : 'bg-white text-zinc-500 border-zinc-200 hover:bg-zinc-50'
-              }
-            `}
-          >
-            {v.label}
+      {/* ── Categorías ── */}
+      <section aria-label="Categorías" className="lg:w-[260px] shrink-0 flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Categorías</h3>
+          <button onClick={() => { setView('categorias'); openNewCat() }} className="h-8 px-2.5 rounded-lg text-sm font-bold text-[var(--brand-text)] hover:bg-[var(--brand-light)] flex items-center gap-1">
+            <Plus size={15} aria-hidden="true" /> Nueva
           </button>
-        ))}
-      </div>
-
-      {/* ── Lista categorías ── */}
-      {view === 'categorias' && !showForm && (
-        <div className="rounded-2xl bg-white border border-zinc-200 p-6
-          shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
-
-          <div className="flex justify-between items-center mb-4">
-            <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">
-              {categories.length} CATEGORÍAS
-            </p>
-            <button
-              onClick={openNewCat}
-              className="
-                bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-                text-white rounded-xl px-4 py-2
-                text-sm font-semibold
-                transition-all duration-200 active:scale-95
-              "
-            >
-              + Nueva categoría
-            </button>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            {categories.map(cat => (
-              <div
-                key={cat.id}
-                className="rounded-2xl bg-zinc-50 border border-zinc-100 p-4
-                  flex items-center justify-between"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">{cat.icon}</span>
-                  <div>
-                    <p className="font-semibold text-zinc-900">{cat.name}</p>
-                    <p className="text-zinc-400 text-xs">
-                      {products.filter(p => p.category_id === cat.id).length} productos
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => openEditCat(cat)}
-                    className="
-                      bg-white hover:bg-zinc-50
-                      border border-zinc-200
-                      text-zinc-600 rounded-xl px-3 py-2
-                      text-sm transition-colors
-                    "
-                  >
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => deleteCat(cat)}
-                    className="
-                      bg-red-50 hover:bg-red-100
-                      border border-red-200
-                      text-red-500 rounded-xl px-3 py-2
-                      text-sm transition-colors
-                    "
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
-      )}
-
-      {/* ── Form categoría ── */}
-      {view === 'categorias' && showForm && (
-        <div className="rounded-2xl bg-white border border-zinc-200 p-6
-          shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
-
-          <div className="flex items-center gap-3 mb-6">
-            <button
-              onClick={() => setShowForm(false)}
-              className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
-            >
-              ← Volver
-            </button>
-            <h2 className="font-bold text-zinc-900">
-              {editItem ? 'Editar categoría' : 'Nueva categoría'}
-            </h2>
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <input
-              type="text"
-              placeholder="Nombre de la categoría"
-              value={catForm.name}
-              onChange={e => setCatForm(p => ({ ...p, name: e.target.value }))}
-              className={inputClass}
-            />
-            <div>
-              <p className="text-sm text-zinc-500 mb-2">Ícono</p>
-              <div className="flex flex-wrap gap-2">
-                {ICONS.map(icon => (
-                  <button
-                    key={icon}
-                    onClick={() => setCatForm(p => ({ ...p, icon }))}
-                    className={`
-                      text-2xl p-2 rounded-xl border transition-all duration-200
-                      ${catForm.icon === icon
-                        ? 'bg-[var(--brand-light)] border-[var(--brand-border)]'
-                        : 'bg-zinc-50 border-zinc-200 hover:border-[var(--brand-border)]'
-                      }
-                    `}
-                  >
-                    {icon}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {error && <p className="text-red-500 text-sm">{error}</p>}
-            <button
-              onClick={saveCat}
-              disabled={saving}
-              className="
-                bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-                text-white font-bold rounded-2xl py-4
-                shadow-[0_4px_20px_var(--brand-shadow)]
-                transition-all duration-200 active:scale-[0.98] disabled:opacity-50
-              "
-            >
-              {saving ? 'Guardando...' : 'Guardar'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Lista productos ── */}
-      {view === 'productos' && !showForm && (
-        <div className="rounded-2xl bg-white border border-zinc-200 p-6
-          shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
-
-          <div className="flex justify-between items-center mb-4">
-            <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">
-              {products.length} PRODUCTOS
-            </p>
-            <button
-              onClick={openNewProd}
-              className="
-                bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-                text-white rounded-xl px-4 py-2
-                text-sm font-semibold
-                transition-all duration-200 active:scale-95
-              "
-            >
-              + Nuevo producto
-            </button>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            {products.map(prod => (
-              <div
-                key={prod.id}
-                className={`
-                  rounded-2xl border p-4
-                  transition-all duration-200
-                  ${prod.available
-                    ? 'bg-zinc-50 border-zinc-100'
-                    : 'bg-zinc-50 border-zinc-100 opacity-50'
-                  }
-                `}
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <p className={`font-semibold ${prod.available ? 'text-zinc-900' : 'line-through text-zinc-400'}`}>
-                      {prod.name}
-                    </p>
-                    <p className="text-zinc-400 text-xs mt-0.5">{prod.category?.name}</p>
-                    <div className="flex gap-1 mt-1.5 flex-wrap">
-                      {prod.local_only && (
-                        <span className="text-xs bg-blue-50 text-blue-600 border border-blue-200 rounded-full px-2 py-0.5">
-                          Solo local
-                        </span>
-                      )}
-                      {prod.variants?.length > 0 && (
-                        <span className="text-xs bg-[var(--brand-light)] text-[var(--brand-text)] border border-[var(--brand-border)] rounded-full px-2 py-0.5">
-                          {prod.variants.length} variante{prod.variants.length !== 1 ? 's' : ''}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <span className="text-[var(--brand-text)] font-bold">
-                    ${prod.price.toLocaleString('es-CO')}
+        <div className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible pb-1">
+          {[{ id: 'all', name: 'Todos los productos', icon: null }, ...categories].map(cat => {
+            const active = !q && filterCat === cat.id
+            const n = cat.id === 'all' ? products.length : countIn(cat.id)
+            return (
+              <div key={cat.id} className={`group shrink-0 h-11 pl-3 pr-1 rounded-xl flex items-center gap-2 transition-colors ${active ? 'bg-[var(--brand-light)] shadow-[inset_3px_0_0_var(--brand)]' : 'hover:bg-surface'}`}>
+                <button onClick={() => { setFilterCat(cat.id); setQuery('') }} className="flex-1 min-w-0 h-full flex items-center gap-2 text-left">
+                  {cat.icon && <span aria-hidden="true">{cat.icon}</span>}
+                  <span className={`truncate text-sm font-bold ${active ? 'text-zinc-900' : 'text-zinc-600'}`}>{cat.name}</span>
+                  <span className="ml-auto font-mono text-xs text-zinc-400">{n}</span>
+                </button>
+                {cat.id !== 'all' && (
+                  <span className="hidden lg:flex opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                    <button onClick={() => { setView('categorias'); openEditCat(cat) }} aria-label={`Editar ${cat.name}`} className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 hover:bg-zinc-100"><Pencil size={14} /></button>
+                    <button onClick={() => deleteCat(cat)} aria-label={`Eliminar ${cat.name}`} className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 hover:bg-red-50 hover:text-red-600"><Trash2 size={14} /></button>
                   </span>
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => toggleAvailable(prod)}
-                    className={`
-                      flex-1 rounded-xl py-2 text-sm font-semibold
-                      border transition-colors
-                      ${prod.available
-                        ? 'bg-yellow-50 border-yellow-200 text-yellow-600 hover:bg-yellow-100'
-                        : 'bg-green-50 border-green-200 text-green-600 hover:bg-green-100'
-                      }
-                    `}
-                  >
-                    {prod.available ? 'Marcar no disponible' : 'Marcar disponible'}
-                  </button>
-                  <button
-                    onClick={() => openEditProd(prod)}
-                    className="
-                      bg-white hover:bg-zinc-50
-                      border border-zinc-200
-                      text-zinc-600 rounded-xl px-3 py-2
-                      text-sm transition-colors
-                    "
-                  >
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => deleteProd(prod.id)}
-                    className="
-                      bg-red-50 hover:bg-red-100
-                      border border-red-200
-                      text-red-500 rounded-xl px-3 py-2
-                      text-sm transition-colors
-                    "
-                  >
-                    Eliminar
-                  </button>
-                </div>
+                )}
               </div>
-            ))}
-          </div>
+            )
+          })}
         </div>
-      )}
+      </section>
 
-      {/* ── Form producto ── */}
-      {view === 'productos' && showForm && (
-        <div className="rounded-2xl bg-white border border-zinc-200 p-6
-          shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+      {/* ── Productos ── */}
+      <section aria-label="Productos" className="flex-1 min-w-0 flex flex-col gap-3">
+        <div className="flex gap-2">
+          <label className="flex-1 flex items-center gap-2 h-11 px-3 rounded-xl bg-surface border border-zinc-200 focus-within:border-[var(--brand)] transition-colors">
+            <Search size={17} className="text-zinc-400 shrink-0" aria-hidden="true" />
+            <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar producto" aria-label="Buscar producto" className="flex-1 bg-transparent outline-none text-sm text-zinc-900 placeholder:text-zinc-400" />
+          </label>
+          <button onClick={() => { setView('productos'); openNewProd() }} className="h-11 px-4 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white text-sm font-bold flex items-center gap-1.5 transition-colors shrink-0">
+            <Plus size={16} aria-hidden="true" /> Producto
+          </button>
+        </div>
 
-          <div className="flex items-center gap-3 mb-6">
-            <button
-              onClick={() => setShowForm(false)}
-              className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
-            >
-              ← Volver
-            </button>
-            <h2 className="font-bold text-zinc-900">
-              {editItem ? 'Editar producto' : 'Nuevo producto'}
-            </h2>
-          </div>
+        {unavailable > 0 && (
+          <p className="text-xs text-zinc-500"><span className="font-bold text-orange-700">{unavailable}</span> producto{unavailable !== 1 ? 's' : ''} marcado{unavailable !== 1 ? 's' : ''} como agotado{unavailable !== 1 ? 's' : ''} (no aparecen al tomar pedidos)</p>
+        )}
 
-          <div className="flex flex-col gap-4">
-            <input
-              type="text"
-              placeholder="Nombre del producto"
-              value={prodForm.name}
-              onChange={e => setProdForm(p => ({ ...p, name: e.target.value }))}
-              className={inputClass}
-            />
-            <textarea
-              placeholder="Descripción (opcional)"
-              value={prodForm.description}
-              onChange={e => setProdForm(p => ({ ...p, description: e.target.value }))}
-              rows={2}
-              className={`${inputClass} resize-none text-sm`}
-            />
-            <input
-              type="number"
-              placeholder="Precio"
-              value={prodForm.price}
-              onChange={e => setProdForm(p => ({ ...p, price: e.target.value }))}
-              className={inputClass}
-            />
+        <div className="bg-surface border border-zinc-200 rounded-2xl shadow-card overflow-hidden">
+          {visibleProducts.length === 0 ? (
+            <p className="py-14 text-center text-sm text-zinc-500">{q ? 'Ningún producto coincide' : 'No hay productos en esta categoría'}</p>
+          ) : (
+            <ul className="divide-y divide-zinc-100">
+              {visibleProducts.map(prod => (
+                <li key={prod.id} className={`px-4 py-3 flex items-center gap-3 ${!prod.available ? 'bg-zinc-50' : ''}`}>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-bold truncate ${prod.available ? 'text-zinc-900' : 'text-zinc-500'}`}>{prod.name}</p>
+                    <p className="text-xs text-zinc-500 truncate">
+                      {[prod.category?.name, prod.variants?.length ? `${prod.variants.length} opciones` : null, prod.local_only ? 'Solo en el local' : null].filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+                  <span className="font-mono text-sm font-semibold text-zinc-900 tabular shrink-0">{money(prod.price)}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="hidden sm:inline text-xs font-semibold text-zinc-500 w-16 text-right">{prod.available ? 'Disponible' : 'Agotado'}</span>
+                    <Toggle checked={prod.available} onChange={() => toggleAvailable(prod)} label={`${prod.name} disponible`} />
+                  </div>
+                  <div className="flex shrink-0">
+                    <button onClick={() => { setView('productos'); openEditProd(prod) }} aria-label={`Editar ${prod.name}`} className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-500 hover:bg-zinc-100"><Pencil size={15} /></button>
+                    <button onClick={() => deleteProd(prod.id)} aria-label={`Desactivar ${prod.name}`} className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-500 hover:bg-red-50 hover:text-red-600"><Trash2 size={15} /></button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
 
-            {/* Categoría */}
-            <div>
-              <p className="text-sm text-zinc-500 mb-2">Categoría</p>
-              <div className="flex flex-wrap gap-2">
-                {categories.map(cat => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setProdForm(p => ({ ...p, category_id: cat.id }))}
-                    className={`
-                      px-4 py-2 rounded-full text-sm font-semibold
-                      border transition-all duration-200
-                      ${prodForm.category_id === cat.id
-                        ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
-                        : 'bg-white text-zinc-500 border-zinc-200 hover:border-[var(--brand-border)]'
-                      }
-                    `}
-                  >
-                    {cat.icon} {cat.name}
-                  </button>
-                ))}
-              </div>
+      {/* ── Panel de edición ── */}
+      {showForm && (
+        <div className="fixed inset-0 z-[90] flex justify-end bg-black/40 backdrop-blur-[2px]" onClick={() => setShowForm(false)}>
+          <div
+            role="dialog"
+            aria-label={isCatForm ? 'Categoría' : 'Producto'}
+            onClick={e => e.stopPropagation()}
+            className="w-full max-w-md h-full bg-surface border-l border-zinc-200 shadow-pop flex flex-col"
+          >
+            <div className="px-5 py-4 border-b border-zinc-200 flex items-center justify-between">
+              <h3 className="text-lg font-extrabold tracking-tight text-zinc-900">
+                {editItem ? 'Editar' : 'Nueva'} {isCatForm ? 'categoría' : 'producto'}
+              </h3>
+              <button onClick={() => setShowForm(false)} aria-label="Cerrar" className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-500 hover:bg-zinc-100"><X size={18} /></button>
             </div>
 
-            {/* Solo local */}
-            <div className="flex items-center justify-between bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3">
-              <div>
-                <p className="text-zinc-800 text-sm font-semibold">Solo en local</p>
-                <p className="text-zinc-400 text-xs">No aparece en pedidos públicos</p>
-              </div>
-              <button
-                onClick={() => setProdForm(p => ({ ...p, local_only: !p.local_only }))}
-                className="w-12 h-6 rounded-full transition-colors relative flex-shrink-0"
-                style={{ background: prodForm.local_only ? 'var(--brand)' : '#E4E4E7' }}
-              >
-                <div className={`
-                  absolute top-0.5 w-5 h-5 bg-white rounded-full
-                  shadow-sm transition-transform duration-200
-                  ${prodForm.local_only ? 'translate-x-6' : 'translate-x-0.5'}
-                `} />
-              </button>
-            </div>
+            <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4">
+              {isCatForm && (
+                <>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-bold text-zinc-700">Nombre</span>
+                    <input value={catForm.name} onChange={e => setCatForm(f => ({ ...f, name: e.target.value }))} placeholder="Ej: Hamburguesas" className={field} />
+                  </label>
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-sm font-bold text-zinc-700">Ícono</span>
+                    <div className="grid grid-cols-5 gap-2">
+                      {ICONS.map(icon => (
+                        <button
+                          key={icon}
+                          type="button"
+                          onClick={() => setCatForm(f => ({ ...f, icon }))}
+                          aria-pressed={catForm.icon === icon}
+                          className={`h-12 rounded-xl border text-xl transition-colors ${catForm.icon === icon ? 'border-[var(--brand)] border-[1.5px] bg-[var(--brand-light)]' : 'border-zinc-200 hover:bg-zinc-50'}`}
+                        >
+                          {icon}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-zinc-500">El ícono 🥤 marca bebidas: no pasan por cocina salvo que tengan opciones.</p>
+                  </div>
+                </>
+              )}
 
-            {/* Variantes */}
-            <div>
-              <p className="text-sm text-zinc-500 mb-1">Variantes</p>
-              <p className="text-xs text-zinc-400 mb-3">
-                Si el producto tiene opciones (ej: dulce/picante), agrégalas aquí.
-              </p>
-              {prodForm.variants.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {prodForm.variants.map((v, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-1 bg-[var(--brand-light)] border border-[var(--brand-border)] rounded-full px-3 py-1"
-                    >
-                      <span className="text-[var(--brand-text)] text-sm">{v}</span>
+              {isProdForm && (
+                <>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-bold text-zinc-700">Nombre</span>
+                    <input value={prodForm.name} onChange={e => setProdForm(f => ({ ...f, name: e.target.value }))} placeholder="Ej: Papas Benditas grandes" className={field} />
+                  </label>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-bold text-zinc-700">Descripción <span className="font-medium text-zinc-400">(opcional)</span></span>
+                    <textarea value={prodForm.description} onChange={e => setProdForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Se muestra en el menú y al tomar pedidos" className={`${field} h-auto py-2.5 resize-none`} />
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-sm font-bold text-zinc-700">Precio</span>
+                      <input type="number" inputMode="numeric" value={prodForm.price} onChange={e => setProdForm(f => ({ ...f, price: e.target.value }))} placeholder="0" className={`${field} font-mono`} />
+                    </label>
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-sm font-bold text-zinc-700">Categoría</span>
+                      <select value={prodForm.category_id} onChange={e => setProdForm(f => ({ ...f, category_id: e.target.value }))} className={field}>
+                        {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-sm font-bold text-zinc-700">Opciones <span className="font-medium text-zinc-400">(tamaños, sabores…)</span></span>
+                    {prodForm.variants.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {prodForm.variants.map((v, i) => (
+                          <span key={`${v}-${i}`} className="h-8 pl-3 pr-1 rounded-full bg-zinc-100 border border-zinc-200 text-sm font-semibold text-zinc-700 flex items-center gap-1">
+                            {v}
+                            <button type="button" onClick={() => setProdForm(p => ({ ...p, variants: p.variants.filter((_, idx) => idx !== i) }))} aria-label={`Quitar ${v}`} className="w-6 h-6 rounded-full flex items-center justify-center text-zinc-500 hover:bg-zinc-200"><X size={13} /></button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <input
+                        value={prodForm.newVariant}
+                        onChange={e => setProdForm(p => ({ ...p, newVariant: e.target.value }))}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && prodForm.newVariant.trim()) {
+                            e.preventDefault()
+                            setProdForm(p => ({ ...p, variants: [...p.variants, p.newVariant.trim()], newVariant: '' }))
+                          }
+                        }}
+                        placeholder="Escribe y presiona Enter"
+                        className={field}
+                      />
                       <button
-                        onClick={() => setProdForm(p => ({
-                          ...p, variants: p.variants.filter((_, idx) => idx !== i)
-                        }))}
-                        className="text-red-400 hover:text-red-500 ml-1 text-xs font-bold"
+                        type="button"
+                        onClick={() => prodForm.newVariant.trim() && setProdForm(p => ({ ...p, variants: [...p.variants, p.newVariant.trim()], newVariant: '' }))}
+                        className="h-11 px-3.5 rounded-xl border border-zinc-300 text-sm font-bold text-zinc-700 hover:bg-zinc-50 shrink-0"
                       >
-                        ✕
+                        Agregar
                       </button>
                     </div>
-                  ))}
-                </div>
+                  </div>
+
+                  <div className="flex flex-col divide-y divide-zinc-100 rounded-xl border border-zinc-200">
+                    <div className="px-3.5 py-3 flex items-center justify-between gap-3">
+                      <span>
+                        <span className="block text-sm font-bold text-zinc-800">Disponible</span>
+                        <span className="block text-xs text-zinc-500">Apágalo cuando se agote</span>
+                      </span>
+                      <Toggle checked={prodForm.available} onChange={() => setProdForm(f => ({ ...f, available: !f.available }))} label="Disponible" />
+                    </div>
+                    <div className="px-3.5 py-3 flex items-center justify-between gap-3">
+                      <span>
+                        <span className="block text-sm font-bold text-zinc-800">Solo en el local</span>
+                        <span className="block text-xs text-zinc-500">No aparece en la página de pedidos online</span>
+                      </span>
+                      <Toggle checked={prodForm.local_only} onChange={() => setProdForm(f => ({ ...f, local_only: !f.local_only }))} label="Solo en el local" />
+                    </div>
+                  </div>
+                </>
               )}
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Ej: Picante"
-                  value={prodForm.newVariant}
-                  onChange={e => setProdForm(p => ({ ...p, newVariant: e.target.value }))}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && prodForm.newVariant.trim()) {
-                      setProdForm(p => ({
-                        ...p,
-                        variants: [...p.variants, p.newVariant.trim()],
-                        newVariant: ''
-                      }))
-                    }
-                  }}
-                  className="
-                    flex-1 rounded-xl px-4 py-2.5
-                    text-zinc-800 outline-none text-sm
-                    bg-zinc-50 border border-zinc-200
-                    focus:border-[var(--brand-border)] transition-colors
-                    placeholder:text-zinc-400
-                  "
-                />
-                <button
-                  onClick={() => {
-                    if (prodForm.newVariant.trim()) {
-                      setProdForm(p => ({
-                        ...p,
-                        variants: [...p.variants, p.newVariant.trim()],
-                        newVariant: ''
-                      }))
-                    }
-                  }}
-                  className="
-                    bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-                    text-white rounded-xl px-4 py-2.5
-                    text-sm font-semibold
-                    transition-all active:scale-95
-                  "
-                >
-                  + Agregar
-                </button>
-              </div>
+
+              {error && <p role="alert" className="text-sm font-semibold text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">{error}</p>}
             </div>
 
-            {error && <p className="text-red-500 text-sm">{error}</p>}
-
-            <button
-              onClick={saveProd}
-              disabled={saving}
-              className="
-                bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-                text-white font-bold rounded-2xl py-4
-                shadow-[0_4px_20px_var(--brand-shadow)]
-                transition-all duration-200 active:scale-[0.98] disabled:opacity-50
-              "
-            >
-              {saving ? 'Guardando...' : 'Guardar'}
-            </button>
+            <div className="p-5 border-t border-zinc-200 flex gap-2">
+              <button onClick={() => setShowForm(false)} className="h-12 px-5 rounded-xl border border-zinc-300 text-sm font-bold text-zinc-700 hover:bg-zinc-50">Cancelar</button>
+              <button onClick={isCatForm ? saveCat : saveProd} disabled={saving} className="flex-1 h-12 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white text-sm font-bold transition-colors disabled:opacity-60">
+                {saving ? 'Guardando…' : 'Guardar'}
+              </button>
+            </div>
           </div>
         </div>
       )}
-
     </div>
   )
 }

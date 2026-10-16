@@ -40,10 +40,10 @@ export default function NuevoPedidoModal({
       {/* Sheet */}
       <div className="
         w-full max-w-lg
-        bg-white
+        bg-surface
         rounded-t-3xl
         border border-b-0 border-zinc-200
-        shadow-[0_-8px_40px_rgba(0,0,0,0.10)]
+        shadow-pop
         p-6 pb-20 sm:pb-8
       ">
 
