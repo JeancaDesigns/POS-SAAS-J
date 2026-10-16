@@ -157,7 +157,9 @@ export function useSyncQueue() {
             await db.pendingOperations.update(op.id, { payload })
           }
           // order_id y table_id también son columnas de payments (antes se perdían)
-          const { paid_at, ...paymentData } = payload
+          const { paid_at, ...rest } = payload
+          // created_at = hora real del cobro: si no, el pago cae en la caja o el día de la sincronización
+          const paymentData = paid_at ? { ...rest, created_at: paid_at } : rest
 
           // 1º el pago (idempotente por id). Si falla, no marcar el pedido como pagado.
           const { error: e1 } = await supabase

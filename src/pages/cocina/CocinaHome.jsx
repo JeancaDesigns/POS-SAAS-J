@@ -65,8 +65,8 @@ function useCountdown(targetStr) {
 // Elementos que cocina debe preparar (las bebidas sin variantes no pasan por cocina)
 function kitchenItemsOf(order) {
   return order.items.filter(i =>
-    i.product?.category?.icon !== '🥤' && i.status !== 'cancelled' ||
-    (i.product?.variants?.length > 0)
+    i.status !== 'cancelled' &&
+    (i.product?.category?.icon !== '🥤' || i.product?.variants?.length > 0)
   )
 }
 
@@ -453,7 +453,7 @@ export default function CocinaHome() {
     const next = [...dismissedIds, order.id]
     setDismissedIds(next)
     try { localStorage.setItem(dismissedKey, JSON.stringify(next.slice(-200))) } catch { /* sin storage */ }
-    await supabase.from('tables').update({ status: 'free' }).eq('id', order.table_id)
+    // La mesa ya se liberó al cancelar; liberarla aquí pisaría un pedido nuevo en esa mesa
     setActiveOrderId(null)
   }
 
