@@ -5,6 +5,8 @@ import {
   Package, AlertTriangle, Users, Clock3,
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
+import { inicioJornada } from '../../utils/jornada'
+import { fetchAll } from '../../utils/fetchAll'
 
 export default function ReportesPanel() {
   const { user } = useAuthStore()
@@ -14,7 +16,8 @@ export default function ReportesPanel() {
   // única de prorratearlo entre productos; por eso este desglose por producto/categoría es aproximado
   // cuando se usó descuento general — el total real y exacto de ventas ya sale de payments.total.
   function itemNetTotal(item) {
-    const lineTotal = Number(item.product?.price || 0) * Number(item.quantity)
+    // unit_price = precio al momento de la venta (columna nueva); respaldo: precio actual
+    const lineTotal = Number(item.unit_price ?? item.product?.price ?? 0) * Number(item.quantity)
     if (!item.discount_value || !item.discount_type) return lineTotal
     const val = Number(item.discount_value)
     const discount = item.discount_type === 'percent'
@@ -45,17 +48,20 @@ export default function ReportesPanel() {
     setSelectedMonth(report)
     const start = new Date(report.year, report.month, 1).toISOString()
     const end = new Date(report.year, report.month + 1, 1).toISOString()
-    const { data: ordersData } = await supabase
+    const ordersData = await fetchAll(() => supabase
       .from('orders').select('id, status')
-      .eq('restaurant_id', user.restaurant_id) // ← agregar
+      .eq('restaurant_id', user.restaurant_id)
       .gte('created_at', start).lt('created_at', end)
-    const orderIds = (ordersData || []).map(o => o.id)
-    const cancelledCount = (ordersData || []).filter(o => o.status === 'cancelled').length
-    const { data: itemsData } = await supabase
+      .order('created_at'))
+    const cancelledCount = ordersData.filter(o => o.status === 'cancelled').length
+    // Filtrar ítems por el pedido embebido (join) en vez de .in() con cientos de ids
+    const itemsData = await fetchAll(() => supabase
       .from('order_items')
-      .select('*, product:products(name, price, category:categories(name))')
-      .in('order_id', orderIds.length ? orderIds : ['00000000-0000-0000-0000-000000000000'])
+      .select('*, product:products(name, price, category:categories(name)), orders!inner(restaurant_id, created_at)')
+      .eq('orders.restaurant_id', user.restaurant_id)
+      .gte('orders.created_at', start).lt('orders.created_at', end)
       .neq('status', 'cancelled')
+      .order('id'))
     const productMap = {}
     itemsData?.forEach(item => {
       if (!item.product) return
@@ -95,7 +101,8 @@ export default function ReportesPanel() {
 
     const { data } = await supabase
       .from('order_items')
-      .select('quantity, note, product:products(name, price)')
+      // '*' incluye unit_price cuando exista la columna (sin romper si aún no se migró)
+      .select('*, product:products(name, price)')
       .eq('order_id', payment.order_id)
       .neq('status', 'cancelled')
 
@@ -103,8 +110,7 @@ export default function ReportesPanel() {
   }
 
   async function fetchTodayPaymentsDetail() {
-    const today = new Date()
-    today.setHours(3, 0, 0, 0)
+    const today = inicioJornada()
 
     const { data } = await supabase
       .from('payments')
@@ -119,36 +125,35 @@ export default function ReportesPanel() {
 
   async function fetchData() {
     setLoading(true)
-    const today = new Date(); today.setHours(3, 0, 0, 0)
-    const todayISO = today.toISOString()
+    const todayISO = inicioJornada().toISOString()
 
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
     const thirtyDaysAgoISO = thirtyDaysAgo.toISOString()
 
-    const { data: todayOrdersData } = await supabase
+    const todayOrdersData = await fetchAll(() => supabase
       .from('orders').select('*')
       .eq('restaurant_id', user.restaurant_id)
       .gte('created_at', todayISO)
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false }))
 
-    const { data: allOrdersData } = await supabase
+    const allOrdersData = await fetchAll(() => supabase
       .from('orders').select('*')
       .eq('restaurant_id', user.restaurant_id)
       .gte('created_at', thirtyDaysAgoISO)
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false }))
 
-    const todayOrderIds = (todayOrdersData || []).map(o => o.id)
-    const { data: todayItemsData } = await supabase
-      .from('order_items').select('*, product:products(*)')
-      .in('order_id', todayOrderIds.length ? todayOrderIds : ['00000000-0000-0000-0000-000000000000'])
+    // Ítems filtrados por join con orders (antes: .in() con todos los ids, que se
+    // rompe con muchos pedidos por el largo de la URL y el tope de 1.000 filas)
+    const itemsSince = iso => fetchAll(() => supabase
+      .from('order_items')
+      .select('*, product:products(*), orders!inner(restaurant_id, created_at)')
+      .eq('orders.restaurant_id', user.restaurant_id)
+      .gte('orders.created_at', iso)
       .neq('status', 'cancelled')
-
-    const allOrderIds = (allOrdersData || []).map(o => o.id)
-    const { data: allItemsData } = await supabase
-      .from('order_items').select('*, product:products(*)')
-      .in('order_id', allOrderIds.length ? allOrderIds : ['00000000-0000-0000-0000-000000000000'])
-      .neq('status', 'cancelled')
+      .order('id'))
+    const todayItemsData = await itemsSince(todayISO)
+    const allItemsData = await itemsSince(thirtyDaysAgoISO)
 
     const { data: productsData } = await supabase
       .from('products').select('*')
@@ -156,11 +161,12 @@ export default function ReportesPanel() {
 
     // Ventas de hoy: se leen directo de payments.total (ya incluye descuentos y
     // solo cuenta lo que de verdad se cobró, no pedidos sin pagar)
-    const { data: todayPaymentsData } = await supabase
+    const todayPaymentsData = await fetchAll(() => supabase
       .from('payments').select('total')
       .eq('restaurant_id', user.restaurant_id)
       .eq('voided', false)
       .gte('created_at', todayISO)
+      .order('created_at'))
 
     setTodayOrders(todayOrdersData || [])
     setTodayItems(todayItemsData || [])
@@ -172,14 +178,13 @@ export default function ReportesPanel() {
   }
 
   async function fetchMonthlyReports() {
-    const { data: paymentsData } = await supabase
+    // Todos los pagos, paginados (antes se cortaba en silencio a 1.000 filas)
+    const paymentsData = await fetchAll(() => supabase
       .from('payments')
       .select('*, table:tables(number, is_delivery)')
       .eq('restaurant_id', user.restaurant_id)
       .eq('voided', false)
-      .order('created_at', { ascending: false })
-
-    if (!paymentsData) return
+      .order('created_at', { ascending: false }))
 
     // Agrupar pagos por mes — payment.total ya es el monto real cobrado (con descuentos incluidos),
     // no hace falta volver a consultar order_items para "recalcular" nada
@@ -474,7 +479,7 @@ export default function ReportesPanel() {
                               )}
                             </div>
                             <span className="text-zinc-500 font-semibold">
-                              ${((item.product?.price || 0) * item.quantity).toLocaleString('es-CO')}
+                              ${(Number(item.unit_price ?? item.product?.price ?? 0) * item.quantity).toLocaleString('es-CO')}
                             </span>
                           </div>
                         ))}

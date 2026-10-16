@@ -109,7 +109,7 @@ export default function DomiciliarioHome() {
     fetchData()
     const channel = supabase
       .channel('domiciliario-orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `restaurant_id=eq.${user.restaurant_id}` }, fetchData)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, fetchData)
       .subscribe()
     return () => supabase.removeChannel(channel)

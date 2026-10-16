@@ -134,7 +134,6 @@ export default function DevConfig() {
     // 2. Subir el logo si se seleccionó uno
     if (logoFile) {
       const { data: sessionCheck } = await supabase.auth.getSession()
-      console.log('sesión activa al subir logo:', sessionCheck?.session?.user?.id)
 
       const ext = logoFile.name.split('.').pop()
       const path = `${restaurant.slug}/logo.${ext}`
@@ -144,7 +143,6 @@ export default function DevConfig() {
         .from('restaurant-logos')
         .upload(path, logoFile)
 
-      console.log('uploadData:', uploadData, 'uploadError:', uploadError)
 
       if (uploadError) {
         setCreateError('El restaurante se creó, pero el logo falló: ' + uploadError.message)
@@ -154,15 +152,12 @@ export default function DevConfig() {
           .from('restaurant-logos')
           .getPublicUrl(path)
 
-        console.log('publicUrl:', publicUrlData.publicUrl)
 
         const { data: updateData, error: logoUpdateError } = await supabase
           .from('restaurants')
           .update({ logo_url: publicUrlData.publicUrl })
           .eq('id', restaurant.id)
           .select()
-
-        console.log('updateData:', updateData, 'logoUpdateError:', logoUpdateError)
       }
     }
 

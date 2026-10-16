@@ -7,6 +7,8 @@ import { useOnlineStatus } from '../../hooks/useOnlineStatus'
 import { db } from '../../db/localDB'
 import { cacheOrders, getCachedOrders } from '../../db/cacheHelpers'
 import { buildWhatsappLink, getEstimatedTime } from '../../utils/whatsapp'
+import { precioUnitario } from '../../utils/precio'
+import { inicioJornada } from '../../utils/jornada'
 
 function useCajaOrders(restaurantId) {
   const [orders, setOrders] = useState([])
@@ -86,7 +88,7 @@ function useCajaOrders(restaurantId) {
 
     const channel = supabase
       .channel('caja-orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchOrders)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `restaurant_id=eq.${restaurantId}` }, fetchOrders)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, fetchOrders)
       .subscribe()
     return () => supabase.removeChannel(channel)
@@ -131,7 +133,7 @@ function calcDiscount(baseAmount, discountType, discountValue) {
 function orderTotal(order, deliveryFee) {
   const itemsTotal = order.items.filter(i => i.status !== 'cancelled')
     .reduce((sum, i) => {
-      const lineTotal = i.product.price * i.quantity
+      const lineTotal = precioUnitario(i) * i.quantity
       const lineDiscount = calcDiscount(lineTotal, i.discount_type, i.discount_value)
       return sum + (lineTotal - lineDiscount)
     }, 0)
@@ -223,7 +225,7 @@ function TicketActivo({ order, deliveryFee, restaurantName, onVerPedido, onCobra
                 {item.quantity}x {item.product.name}
               </span>
               <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#2D1B0E' }}>
-                ${(item.product.price * item.quantity).toLocaleString('es-CO')}
+                ${(precioUnitario(item) * item.quantity).toLocaleString('es-CO')}
               </span>
             </div>
           ))}
@@ -333,8 +335,7 @@ export default function CajeroHome() {
   }, [user?.restaurant_id, isOnline])
 
   async function fetchHistorial() {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    const today = inicioJornada()
     const { data } = await supabase
       .from('payments')
       .select('*, table:tables(number, is_delivery, zone:zones(name))')
@@ -357,8 +358,7 @@ export default function CajeroHome() {
   const vuelto = (parseInt(recibido) || 0) - (parseInt(efectivo) || 0)
 
   async function fetchOnlineOrders() {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    const today = inicioJornada()
     const { data } = await supabase
       .from('orders')
       .select('*, table:tables(number, is_delivery)')
@@ -789,7 +789,7 @@ export default function CajeroHome() {
                     {item.quantity}x {item.product.name}
                   </span>
                   <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#2D1B0E' }}>
-                    ${(item.product.price * item.quantity).toLocaleString('es-CO')}
+                    ${(precioUnitario(item) * item.quantity).toLocaleString('es-CO')}
                   </span>
                 </div>
               ))}
