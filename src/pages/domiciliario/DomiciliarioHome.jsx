@@ -3,6 +3,8 @@ import { supabase } from '../../supabaseClient'
 import { useAuthStore } from '../../store/authStore'
 import { useDeliveryCount } from '../../hooks/useDeliveryCount'
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
+import { Phone, MessageCircle, Navigation, Map as MapIcon, Check, Banknote } from 'lucide-react'
+import { precioUnitario } from '../../utils/precio'
 import L from 'leaflet'
 
 const deliveryIcon = new L.Icon({
@@ -30,6 +32,8 @@ export default function DomiciliarioHome() {
     localStorage.getItem(`enRuta-${user.restaurant_id}`) === 'true'
   )
   const tandaRef = useRef(tanda)
+  const [activeTab, setActiveTab] = useState(null) // null = automática según si está en ruta
+  const [openMap, setOpenMap] = useState(null)
 
   useEffect(() => { checkTurno() }, [])
   useEffect(() => { tandaRef.current = tanda }, [tanda])
@@ -151,7 +155,7 @@ export default function DomiciliarioHome() {
   function orderTotal(order) {
     const itemsTotal = order.items
       .filter(i => i.status !== 'cancelled')
-      .reduce((sum, i) => sum + i.product.price * i.quantity, 0)
+      .reduce((sum, i) => sum + precioUnitario(i) * i.quantity, 0)
     return itemsTotal + deliveryFee
   }
 
@@ -169,363 +173,245 @@ export default function DomiciliarioHome() {
     window.open(`https://wa.me/57${cleanPhone}`, '_blank')
   }
 
-  // ─── DeliveryCard ────────────────────────────────────────────────────────────
-  function DeliveryCard({ order, inTanda = false, delivered = false, showDeliverButton = false }) {
-    return (
-      <div className={`
-        rounded-2xl border p-4 md:p-5
-        transition-all duration-200
-        ${inTanda
-          ? 'bg-[var(--brand-light)] border-[var(--brand-border)]'
-          : delivered
-            ? 'bg-zinc-50 border-zinc-100 opacity-60'
-            : 'bg-surface border-zinc-200 hover:border-[var(--brand-border)] shadow-sm'
-        }
-      `}>
-
-        {/* Top — nombre + total */}
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <div>
-            <div className="flex items-center gap-2 mb-0.5">
-              
-              <h2 className={`font-bold text-lg ${delivered ? 'text-zinc-400' : 'text-zinc-900'}`}>
-                {order.customer_name}
-              </h2>
-            </div>
-            {order.customer_phone && (
-              <p className="text-sm text-zinc-400">{order.customer_phone}</p>
-            )}
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-zinc-400 mb-0.5">Total</p>
-            <p className={`font-bold text-lg ${inTanda ? 'text-[var(--brand-text)]' : 'text-[var(--brand-text)]'}`}>
-              ${orderTotal(order).toLocaleString('es-CO')}
-            </p>
-          </div>
-        </div>
-
-        {/* Dirección */}
-        {(order.delivery_address || order.delivery_reference) && (
-          <div className="bg-zinc-50 rounded-2xl p-3 border border-zinc-100 mb-4">
-            {order.delivery_address && (
-              <div className="mb-2">
-                <p className="text-[11px] uppercase tracking-wide text-zinc-400 mb-1 font-semibold">
-                  Dirección
-                </p>
-                <p className="text-base font-medium text-zinc-900 leading-relaxed">
-                  {order.delivery_address}
-                </p>
-              </div>
-            )}
-            {order.delivery_reference && (
-              <div>
-                <p className="text-[11px] uppercase tracking-wide text-zinc-400 mb-1 font-semibold">
-                  Referencia
-                </p>
-                <p className="text-base text-zinc-600 leading-relaxed">
-                  {order.delivery_reference}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Mapa */}
-        {order.delivery_lat && order.delivery_lng && (
-          <div className="relative overflow-hidden rounded-2xl border border-zinc-200 mb-4">
-            <div className="absolute top-3 left-3 z-[1000]">
-              <div className="bg-surface/80 backdrop-blur px-3 py-1 rounded-full border border-zinc-200 shadow-sm">
-                <p className="text-[11px] text-zinc-500 font-semibold">
-                  Mantén presionado para mover mapa
-                </p>
-              </div>
-            </div>
-            <MapContainer
-              center={[order.delivery_lat, order.delivery_lng]}
-              zoom={16}
-              scrollWheelZoom={false}
-              dragging={false}
-              touchZoom={false}
-              doubleClickZoom={false}
-              zoomControl={false}
-              attributionControl={false}
-              style={{ height: '180px', width: '100%', zIndex: 1 }}
-              className="select-none"
-            >
-              <TileLayer
-                attribution='&copy; OpenStreetMap contributors'
-                url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-              />
-              <Marker position={[order.delivery_lat, order.delivery_lng]} icon={deliveryIcon}>
-                <Popup>{order.customer_name}</Popup>
-              </Marker>
-            </MapContainer>
-            <button
-              onClick={() => openMaps(order)}
-              className="
-                absolute bottom-3 right-3 z-[1000]
-                bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-                text-white px-4 py-2 rounded-xl
-                text-sm font-bold shadow-lg
-                transition-colors
-              "
-            >
-              Abrir ruta
-            </button>
-          </div>
-        )}
-
-        {/* Ítems */}
-        <div className="mb-4">
-          <p className="text-[11px] uppercase tracking-wide text-zinc-400 mb-2 font-semibold">
-            Pedido
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {orderItems(order).map(item => (
-              <span
-                key={item.id}
-                className="bg-zinc-100 text-zinc-700 text-xs rounded-full px-3 py-1"
-              >
-                {item.quantity}x {item.product.name}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Botones contacto */}
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          {order.customer_phone ? (
-            <button
-              onClick={() => openWhatsApp(order.customer_phone)}
-              className="
-                bg-[#16A34A] hover:bg-[#15803D]
-                text-white font-semibold
-                rounded-2xl py-3
-                transition-colors text-sm
-              "
-            >
-              WhatsApp
-            </button>
-          ) : (
-            <div />
-          )}
-
-          {order.delivery_lat && order.delivery_lng ? (
-            <button
-              onClick={() => openMaps(order)}
-              className="
-                bg-[#1D6FE0] hover:bg-[#175CD3]
-                text-white font-semibold
-                rounded-2xl py-3
-                transition-colors text-sm
-              "
-            >
-              Ver ruta
-            </button>
-          ) : (
-            <button disabled className="bg-zinc-100 text-zinc-300 font-semibold rounded-2xl py-3 text-sm">
-              Sin ubicación
-            </button>
-          )}
-        </div>
-
-        {/* Toggle tanda */}
-        {!enRuta && !delivered && (
-          <button
-            onClick={() => toggleTanda(order.id)}
-            className={`
-              w-full rounded-2xl py-3
-              font-bold text-sm
-              border transition-all duration-200
-              active:scale-[0.98]
-              ${inTanda
-                ? 'bg-[var(--brand-light)] text-[var(--brand-text)] border-[var(--brand-border)] hover:bg-[var(--brand-light)]'
-                : 'bg-surface text-zinc-600 border-zinc-200 hover:border-[var(--brand-border)] hover:text-[var(--brand-text)]'
-              }
-            `}
-          >
-            {inTanda ? '✓ En esta tanda — quitar' : '+ Agregar a tanda'}
-          </button>
-        )}
-
-        {/* Marcar entregado */}
-        {showDeliverButton && (
-          <button
-            onClick={() => marcarEntregado(order)}
-            className="
-              w-full mt-3
-              bg-[#16A34A] hover:bg-[#15803D]
-              text-white font-bold
-              rounded-2xl py-3
-              transition-colors text-sm
-              active:scale-[0.98]
-            "
-          >
-            ✓ Marcar entregado
-          </button>
-        )}
-
-      </div>
-    )
-  }
-
   // ─── Loading ─────────────────────────────────────────────────────────────────
   if (loading) return (
-    <div className="min-h-screen bg-canvas flex items-center justify-center sm:ml-[92px]">
-      <p className="text-zinc-400 text-sm font-medium">Cargando domicilios...</p>
+    <div className="min-h-screen bg-canvas flex items-center justify-center">
+      <p className="text-zinc-500 text-sm font-medium">Cargando domicilios…</p>
     </div>
   )
 
   const pendingOrders = orders.filter(o => o.status === 'inDelivery')
   const dispatchedOrders = orders.filter(o => o.status === 'dispatched')
-  const tandaOrders = orders.filter(o => tanda.includes(o.id) && o.status === 'inDelivery')
-  const noTandaOrders = pendingOrders.filter(o => !tanda.includes(o.id))
+  const tandaOrders = pendingOrders.filter(o => tanda.includes(o.id))
+  const porSalir = enRuta ? pendingOrders.filter(o => !tanda.includes(o.id)) : pendingOrders
+  const tab = activeTab || (enRuta ? 'ruta' : 'salir')
+  const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
+  const aCobrar = list => list.reduce((s, o) => s + orderTotal(o), 0)
+  const TABS = [
+    { key: 'salir', label: 'Por salir', count: porSalir.length },
+    { key: 'ruta', label: 'En ruta', count: enRuta ? tandaOrders.length : 0 },
+    { key: 'entregados', label: 'Entregados', count: dispatchedOrders.length },
+  ]
+
+  function payInfo(order) {
+    const total = orderTotal(order)
+    if (order.payment_method === 'transfer') return { text: 'Paga por transferencia', tone: 'text-blue-700 bg-blue-50 border-blue-200' }
+    if (order.cash_amount && Number(order.cash_amount) > total) {
+      return { text: `Paga con ${money(order.cash_amount)} · llevar ${money(Number(order.cash_amount) - total)} de cambio`, tone: 'text-orange-700 bg-orange-50 border-orange-200' }
+    }
+    return { text: 'Paga en efectivo', tone: 'text-zinc-700 bg-zinc-50 border-zinc-200' }
+  }
+
+  const actionBtn = 'h-12 rounded-xl border border-zinc-200 bg-surface text-sm font-bold text-zinc-700 hover:bg-zinc-50 flex items-center justify-center gap-2 transition-colors disabled:opacity-40'
+
+  // Parada en ruta: dirección grande y acciones de un toque
+  function StopCard({ order, index }) {
+    const pay = payInfo(order)
+    const hasMap = order.delivery_lat && order.delivery_lng
+    const open = openMap === order.id
+    return (
+      <article className="bg-surface border border-zinc-200 rounded-2xl shadow-card overflow-hidden">
+        <div className="p-4 flex items-start gap-3">
+          <span className="shrink-0 w-9 h-9 rounded-full bg-[var(--brand)] text-white font-mono text-base font-semibold flex items-center justify-center">{index + 1}</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="text-lg font-extrabold tracking-tight text-zinc-900 truncate">{order.customer_name}</h3>
+              <span className="font-mono text-lg font-semibold text-zinc-900 tabular shrink-0">{money(orderTotal(order))}</span>
+            </div>
+            {order.delivery_address && <p className="text-base font-semibold text-zinc-800 leading-snug mt-1">{order.delivery_address}</p>}
+            {order.delivery_reference && <p className="text-sm text-zinc-500 mt-0.5">{order.delivery_reference}</p>}
+            <p className={`mt-2 inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full border text-xs font-bold ${pay.tone}`}>
+              <Banknote size={14} aria-hidden="true" /> {pay.text}
+            </p>
+          </div>
+        </div>
+
+        <ul className="px-4 pb-3 flex flex-wrap gap-1.5">
+          {orderItems(order).map(item => (
+            <li key={item.id} className="h-7 px-2.5 rounded-full bg-zinc-100 text-xs font-semibold text-zinc-700 flex items-center">
+              <span className="font-mono mr-1">{item.quantity}×</span>{item.product.name}
+            </li>
+          ))}
+        </ul>
+
+        {open && hasMap && (
+          <div className="border-t border-zinc-200">
+            <MapContainer
+              center={[order.delivery_lat, order.delivery_lng]}
+              zoom={16}
+              scrollWheelZoom={false}
+              zoomControl={false}
+              attributionControl={false}
+              style={{ height: '200px', width: '100%', zIndex: 1 }}
+            >
+              <TileLayer url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png' />
+              <Marker position={[order.delivery_lat, order.delivery_lng]} icon={deliveryIcon}>
+                <Popup>{order.customer_name}</Popup>
+              </Marker>
+            </MapContainer>
+          </div>
+        )}
+
+        <div className="p-3 pt-0 grid grid-cols-4 gap-2">
+          <a href={order.customer_phone ? `tel:${order.customer_phone}` : undefined} aria-disabled={!order.customer_phone} className={`${actionBtn} ${!order.customer_phone ? 'opacity-40 pointer-events-none' : ''}`} aria-label="Llamar">
+            <Phone size={17} aria-hidden="true" /><span className="hidden sm:inline">Llamar</span>
+          </a>
+          <button onClick={() => openWhatsApp(order.customer_phone)} disabled={!order.customer_phone} className={actionBtn} aria-label="WhatsApp">
+            <MessageCircle size={17} aria-hidden="true" /><span className="hidden sm:inline">WhatsApp</span>
+          </button>
+          <button onClick={() => setOpenMap(open ? null : order.id)} disabled={!hasMap} className={actionBtn} aria-label={open ? 'Ocultar mapa' : 'Ver mapa'}>
+            <MapIcon size={17} aria-hidden="true" /><span className="hidden sm:inline">{open ? 'Ocultar' : 'Mapa'}</span>
+          </button>
+          <button onClick={() => openMaps(order)} disabled={!hasMap} className={actionBtn} aria-label="Abrir ruta en Google Maps">
+            <Navigation size={17} aria-hidden="true" /><span className="hidden sm:inline">Ruta</span>
+          </button>
+        </div>
+        <div className="px-3 pb-3">
+          <button
+            onClick={() => marcarEntregado(order)}
+            className="w-full h-14 rounded-xl bg-[#16A34A] hover:bg-[#15803D] text-white text-base font-extrabold flex items-center justify-center gap-2 transition-colors active:scale-[0.99]"
+          >
+            <Check size={20} strokeWidth={2.6} aria-hidden="true" /> Entregado
+          </button>
+        </div>
+      </article>
+    )
+  }
 
   // ─── UI ──────────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen flex flex-col bg-canvas">
 
-      {/* ── Header fijo ── */}
-      <div className="
-        fixed top-0 left-0 right-0 z-50
-        lg:left-[92px]
-        bg-surface/95 backdrop-blur border-b border-zinc-200 px-5 pt-5 pb-4
-      ">
-        <div className="flex items-center justify-between">
-
-          {/* Turno */}
-          <button
-            onClick={turnoActivo ? terminarTurno : iniciarTurno}
-            className={`
-              text-xs font-semibold px-3 py-2 rounded-xl
-              border transition-all duration-200 active:scale-95
-              ${turnoActivo
-                ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
-                : 'bg-[var(--brand)] text-white border-[var(--brand)] hover:bg-[var(--brand-hover)]'
-              }
-            `}
-          >
-            {turnoActivo ? 'Terminar turno' : 'Iniciar turno'}
-          </button>
-
-          <div className="text-center">
-            <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900">
-              Domicilios
-            </h1>
-            <p className="text-sm text-zinc-500 mt-0.5">
-              {deliveryCount > 0
-                ? `${deliveryCount} entregas esta semana`
-                : 'Gestión de entregas'
-              }
-            </p>
+      <header className="sticky top-0 z-40 bg-surface/95 backdrop-blur border-b border-zinc-200">
+        <div className="max-w-3xl mx-auto px-5 pt-5 pb-4 flex flex-col gap-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900">Domicilios</h1>
+              <p className="text-sm text-zinc-500">{deliveryCount > 0 ? `${deliveryCount} entregas esta semana` : user?.name}</p>
+            </div>
+            <button
+              onClick={turnoActivo ? terminarTurno : iniciarTurno}
+              aria-pressed={turnoActivo}
+              className={`h-11 px-3.5 rounded-xl border text-sm font-bold flex items-center gap-2 transition-colors ${turnoActivo ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100' : 'bg-surface border-zinc-300 text-zinc-700 hover:bg-zinc-50'}`}
+            >
+              <span className={`w-2.5 h-2.5 rounded-full ${turnoActivo ? 'bg-green-500' : 'bg-zinc-300'}`} aria-hidden="true" />
+              {turnoActivo ? 'En turno · terminar' : 'Iniciar turno'}
+            </button>
           </div>
 
-          {/* Balance derecho */}
-          <div className="w-[60px]" />
-
+          <div role="tablist" aria-label="Domicilios" className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-zinc-100 border border-zinc-200">
+            {TABS.map(t => (
+              <button
+                key={t.key}
+                role="tab"
+                aria-selected={tab === t.key}
+                onClick={() => setActiveTab(t.key)}
+                className={`h-10 rounded-lg text-sm font-bold flex items-center justify-center gap-1.5 transition-colors ${tab === t.key ? 'bg-surface text-zinc-900 shadow-card' : 'text-zinc-500 hover:text-zinc-800'}`}
+              >
+                {t.label}
+                <span className={`font-mono text-xs ${tab === t.key ? 'text-[var(--brand-text)]' : 'text-zinc-400'}`}>{t.count}</span>
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      </header>
 
-      {/* ── Contenido ── */}
-      <div className="flex-1 overflow-y-auto pt-[110px] p-4">
-        <div className="w-full max-w-6xl mx-auto">
+      <main className="flex-1 w-full max-w-3xl mx-auto px-4 py-4 pb-44 lg:pb-28 flex flex-col gap-3">
 
-          {/* Empty state */}
-          {pendingOrders.length === 0 && dispatchedOrders.length === 0 && (
-            <div className="text-center py-24">
-              
-              <p className="text-zinc-400 text-sm">No hay domicilios pendientes</p>
+        {/* Por salir: elegir la tanda */}
+        {tab === 'salir' && (
+          porSalir.length === 0 ? (
+            <div className="py-20 text-center">
+              <p className="text-base font-bold text-zinc-700">No hay domicilios por salir</p>
+              <p className="text-sm text-zinc-500 mt-1">Aparecen aquí cuando cocina los marca como listos.</p>
             </div>
-          )}
-
-          {/* Sin tanda */}
-          {noTandaOrders.length > 0 && (
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">
-                  Listos para entregar
-                </span>
-                <span className="text-xs bg-surface border border-zinc-200 rounded-full px-3 py-1 text-zinc-500 shadow-sm">
-                  {noTandaOrders.length} pedidos
-                </span>
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {noTandaOrders.map(order => (
-                  <DeliveryCard key={order.id} order={order} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* En tanda */}
-          {tandaOrders.length > 0 && (
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-xs uppercase tracking-wider text-[var(--brand-text)] font-semibold">
-                  En esta tanda
-                </span>
-                <span className="text-xs bg-[var(--brand-light)] border border-[var(--brand-border)] rounded-full px-3 py-1 text-[var(--brand-text)]">
-                  {tandaOrders.length} pedidos
-                </span>
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {tandaOrders.map(order => (
-                  <DeliveryCard
+          ) : (
+            <>
+              {!enRuta && <p className="text-sm text-zinc-500">Marca los pedidos que vas a llevar en esta salida.</p>}
+              {porSalir.map(order => {
+                const selected = tanda.includes(order.id)
+                return (
+                  <label
                     key={order.id}
-                    order={order}
-                    inTanda
-                    showDeliverButton={enRuta}
-                  />
-                ))}
+                    className={`p-4 rounded-2xl border flex items-start gap-3 transition-colors ${enRuta ? '' : 'cursor-pointer'} ${selected ? 'bg-[var(--brand-light)] border-[var(--brand)] border-[1.5px]' : 'bg-surface border-zinc-200 shadow-card'}`}
+                  >
+                    {!enRuta && (
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() => toggleTanda(order.id)}
+                        className="mt-1 w-5 h-5 accent-[var(--brand)] shrink-0"
+                        aria-label={`Llevar el pedido de ${order.customer_name}`}
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-base font-extrabold text-zinc-900 truncate">{order.customer_name}</p>
+                        <span className="font-mono text-base font-semibold text-zinc-900 tabular shrink-0">{money(orderTotal(order))}</span>
+                      </div>
+                      <p className="text-sm text-zinc-600 mt-0.5 line-clamp-2">{order.delivery_address || 'Sin dirección'}</p>
+                      <p className="text-xs text-zinc-500 mt-1">
+                        {orderItems(order).reduce((s, i) => s + i.quantity, 0)} productos · {payInfo(order).text}
+                      </p>
+                    </div>
+                  </label>
+                )
+              })}
+            </>
+          )
+        )}
+
+        {/* En ruta: paradas */}
+        {tab === 'ruta' && (
+          !enRuta || tandaOrders.length === 0 ? (
+            <div className="py-20 text-center">
+              <p className="text-base font-bold text-zinc-700">No estás en ruta</p>
+              <p className="text-sm text-zinc-500 mt-1">Elige los pedidos en “Por salir” y toca “Salir”.</p>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between rounded-2xl border border-zinc-200 bg-surface-2 px-4 py-3">
+                <span className="text-sm font-bold text-zinc-700">{tandaOrders.length} parada{tandaOrders.length !== 1 ? 's' : ''}</span>
+                <span className="text-sm text-zinc-600">A cobrar <b className="font-mono text-zinc-900 tabular">{money(aCobrar(tandaOrders))}</b></span>
+              </div>
+              {tandaOrders.map((order, i) => <StopCard key={order.id} order={order} index={i} />)}
+            </>
+          )
+        )}
+
+        {/* Entregados */}
+        {tab === 'entregados' && (
+          dispatchedOrders.length === 0 ? (
+            <p className="py-20 text-center text-sm text-zinc-500">Aún no hay entregas en las últimas 12 horas</p>
+          ) : dispatchedOrders.map(order => (
+            <div key={order.id} className="px-4 py-3 rounded-xl bg-surface border border-zinc-200 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-zinc-900 truncate">{order.customer_name}</p>
+                <p className="text-xs text-zinc-500 truncate">{order.delivery_address}</p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="font-mono text-sm font-semibold text-zinc-900 tabular">{money(orderTotal(order))}</p>
+                <p className="text-xs text-zinc-500">{order.delivered_at ? new Date(order.delivered_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : ''}</p>
               </div>
             </div>
-          )}
+          ))
+        )}
+      </main>
 
-          {/* Entregados */}
-          {dispatchedOrders.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-xs uppercase tracking-wider text-green-600 font-semibold">
-                  Entregados
-                </span>
-                <span className="text-xs bg-green-50 border border-green-200 rounded-full px-3 py-1 text-green-600">
-                  {dispatchedOrders.length} entregados
-                </span>
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {dispatchedOrders.map(order => (
-                  <DeliveryCard key={order.id} order={order} delivered />
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="h-28" />
-        </div>
-      </div>
-
-      {/* ── FAB — Salir con tanda ── */}
-      {!enRuta && tanda.length > 0 && (
-        <div className="fixed bottom-[92px] lg:bottom-4 left-0 right-0 lg:left-[92px] p-4 z-40">
-          <div className="max-w-2xl mx-auto">
+      {/* Salir con la tanda */}
+      {!enRuta && tanda.length > 0 && tab === 'salir' && (
+        <div className="fixed bottom-[80px] lg:bottom-0 inset-x-0 lg:left-[92px] z-30 p-3 bg-surface border-t border-zinc-200">
+          <div className="max-w-3xl mx-auto">
             <button
-              onClick={salir}
-              className="
-                w-full
-                bg-[var(--brand)] hover:bg-[var(--brand)]
-                text-white font-black
-                rounded-3xl py-5 text-lg
-                transition-colors
-                shadow-lg shadow-[var(--brand-soft)]
-                active:scale-[0.98]
-              "
+              onClick={() => { salir(); setActiveTab('ruta') }}
+              className="w-full h-14 px-4 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white font-extrabold flex items-center justify-between transition-colors"
             >
-              Salir con {tanda.length} domicilio{tanda.length !== 1 ? 's' : ''}
+              <span>Salir con {tanda.length} domicilio{tanda.length !== 1 ? 's' : ''}</span>
+              <span className="font-mono tabular">{money(aCobrar(pendingOrders.filter(o => tanda.includes(o.id))))}</span>
             </button>
           </div>
         </div>
       )}
-
     </div>
   )
 }
