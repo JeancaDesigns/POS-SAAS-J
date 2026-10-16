@@ -4,6 +4,7 @@ import { supabase } from '../../supabaseClient'
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import { useCartPersistence } from '../../hooks/useCartPersistence'
+import { inicioJornada } from '../../utils/jornada'
 
 const markerIcon = new L.Icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -156,6 +157,7 @@ export default function PedidoPublico() {
   async function fetchPedidosAnteriores(orderId, startedAt) {
     const { count } = await supabase
       .from('orders').select('*', { count: 'exact', head: true })
+      .eq('restaurant_id', restaurant.id)
       .eq('status', 'confirmed').lt('started_at', startedAt)
     return count || 0
   }
@@ -226,8 +228,7 @@ export default function PedidoPublico() {
     }
 
     // ── Código de pedido diario ──────────────────────────────
-    const startOfDay = new Date()
-    startOfDay.setHours(0, 0, 0, 0)
+    const startOfDay = inicioJornada()
 
     const { count: todayCount } = await supabase
       .from('orders')
@@ -290,8 +291,7 @@ export default function PedidoPublico() {
     setSearchError('')
     setSearchResult(null)
 
-    const startOfDay = new Date()
-    startOfDay.setHours(0, 0, 0, 0)
+    const startOfDay = inicioJornada()
 
     const { data: order } = await supabase
       .from('orders')

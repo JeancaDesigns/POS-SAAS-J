@@ -4,6 +4,7 @@ import { useProducts } from '../hooks/useProducts'
 import { supabase } from '../supabaseClient'
 import { useAuthStore } from '../store/authStore'
 import { useCartPersistence } from '../hooks/useCartPersistence'
+import { precioUnitario } from '../utils/precio'
 
 export default function PedidoActivo({ table, onClose }) {
   const { user } = useAuthStore()
@@ -28,7 +29,7 @@ export default function PedidoActivo({ table, onClose }) {
   const displayCategory = activeCategory || categories[0]?.id
   const categoryProducts = products.filter(p => p.category_id === displayCategory && p.available)
   const activeItems = items.filter(i => i.status !== 'cancelled')
-  const total = activeItems.reduce((sum, i) => sum + i.product.price * i.quantity, 0)
+  const total = activeItems.reduce((sum, i) => sum + precioUnitario(i) * i.quantity, 0)
   const newTotal = newItems.reduce((sum, i) => sum + i.product.price * i.quantity, 0)
 
   function addProduct(product, variant = null) {
@@ -293,7 +294,7 @@ export default function PedidoActivo({ table, onClose }) {
 
                     <div className="flex justify-between items-center mt-1">
                       <span className="text-sm font-bold text-[var(--brand-text)]">
-                        ${(item.product.price * item.quantity).toLocaleString('es-CO')}
+                        ${(precioUnitario(item) * item.quantity).toLocaleString('es-CO')}
                       </span>
                       {editingNote === item.id ? (
                         <input

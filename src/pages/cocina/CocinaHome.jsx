@@ -293,7 +293,7 @@ export default function CocinaHome() {
 
     const channel = supabase
       .channel('kitchen-orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchOrders)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `restaurant_id=eq.${user.restaurant_id}` }, fetchOrders)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, fetchOrders)
       .subscribe()
     return () => supabase.removeChannel(channel)
@@ -320,23 +320,20 @@ export default function CocinaHome() {
         .single()
 
       if (orderItem) {
-        console.log('orderItem:', orderItem)
 
-        const { data: recipe, error: recipeError } = await supabase
+        const { data: recipe } = await supabase
           .from('recipes')
           .select('id')
           .eq('product_id', orderItem.product_id)
           .maybeSingle()
 
-        console.log('recipe:', recipe, 'recipeError:', recipeError)
 
         if (recipe) {
-          const { data: recipeItems, error: recipeItemsError } = await supabase
+          const { data: recipeItems } = await supabase
             .from('recipe_items')
             .select('inventory_item_id, quantity')
             .eq('recipe_id', recipe.id)
 
-          console.log('recipeItems:', recipeItems, 'recipeItemsError:', recipeItemsError)
 
           for (const ingredient of (recipeItems || [])) {
             const toDiscount = ingredient.quantity * orderItem.quantity
@@ -348,14 +345,12 @@ export default function CocinaHome() {
 
             if (invItem) {
               const newStock = Math.max(0, invItem.stock - toDiscount)
-              console.log('Descontando:', ingredient.inventory_item_id, 'stock actual:', invItem.stock, 'a descontar:', toDiscount, 'nuevo stock:', newStock)
 
               const { error: updateError } = await supabase
                 .from('inventory_items')
                 .update({ stock: newStock, available: newStock > 0 })
                 .eq('id', ingredient.inventory_item_id)
-
-              console.log('updateError:', updateError)
+              if (updateError) console.error('Error descontando inventario:', updateError)
 
               await supabase
                 .from('inventory_movements')

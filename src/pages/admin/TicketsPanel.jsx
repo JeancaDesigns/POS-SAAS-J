@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import { Printer, Receipt, Clock3, ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
+import { precioUnitario } from '../../utils/precio'
 
 
 export default function TicketsPanel() {
@@ -43,7 +44,7 @@ export default function TicketsPanel() {
   function calculateSubtotal(order) {
     const items = (order.order_items || []).filter(i => i.status !== 'cancelled')
     const itemsTotal = items.reduce((acc, item) => {
-      const lineTotal = Number(item.products?.price || 0) * Number(item.quantity)
+      const lineTotal = precioUnitario(item) * Number(item.quantity)
       return acc + (lineTotal - itemDiscount(item, lineTotal))
     }, 0)
     const isDelivery = order.delivery_type === 'delivery' && order.table?.is_delivery
@@ -302,7 +303,7 @@ export default function TicketsPanel() {
                 {selectedOrder.order_items
                   ?.filter(i => i.status !== 'cancelled')
                   .map(item => {
-                    const lineTotal = Number(item.products?.price || 0) * Number(item.quantity)
+                    const lineTotal = precioUnitario(item) * Number(item.quantity)
                     const netTotal = lineTotal - itemDiscount(item, lineTotal)
                     return (
                       <div key={item.id} className="text-sm">
