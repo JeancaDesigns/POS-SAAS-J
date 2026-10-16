@@ -7,8 +7,10 @@ export default function NuevoPedidoModal({
   onTableSelected
 }) {
 
-  const [step, setStep] = useState('zona')
-  const [selectedZone, setSelectedZone] = useState(null)
+  // Con una sola zona no hay nada que elegir: ir directo a las mesas
+  const singleZone = zones.length === 1
+  const [step, setStep] = useState(singleZone ? 'mesa' : 'zona')
+  const [selectedZone, setSelectedZone] = useState(singleZone ? zones[0].id : null)
 
   const freeTables = tables.filter(
     t =>
@@ -49,10 +51,10 @@ export default function NuevoPedidoModal({
         <div className="flex items-center justify-between mb-6">
 
           <button
-            onClick={step === 'mesa' ? () => setStep('zona') : onClose}
+            onClick={step === 'mesa' && !singleZone ? () => setStep('zona') : onClose}
             className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors"
           >
-            {step === 'mesa' ? '← Volver' : '✕ Cerrar'}
+            {step === 'mesa' && !singleZone ? '← Volver' : '✕ Cerrar'}
           </button>
 
           <h2 className="text-zinc-900 font-bold text-lg tracking-tight">

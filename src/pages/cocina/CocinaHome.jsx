@@ -6,6 +6,9 @@ import { db } from '../../db/localDB'
 import { cacheOrders, getCachedOrders } from '../../db/cacheHelpers'
 import { buildWhatsappLink } from '../../utils/whatsapp'
 
+// Los cancelados se muestran a cocina solo durante 12 h (o hasta que los descarte)
+const CANCELLED_VISIBLE_MS = 12 * 60 * 60 * 1000
+
 const PASTEL_COLORS = [
   { bg: '#FFFDE7', border: '#FFF176', shadow: 'rgba(249,224,71,0.3)' },
   { bg: '#F1F8E9', border: '#DCEDC8', shadow: 'rgba(174,213,129,0.3)' },
@@ -193,6 +196,10 @@ export default function CocinaHome() {
   const [readyToNotify, setReadyToNotify] = useState(null)
 
   const activeOrder = orders.find(o => o.id === activeOrderId) || null
+  const dismissedKey = `cocina-descartados-${user.restaurant_id}`
+  const [dismissedIds, setDismissedIds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(dismissedKey) || '[]') } catch { return [] }
+  })
 
   async function fetchOrders() {
     if (isOnline) {
@@ -200,7 +207,9 @@ export default function CocinaHome() {
         .from('orders')
         .select('*, table:tables(number, is_delivery, zone:zones(name)), items:order_items(*, product:products(name, category_id, variants, category:categories(name, icon)))')
         .eq('restaurant_id', user.restaurant_id)
-        .in('status', ['confirmed', 'delivered', 'cancelled'])
+        // Cancelados solo de las últimas 12 h: ya no se borran, así que sin este
+        // límite la consulta crecería para siempre
+        .or(`status.in.(confirmed,delivered),and(status.eq.cancelled,started_at.gte.${new Date(Date.now() - CANCELLED_VISIBLE_MS).toISOString()})`)
         .order('started_at', { ascending: true })
 
       const newOrders = data || []
@@ -474,12 +483,14 @@ export default function CocinaHome() {
     }
   }
 
+  // Descartar un cancelado solo lo oculta en esta pantalla: el pedido queda en la BD
+  // como 'cancelled' para reportes y auditoría (antes se borraba).
   async function discardCancelledOrder(order) {
-    await supabase.from('order_items').delete().eq('order_id', order.id)
-    await supabase.from('orders').delete().eq('id', order.id)
+    const next = [...dismissedIds, order.id]
+    setDismissedIds(next)
+    try { localStorage.setItem(dismissedKey, JSON.stringify(next.slice(-200))) } catch { /* sin storage */ }
     await supabase.from('tables').update({ status: 'free' }).eq('id', order.table_id)
     setActiveOrderId(null)
-    fetchOrders()
   }
 
   function kitchenItems(order) {
@@ -495,7 +506,10 @@ export default function CocinaHome() {
     return `Mesa ${order.table?.number} — ${order.table?.zone?.name}`
   }
 
-  const activeOrders = orders.filter(o => o.status === 'confirmed' || o.status === 'cancelled')
+  const activeOrders = orders.filter(o =>
+    o.status === 'confirmed' ||
+    (o.status === 'cancelled' && !dismissedIds.includes(o.id) &&
+      Date.now() - new Date(o.started_at) < CANCELLED_VISIBLE_MS))
   const deliveredOrders = orders.filter(o => o.status === 'delivered')
 
   // ── Contador de productos repetidos ─────────────────────────────────────────

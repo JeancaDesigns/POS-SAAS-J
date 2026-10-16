@@ -120,9 +120,12 @@ export default function PedidoActivo({ table, onClose }) {
 
   async function cancelFullOrder() {
     if (!order) return
+    // Única confirmación del flujo: es irreversible y el botón está junto a "Mover"
+    if (!window.confirm('¿Cancelar TODO el pedido de esta mesa?')) return
     setCancelling(true)
     await supabase.from('order_items').update({ status: 'cancelled' }).eq('order_id', order.id)
     await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id)
+    await supabase.from('tables').update({ status: 'free' }).eq('id', order.table_id)
     setCancelling(false)
     onClose()
   }
