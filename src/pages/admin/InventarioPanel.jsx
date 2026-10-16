@@ -59,17 +59,22 @@ export default function InventarioPanel() {
       available: true,
       restaurant_id: user.restaurant_id,
     }
-    if (editingItem) {
-      await supabase.from('inventory_items').update(payload).eq('id', editingItem.id)
-    } else {
-      await supabase.from('inventory_items').insert(payload)
-    }
+    const { error } = editingItem
+      ? await supabase.from('inventory_items').update(payload).eq('id', editingItem.id)
+      : await supabase.from('inventory_items').insert(payload)
+    if (error) { alert('No se pudo guardar: ' + error.message); return }
     setShowItemModal(false); resetItemForm(); fetchItems()
   }
 
   async function deleteItem(id) {
     if (!confirm('¿Eliminar producto del inventario?')) return
-    await supabase.from('inventory_items').delete().eq('id', id)
+    const { error } = await supabase.from('inventory_items').delete().eq('id', id)
+    if (error) {
+      alert(error.code === '23503'
+        ? 'No se puede eliminar: este insumo está en una receta o tiene movimientos.'
+        : 'No se pudo eliminar: ' + error.message)
+      return
+    }
     fetchItems()
   }
 
@@ -82,22 +87,28 @@ export default function InventarioPanel() {
   async function registerMovement() {
     if (!movement.quantity || !movementModal) return
     const qty = Number(movement.quantity)
-    const currentStock = Number(movementModal.stock)
+    if (!(qty >= 0)) { alert('Cantidad inválida'); return }
+    // Stock leído justo antes: la cocina pudo descontar mientras el modal estaba abierto
+    const { data: fresh, error: readError } = await supabase
+      .from('inventory_items').select('stock').eq('id', movementModal.id).single()
+    if (readError || !fresh) { alert('No se pudo leer el stock actual'); return }
+    const currentStock = Number(fresh.stock)
     let newStock = currentStock
     if (movement.type === 'in')         newStock += qty
     if (movement.type === 'out')        newStock -= qty
     if (movement.type === 'adjustment') newStock  = qty
     if (newStock < 0) newStock = 0
 
+    const { error: upError } = await supabase.from('inventory_items')
+      .update({ stock: newStock, available: newStock > 0 })
+      .eq('id', movementModal.id)
+    if (upError) { alert('No se pudo actualizar el stock: ' + upError.message); return }
     await supabase.from('inventory_movements').insert({
       item_id: movementModal.id,
       type: movement.type,
       quantity: qty,
       reason: movement.reason || null,
     })
-    await supabase.from('inventory_items')
-      .update({ stock: newStock, available: newStock > 0 })
-      .eq('id', movementModal.id)
 
     setMovement({ type: 'in', quantity: '', reason: '' })
     setMovementModal(null)
@@ -184,28 +195,40 @@ export default function InventarioPanel() {
     if (!recipeForm.product_id || recipeForm.ingredients.length === 0) return
 
     if (editingRecipe) {
-      // Borrar recipe_items anteriores y reinsertar
-      await supabase.from('recipe_items').delete().eq('recipe_id', editingRecipe.id)
-      await supabase.from('recipe_items').insert(
+      // Primero insertar los nuevos y solo después borrar los anteriores:
+      // antes se borraba primero y, si fallaba el insert, la receta quedaba vacía
+      const { data: oldItems } = await supabase
+        .from('recipe_items').select('id').eq('recipe_id', editingRecipe.id)
+      const { error } = await supabase.from('recipe_items').insert(
         recipeForm.ingredients.map(i => ({
           recipe_id: editingRecipe.id,
           inventory_item_id: i.inventory_item_id,
           quantity: i.quantity,
         }))
       )
+      if (error) { alert('No se pudo guardar la receta: ' + error.message); return }
+      const oldIds = (oldItems || []).map(i => i.id)
+      if (oldIds.length > 0) await supabase.from('recipe_items').delete().in('id', oldIds)
     } else {
-      const { data: recipe } = await supabase
+      const { data: recipe, error: recipeError } = await supabase
         .from('recipes')
         .insert({ restaurant_id: user.restaurant_id, product_id: recipeForm.product_id })
         .select().single()
+      if (recipeError || !recipe) { alert('No se pudo crear la receta: ' + (recipeError?.message || '')); return }
 
-      await supabase.from('recipe_items').insert(
+      const { error: itemsError } = await supabase.from('recipe_items').insert(
         recipeForm.ingredients.map(i => ({
           recipe_id: recipe.id,
           inventory_item_id: i.inventory_item_id,
           quantity: i.quantity,
         }))
       )
+      if (itemsError) {
+        // Sin ingredientes la receta no sirve: se borra para poder intentarlo de nuevo
+        await supabase.from('recipes').delete().eq('id', recipe.id)
+        alert('No se pudo guardar la receta: ' + itemsError.message)
+        return
+      }
     }
 
     setShowRecipeModal(false)
@@ -214,7 +237,8 @@ export default function InventarioPanel() {
 
   async function deleteRecipe(id) {
     if (!confirm('¿Eliminar esta receta?')) return
-    await supabase.from('recipes').delete().eq('id', id)
+    const { error } = await supabase.from('recipes').delete().eq('id', id)
+    if (error) { alert('No se pudo eliminar la receta: ' + error.message); return }
     fetchRecipes()
   }
 
