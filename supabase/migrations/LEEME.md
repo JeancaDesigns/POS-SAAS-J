@@ -9,6 +9,18 @@ El 2026-10-16 revisé la base de producción y ajusté estos archivos a lo que e
 - Advisor de seguridad: sin errores. Quedan avisos esperados (RPC públicas a propósito) y
   "Leaked password protection" (se activa en el Dashboard).
 
+**0600 (2026-10-16, rama `tarea/bugs-revision`): NO aplicada.**
+- Qué hace: (1) un solo pedido activo por mesa normal (trigger), (2) una sola caja abierta por
+  restaurante, (3) arregla la política de turnos (`user_id` guarda `users.id`, no `auth.uid()`; hoy 2
+  usuarios no pueden iniciar turno), (4) la RPC del pedido público valida el horario en hora Colombia.
+- Revisé producción (solo lectura): no hay mesas con 2 pedidos activos ni 2 cajas abiertas, así que se
+  puede aplicar sin limpiar datos. Cada bloque trae su "Deshacer".
+- Intenté probarla con rollback desde el MCP y la herramienta la rechazó (`Invalid or expired
+  requestState`, parece que pide tu confirmación). Comprobé que no quedó nada aplicado.
+- El frontend de la rama funciona con o sin 0600 (ya maneja el error 23505).
+- **No** se agregó trigger de inventario: la cocina sigue descontando desde la app, pero ahora solo
+  una vez por línea.
+
 ## Qué encontré en producción
 - `users` tiene **RLS desactivado** y una política `INSERT with check (true)` para cualquiera.
 - La función `change-password` publicada **no verifica quién llama**: cualquiera con la llave

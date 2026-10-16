@@ -112,6 +112,12 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
         .single()
 
       if (orderError) {
+        // 23505 = la BD rechazó un segundo pedido en la mesa (migración 0600)
+        if (orderError.code === '23505') {
+          alert('Esta mesa ya tiene un pedido abierto. Vuelve a abrirla: tus productos quedan listos para agregar.')
+          onClose()
+          return
+        }
         alert('No se pudo crear el pedido. Intenta de nuevo.')
         return
       }

@@ -105,7 +105,12 @@ export default function CajaPanel() {
       .select()
       .single()
     setOpening(false)
-    if (error) { console.error(error); alert(error.message); return }
+    if (error) {
+      console.error(error)
+      alert(error.code === '23505' ? 'Ya hay una caja abierta' : error.message)
+      if (error.code === '23505') await loadCashRegister()
+      return
+    }
     setCashRegister(data)
     setCashSales(0)
     setTransferSales(0)

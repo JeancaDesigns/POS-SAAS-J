@@ -84,11 +84,14 @@ export default function PedidoPublico() {
   function isOpen(restaurant) {
     if (!restaurant?.opening_time || !restaurant?.closing_time) return true
 
-    const now = new Date()
     const [openH, openM] = restaurant.opening_time.split(':').map(Number)
     const [closeH, closeM] = restaurant.closing_time.split(':').map(Number)
 
-    const nowMinutes = now.getHours() * 60 + now.getMinutes()
+    // Hora del restaurante (Colombia), no la del celular del cliente
+    const [h, m] = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).format(new Date()).split(':').map(Number)
+    const nowMinutes = h * 60 + m
     const openMinutes = openH * 60 + openM
     const closeMinutes = closeH * 60 + closeM
 
@@ -231,7 +234,9 @@ export default function PedidoPublico() {
     if (error || !order) {
       alert(error?.message?.includes('mesa de domicilio')
         ? 'Error: no hay una mesa de domicilio configurada para este restaurante'
-        : 'Error creando pedido')
+        : error?.message?.includes('fuera del horario')
+          ? 'El restaurante está cerrado en este momento'
+          : 'Error creando pedido')
       setConfirming(false)
       return
     }

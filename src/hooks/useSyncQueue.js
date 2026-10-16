@@ -191,7 +191,15 @@ export function useSyncQueue() {
   }
 
   useEffect(() => {
-    if (isOnline) syncPendingOrders()
+    if (!isOnline) return
+    syncPendingOrders()
+    // Si algo falló (p. ej. un error temporal de red), reintentar cada minuto
+    // en vez de esperar al próximo corte de internet
+    const id = setInterval(async () => {
+      const pending = await db.pendingOrders.count() + await db.pendingOperations.count()
+      if (pending > 0) syncPendingOrders()
+    }, 60000)
+    return () => clearInterval(id)
   }, [isOnline])
 
   return { syncPendingOrders }
