@@ -4,7 +4,6 @@ import { supabase } from '../../supabaseClient'
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import { useCartPersistence } from '../../hooks/useCartPersistence'
-import { inicioJornada } from '../../utils/jornada'
 
 const markerIcon = new L.Icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -151,27 +150,13 @@ export default function PedidoPublico() {
     setProducts(productsData || [])
     if (categoriesData?.length > 0) setActiveCategory(categoriesData[0].id)
 
-    fetchDomiciliario(restaurantData.id)
+    fetchDomiciliario()
   }
 
-  async function fetchPedidosAnteriores(orderId, startedAt) {
-    const { count } = await supabase
-      .from('orders').select('*', { count: 'exact', head: true })
-      .eq('restaurant_id', restaurant.id)
-      .eq('status', 'confirmed').lt('started_at', startedAt)
-    return count || 0
-  }
-
-  async function fetchDomiciliario(restaurantId) {
-    const { data } = await supabase
-      .from('active_shifts').select('user_id')
-      .eq('restaurant_id', restaurantId)
-      .eq('active', true).order('started_at', { ascending: false }).limit(1)
-    if (data && data.length > 0) {
-      const { data: userData } = await supabase
-        .from('users').select('name').eq('id', data[0].user_id).single()
-      if (userData) setDomiciliarioActivo(userData.name)
-    }
+  // Solo el nombre del domiciliario en turno, vía RPC (el rol anónimo ya no lee users)
+  async function fetchDomiciliario() {
+    const { data } = await supabase.rpc('domiciliario_activo', { p_slug: slug })
+    if (data) setDomiciliarioActivo(data)
   }
 
   const categoryProducts = useMemo(() =>
@@ -217,36 +202,11 @@ export default function PedidoPublico() {
     }
     setConfirming(true)
 
-    const { data: table } = await supabase
-      .from('tables').select('*')
-      .eq('restaurant_id', restaurant.id).eq('is_delivery', true).limit(1).maybeSingle()
-
-    if (!table) {
-      alert('Error: no hay una mesa de domicilio configurada para este restaurante')
-      setConfirming(false)
-      return
-    }
-
-    // ── Código de pedido diario ──────────────────────────────
-    const startOfDay = inicioJornada()
-
-    const { count: todayCount } = await supabase
-      .from('orders')
-      .select('*', { count: 'exact', head: true })
-      .eq('restaurant_id', restaurant.id)
-      .gte('created_at', startOfDay.toISOString())
-
-    const orderNumber = (todayCount || 0) + 1
-
-    const { data: order, error } = await supabase
-      .from('orders').insert({
-        restaurant_id: restaurant.id,
-        table_id: table.id,
-        status: 'confirmed',
-        confirmed_at: new Date().toISOString(),
-        started_at: new Date().toISOString(),
-        source: 'online',
-        order_number: orderNumber,
+    // Pedido + ítems + número diario en una sola transacción en la BD (crear_pedido_publico).
+    // Valida productos del restaurante y no expone pedidos de otros clientes.
+    const { data: order, error } = await supabase.rpc('crear_pedido_publico', {
+      p_slug: slug,
+      p_pedido: {
         customer_name: customerName.trim(),
         customer_phone: customerPhone.trim() || null,
         delivery_type: deliveryType,
@@ -256,24 +216,24 @@ export default function PedidoPublico() {
         delivery_lng: deliveryType === 'delivery' ? selectedLocation?.lng || null : null,
         payment_method: paymentMethod,
         cash_amount: paymentMethod === 'cash' && cashAmount ? Number(cashAmount) : null,
-      }).select().single()
+      },
+      p_items: items.map(i => ({
+        product_id: i.product.id,
+        quantity: i.quantity,
+        note: i.note || null,
+        variant: i.variant || null,
+      })),
+    })
 
-    if (error) {
-      alert('Error creando pedido')
+    if (error || !order) {
+      alert(error?.message?.includes('mesa de domicilio')
+        ? 'Error: no hay una mesa de domicilio configurada para este restaurante'
+        : 'Error creando pedido')
       setConfirming(false)
       return
     }
 
-    const count = await fetchPedidosAnteriores(order.id, order.started_at)
-    setPedidosAnteriores(count)
-
-    await supabase.from('order_items').insert(
-      items.map(i => ({
-        order_id: order.id, product_id: i.product.id,
-        quantity: i.quantity, note: i.note || null,
-        variant: i.variant || null, status: 'pending', kitchen_only: false,
-      }))
-    )
+    setPedidosAnteriores(order.pedidos_antes || 0)
     setCreatedOrder(order)
     setOrderSuccess(true)
     setItems([])
@@ -291,15 +251,10 @@ export default function PedidoPublico() {
     setSearchError('')
     setSearchResult(null)
 
-    const startOfDay = inicioJornada()
-
-    const { data: order } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('restaurant_id', restaurant.id)
-      .eq('order_number', Number(searchOrderNumber))
-      .gte('created_at', startOfDay.toISOString())
-      .maybeSingle()
+    const { data: order } = await supabase.rpc('estado_pedido_publico', {
+      p_slug: slug,
+      p_order_number: Number(searchOrderNumber),
+    })
 
     if (!order) {
       setSearchError('No encontramos un pedido con ese código hoy')
@@ -319,14 +274,7 @@ export default function PedidoPublico() {
       return
     }
 
-    const { count } = await supabase
-      .from('orders')
-      .select('*', { count: 'exact', head: true })
-      .eq('restaurant_id', restaurant.id)
-      .eq('status', 'confirmed')
-      .lt('started_at', order.started_at)
-
-    setSearchResult({ order, pendingCount: count || 0, done: false })
+    setSearchResult({ order, pendingCount: order.pedidos_antes || 0, done: false })
     setSearching(false)
   }
 
