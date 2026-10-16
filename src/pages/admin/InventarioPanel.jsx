@@ -1,19 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useAuthStore } from '../../store/authStore'
-import { Package, AlertTriangle, Plus, Minus, Pencil, X, ChevronRight } from 'lucide-react'
+import { Package, Plus, Pencil, X, Trash2, ArrowUpDown, Search } from 'lucide-react'
 
-const inputClass = `
-  w-full rounded-xl px-4 py-3
-  text-zinc-800 outline-none
-  bg-zinc-50 border border-zinc-200
-  focus:border-[var(--brand-border)] transition-colors
-  placeholder:text-zinc-400
-`
+const inputClass = 'w-full h-11 rounded-xl px-3.5 bg-surface border border-zinc-300 text-[15px] text-zinc-900 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--brand-soft)] placeholder:text-zinc-400 transition-[border-color,box-shadow]'
 
 export default function InventarioPanel() {
   const { user } = useAuthStore()
   const [view, setView] = useState('inventario')
+  const [stockFilter, setStockFilter] = useState('all') // 'all' | 'low' | 'empty'
+  const [query, setQuery] = useState('')
 
   // ── Inventario ───────────────────────────────────────────────────────────────
   const [items, setItems] = useState([])
@@ -236,250 +232,146 @@ export default function InventarioPanel() {
     return products.filter(p => !withRecipe.has(p.id))
   }, [products, recipes, editingRecipe])
 
-  return (
-    <div className="space-y-4">
+  const q = query.trim().toLowerCase()
+  const levelOf = i => i.stock <= 0 ? 'empty' : i.stock <= i.min_stock ? 'low' : 'ok'
+  const visibleItems = items
+    .filter(i => stockFilter === 'all' || levelOf(i) === stockFilter)
+    .filter(i => !q || i.name.toLowerCase().includes(q))
+  const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
 
-      {/* ── Tabs ── */}
-      <div className="flex gap-2">
-        {[
-          { key: 'inventario', label: 'Inventario' },
-          { key: 'recetas',    label: 'Recetas'    },
-        ].map(v => (
-          <button
-            key={v.key}
-            onClick={() => setView(v.key)}
-            className={`
-              px-5 py-2.5 rounded-2xl
-              text-sm font-semibold border
-              transition-all duration-200 active:scale-95
-              ${view === v.key
-                ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
-                : 'bg-surface text-zinc-500 border-zinc-200 hover:bg-zinc-50'
-              }
-            `}
-          >
-            {v.label}
-          </button>
+  return (
+    <div className="flex flex-col gap-4">
+
+      <div role="tablist" aria-label="Inventario" className="self-start flex p-1 rounded-xl bg-zinc-100 border border-zinc-200">
+        {[['inventario', `Insumos · ${items.length}`], ['recetas', `Recetas · ${recipes.length}`]].map(([k, l]) => (
+          <button key={k} role="tab" aria-selected={view === k} onClick={() => setView(k)} className={`h-10 px-4 rounded-lg text-sm font-bold transition-colors ${view === k ? 'bg-surface text-zinc-900 shadow-card' : 'text-zinc-500'}`}>{l}</button>
         ))}
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════════════════
-          INVENTARIO
-      ══════════════════════════════════════════════════════════════════════════ */}
       {view === 'inventario' && (
         <>
-          {/* Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-3">
             {[
-              { title: 'Productos',  value: stats.total, icon: <Package size={20} />,       accent: 'text-[var(--brand-text)]', bg: 'bg-[var(--brand-light)] border-[var(--brand-border)]'  },
-              { title: 'Stock bajo', value: stats.low,   icon: <AlertTriangle size={20} />, accent: 'text-yellow-600', bg: 'bg-yellow-50 border-yellow-200'  },
-              { title: 'Agotados',   value: stats.empty, icon: <X size={20} />,             accent: 'text-red-500',    bg: 'bg-red-50 border-red-200'        },
+              { key: 'all', title: 'Insumos', value: stats.total, tone: 'text-zinc-900' },
+              { key: 'low', title: 'Stock bajo', value: stats.low, tone: 'text-orange-700' },
+              { key: 'empty', title: 'Agotados', value: stats.empty, tone: 'text-red-600' },
             ].map(card => (
-              <div key={card.title} className="rounded-2xl bg-surface border border-zinc-200 p-5
-                shadow-card">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-zinc-400">{card.title}</p>
-                    <p className={`text-3xl font-black mt-2 ${card.accent}`}>{card.value}</p>
-                  </div>
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${card.bg} ${card.accent}`}>
-                    {card.icon}
-                  </div>
-                </div>
-              </div>
+              <button
+                key={card.key}
+                onClick={() => setStockFilter(card.key)}
+                aria-pressed={stockFilter === card.key}
+                className={`text-left rounded-2xl border p-4 shadow-card transition-colors ${stockFilter === card.key ? 'bg-surface border-[var(--brand)] border-[1.5px]' : 'bg-surface border-zinc-200 hover:border-zinc-300'}`}
+              >
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{card.title}</p>
+                <p className={`font-mono text-2xl font-semibold tabular mt-1 ${card.tone}`}>{card.value}</p>
+              </button>
             ))}
           </div>
 
-          {/* Lista */}
-          <div className="rounded-2xl bg-surface border border-zinc-200 p-6
-            shadow-card">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-xs font-bold text-zinc-500 tracking-wider">
-                {items.length} PRODUCTOS
-              </p>
-              <button
-                onClick={() => { resetItemForm(); setShowItemModal(true) }}
-                className="
-                  flex items-center gap-2 px-4 py-2 rounded-xl
-                  bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-                  text-white text-sm font-semibold
-                  transition-all duration-200 active:scale-95
-                "
-              >
-                <Plus size={16} /> Nuevo
-              </button>
-            </div>
+          <div className="flex gap-2">
+            <label className="flex-1 flex items-center gap-2 h-11 px-3 rounded-xl bg-surface border border-zinc-200 focus-within:border-[var(--brand)] transition-colors">
+              <Search size={17} className="text-zinc-400 shrink-0" aria-hidden="true" />
+              <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar insumo" aria-label="Buscar insumo" className="flex-1 bg-transparent outline-none text-sm text-zinc-900 placeholder:text-zinc-400" />
+            </label>
+            <button onClick={() => { resetItemForm(); setShowItemModal(true) }} className="h-11 px-4 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white text-sm font-bold flex items-center gap-1.5 transition-colors shrink-0">
+              <Plus size={16} aria-hidden="true" /> Insumo
+            </button>
+          </div>
 
-            {loadingItems && (
-              <div className="space-y-3">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="h-24 rounded-2xl bg-zinc-200 animate-pulse" />
-                ))}
+          <div className="bg-surface border border-zinc-200 rounded-2xl shadow-card overflow-hidden">
+            {loadingItems ? (
+              <div className="p-4 flex flex-col gap-2">{[...Array(4)].map((_, i) => <div key={i} className="h-14 rounded-xl bg-zinc-100 animate-pulse" />)}</div>
+            ) : visibleItems.length === 0 ? (
+              <div className="py-14 text-center">
+                <Package size={32} className="mx-auto mb-2 text-zinc-300" aria-hidden="true" />
+                <p className="text-sm text-zinc-500">{items.length === 0 ? 'Aún no hay insumos. Agrega el primero.' : 'Ningún insumo con este filtro'}</p>
               </div>
-            )}
-
-            {!loadingItems && items.length === 0 && (
-              <div className="rounded-2xl bg-zinc-50 border border-zinc-100 p-10 text-center">
-                <Package size={40} className="mx-auto mb-3 text-zinc-300" />
-                <p className="text-zinc-400 text-sm">No hay productos en inventario</p>
-              </div>
-            )}
-
-            {!loadingItems && items.length > 0 && (
-              <div className="space-y-2">
-                {items.map(item => {
-                  const isLow   = item.stock <= item.min_stock && item.stock > 0
-                  const isEmpty = item.stock <= 0
+            ) : (
+              <ul className="divide-y divide-zinc-100">
+                {visibleItems.map(item => {
+                  const level = levelOf(item)
+                  const ref = Math.max(Number(item.min_stock) * 2, Number(item.stock), 1)
+                  const pct = Math.max(0, Math.min(100, (Number(item.stock) / ref) * 100))
                   return (
-                    <div
-                      key={item.id}
-                      className={`
-                        rounded-2xl border p-4 transition-all duration-200
-                        ${isEmpty ? 'bg-red-50 border-red-200'
-                          : isLow ? 'bg-yellow-50 border-yellow-200'
-                          : 'bg-zinc-50 border-zinc-100'}
-                      `}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <h2 className="font-bold text-zinc-900">{item.name}</h2>
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {[
-                              `Stock: ${item.stock} ${item.unit}`,
-                              `Mín: ${item.min_stock}`,
-                              `$${Number(item.cost).toLocaleString('es-CO')}`,
-                            ].map(label => (
-                              <span key={label} className="text-xs px-2 py-0.5 rounded-full bg-surface border border-zinc-200 text-zinc-600 font-semibold">
-                                {label}
-                              </span>
-                            ))}
-                          </div>
-                          <div className="mt-2">
-                            {isEmpty ? (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-600 border border-red-200">Agotado</span>
-                            ) : isLow ? (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-600 border border-yellow-200">Stock bajo</span>
-                            ) : (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-600 border border-green-200">Disponible</span>
-                            )}
-                          </div>
+                    <li key={item.id} className="px-4 py-3 flex items-center gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold text-zinc-900 truncate">{item.name}</p>
+                          {level !== 'ok' && (
+                            <span className={`h-5 px-1.5 rounded-full border text-[10px] font-bold flex items-center ${level === 'empty' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
+                              {level === 'empty' ? 'Agotado' : 'Stock bajo'}
+                            </span>
+                          )}
                         </div>
-                        <div className="flex flex-col gap-2 shrink-0">
-                          <button onClick={() => openEditItem(item)}
-                            className="w-9 h-9 rounded-xl flex items-center justify-center bg-surface border border-zinc-200 text-zinc-500 hover:text-[var(--brand-text)] hover:border-[var(--brand-border)] transition-colors">
-                            <Pencil size={15} />
-                          </button>
-                          <button onClick={() => setMovementModal(item)}
-                            className="w-9 h-9 rounded-xl flex items-center justify-center bg-[var(--brand-light)] border border-[var(--brand-border)] text-[var(--brand-text)] hover:bg-[var(--brand-light)] transition-colors">
-                            <Plus size={15} />
-                          </button>
-                          <button onClick={() => deleteItem(item.id)}
-                            className="w-9 h-9 rounded-xl flex items-center justify-center bg-red-50 border border-red-200 text-red-500 hover:bg-red-100 transition-colors">
-                            <Minus size={15} />
-                          </button>
+                        <div className="mt-2 flex items-center gap-3">
+                          <div className="flex-1 max-w-[220px] h-1.5 rounded-full bg-zinc-100 overflow-hidden" aria-hidden="true">
+                            <div className={`h-full rounded-full ${level === 'empty' ? 'bg-red-500' : level === 'low' ? 'bg-orange-500' : 'bg-[var(--brand)]'}`} style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className="text-xs text-zinc-500 font-mono tabular">{item.stock} {item.unit} · mín {item.min_stock}</span>
                         </div>
                       </div>
-                    </div>
+                      <span className="hidden sm:block font-mono text-sm font-semibold text-zinc-700 tabular w-24 text-right">{money(item.cost)}</span>
+                      <div className="flex shrink-0">
+                        <button onClick={() => setMovementModal(item)} aria-label={`Registrar movimiento de ${item.name}`} className="h-9 px-2.5 rounded-lg flex items-center gap-1.5 text-xs font-bold text-[var(--brand-text)] hover:bg-[var(--brand-light)]">
+                          <ArrowUpDown size={14} aria-hidden="true" /> <span className="hidden md:inline">Movimiento</span>
+                        </button>
+                        <button onClick={() => openEditItem(item)} aria-label={`Editar ${item.name}`} className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-500 hover:bg-zinc-100"><Pencil size={15} /></button>
+                        <button onClick={() => deleteItem(item.id)} aria-label={`Eliminar ${item.name}`} className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-500 hover:bg-red-50 hover:text-red-600"><Trash2 size={15} /></button>
+                      </div>
+                    </li>
                   )
                 })}
-              </div>
+              </ul>
+            )}
+          </div>
+        </>
+      )}
+
+      {view === 'recetas' && (
+        <>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-zinc-500">Cada receta descuenta sus insumos cuando cocina marca el producto como listo.</p>
+            <button onClick={openNewRecipe} className="h-11 px-4 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white text-sm font-bold flex items-center gap-1.5 transition-colors shrink-0">
+              <Plus size={16} aria-hidden="true" /> Receta
+            </button>
+          </div>
+          <div className="bg-surface border border-zinc-200 rounded-2xl shadow-card overflow-hidden">
+            {loadingRecipes ? (
+              <div className="p-4 flex flex-col gap-2">{[...Array(3)].map((_, i) => <div key={i} className="h-14 rounded-xl bg-zinc-100 animate-pulse" />)}</div>
+            ) : recipes.length === 0 ? (
+              <p className="py-14 text-center text-sm text-zinc-500">No hay recetas. Agrega una para descontar inventario automáticamente.</p>
+            ) : (
+              <ul className="divide-y divide-zinc-100">
+                {recipes.map(recipe => (
+                  <li key={recipe.id} className="px-4 py-3 flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-zinc-900">{recipe.product?.name}</p>
+                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                        {recipe.recipe_items.map(ri => (
+                          <span key={ri.id} className="h-6 px-2 rounded-full bg-zinc-100 border border-zinc-200 text-[11px] font-semibold text-zinc-600 flex items-center">
+                            <span className="font-mono mr-1">{ri.quantity} {ri.inventory_item.unit}</span> {ri.inventory_item.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0">
+                      <button onClick={() => openEditRecipe(recipe)} aria-label={`Editar receta de ${recipe.product?.name}`} className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-500 hover:bg-zinc-100"><Pencil size={15} /></button>
+                      <button onClick={() => deleteRecipe(recipe.id)} aria-label={`Eliminar receta de ${recipe.product?.name}`} className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-500 hover:bg-red-50 hover:text-red-600"><Trash2 size={15} /></button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         </>
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════════
-          RECETAS
-      ══════════════════════════════════════════════════════════════════════════ */}
-      {view === 'recetas' && (
-        <div className="rounded-2xl bg-surface border border-zinc-200 p-6
-          shadow-card">
-
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-xs font-bold text-zinc-500 tracking-wider">
-              {recipes.length} RECETAS
-            </p>
-            <button
-              onClick={openNewRecipe}
-              className="
-                flex items-center gap-2 px-4 py-2 rounded-xl
-                bg-[var(--brand)] hover:bg-[var(--brand-hover)]
-                text-white text-sm font-semibold
-                transition-all duration-200 active:scale-95
-              "
-            >
-              <Plus size={16} /> Nueva receta
-            </button>
-          </div>
-
-          {loadingRecipes && (
-            <div className="space-y-3">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-20 rounded-2xl bg-zinc-200 animate-pulse" />
-              ))}
-            </div>
-          )}
-
-          {!loadingRecipes && recipes.length === 0 && (
-            <div className="rounded-2xl bg-zinc-50 border border-zinc-100 p-10 text-center">
-              <Package size={40} className="mx-auto mb-3 text-zinc-300" />
-              <p className="text-zinc-400 text-sm">No hay recetas definidas</p>
-              <p className="text-zinc-300 text-xs mt-1">
-                Agrega recetas para activar el descuento automático de inventario
-              </p>
-            </div>
-          )}
-
-          {!loadingRecipes && recipes.length > 0 && (
-            <div className="space-y-2">
-              {recipes.map(recipe => (
-                <div
-                  key={recipe.id}
-                  className="rounded-2xl bg-zinc-50 border border-zinc-100 p-4"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-bold text-zinc-900">{recipe.product?.name}</p>
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {recipe.recipe_items.map(ri => (
-                          <span
-                            key={ri.id}
-                            className="text-xs px-2 py-0.5 rounded-full bg-surface border border-zinc-200 text-zinc-600 font-semibold"
-                          >
-                            {ri.quantity} {ri.inventory_item.unit} {ri.inventory_item.name}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex gap-2 shrink-0">
-                      <button
-                        onClick={() => openEditRecipe(recipe)}
-                        className="w-9 h-9 rounded-xl flex items-center justify-center bg-surface border border-zinc-200 text-zinc-500 hover:text-[var(--brand-text)] hover:border-[var(--brand-border)] transition-colors"
-                      >
-                        <Pencil size={15} />
-                      </button>
-                      <button
-                        onClick={() => deleteRecipe(recipe.id)}
-                        className="w-9 h-9 rounded-xl flex items-center justify-center bg-red-50 border border-red-200 text-red-500 hover:bg-red-100 transition-colors"
-                      >
-                        <X size={15} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ══════════════════════════════════════════════════════════════════════════
           MODAL — ITEM
       ══════════════════════════════════════════════════════════════════════════ */}
       {showItemModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}>
-          <div className="w-full max-w-lg bg-surface rounded-3xl border border-zinc-200 shadow-pop p-6">
+        <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center sm:p-4 bg-black/40 backdrop-blur-[2px]">
+          <div className="w-full max-w-lg bg-surface rounded-t-3xl sm:rounded-2xl border border-zinc-200 shadow-pop p-6">
             <h2 className="text-zinc-900 font-bold text-lg mb-5">
               {editingItem ? 'Editar producto' : 'Nuevo producto'}
             </h2>
@@ -510,11 +402,11 @@ export default function InventarioPanel() {
             </div>
             <div className="flex gap-3 mt-6">
               <button onClick={() => setShowItemModal(false)}
-                className="flex-1 py-3 rounded-2xl text-sm font-semibold bg-zinc-50 text-zinc-500 border border-zinc-200 hover:bg-zinc-100 transition-colors">
+                className="flex-1 h-12 rounded-xl text-sm font-bold text-zinc-700 border border-zinc-300 hover:bg-zinc-50 transition-colors">
                 Cancelar
               </button>
               <button onClick={saveItem}
-                className="flex-1 py-3 rounded-2xl text-sm font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] shadow-[0_4px_20px_var(--brand-shadow)] transition-all duration-200 active:scale-[0.98]">
+                className="flex-1 h-12 rounded-xl text-sm font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] transition-colors">
                 Guardar
               </button>
             </div>
@@ -526,24 +418,23 @@ export default function InventarioPanel() {
           MODAL — MOVIMIENTO
       ══════════════════════════════════════════════════════════════════════════ */}
       {movementModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}>
-          <div className="w-full max-w-lg bg-surface rounded-3xl border border-zinc-200 shadow-pop p-6 max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center sm:p-4 bg-black/40 backdrop-blur-[2px]">
+          <div className="w-full max-w-lg bg-surface rounded-t-3xl sm:rounded-2xl border border-zinc-200 shadow-pop p-6 max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-zinc-900 font-bold">
                 Movimiento — {movementModal.name}
               </h2>
               <button onClick={() => setMovementModal(null)}
-                className="text-sm font-semibold text-[var(--brand-text)] hover:text-[var(--brand-text)] transition-colors">
-                ✕ Cerrar
+                aria-label="Cerrar" className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-500 hover:bg-zinc-100">
+                <X size={18} />
               </button>
             </div>
             <div className="space-y-3">
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { key: 'in',         label: '↑ Entrada' },
-                  { key: 'out',        label: '↓ Salida'  },
-                  { key: 'adjustment', label: '⇌ Ajuste'  },
+                  { key: 'in',         label: 'Entrada' },
+                  { key: 'out',        label: 'Salida'  },
+                  { key: 'adjustment', label: 'Ajuste'  },
                 ].map(opt => (
                   <button key={opt.key} onClick={() => setMovement({ ...movement, type: opt.key })}
                     className={`py-2.5 rounded-xl text-sm font-semibold border transition-all duration-200
@@ -564,11 +455,11 @@ export default function InventarioPanel() {
             </div>
             <div className="flex gap-3 mt-6">
               <button onClick={() => setMovementModal(null)}
-                className="flex-1 py-3 rounded-2xl text-sm font-semibold bg-zinc-50 text-zinc-500 border border-zinc-200 hover:bg-zinc-100 transition-colors">
+                className="flex-1 h-12 rounded-xl text-sm font-bold text-zinc-700 border border-zinc-300 hover:bg-zinc-50 transition-colors">
                 Cancelar
               </button>
               <button onClick={registerMovement}
-                className="flex-1 py-3 rounded-2xl text-sm font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] shadow-[0_4px_20px_var(--brand-shadow)] transition-all duration-200 active:scale-[0.98]">
+                className="flex-1 h-12 rounded-xl text-sm font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] transition-colors">
                 Registrar
               </button>
             </div>
@@ -580,9 +471,8 @@ export default function InventarioPanel() {
           MODAL — RECETA
       ══════════════════════════════════════════════════════════════════════════ */}
       {showRecipeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}>
-          <div className="w-full max-w-lg bg-surface rounded-3xl border border-zinc-200 shadow-pop p-6 max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center sm:p-4 bg-black/40 backdrop-blur-[2px]">
+          <div className="w-full max-w-lg bg-surface rounded-t-3xl sm:rounded-2xl border border-zinc-200 shadow-pop p-6 max-h-[90vh] flex flex-col">
 
             <h2 className="text-zinc-900 font-bold text-lg mb-5 shrink-0">
               {editingRecipe ? 'Editar receta' : 'Nueva receta'}
@@ -673,13 +563,13 @@ export default function InventarioPanel() {
 
             <div className="flex gap-3 mt-6 shrink-0">
               <button onClick={() => setShowRecipeModal(false)}
-                className="flex-1 py-3 rounded-2xl text-sm font-semibold bg-zinc-50 text-zinc-500 border border-zinc-200 hover:bg-zinc-100 transition-colors">
+                className="flex-1 h-12 rounded-xl text-sm font-bold text-zinc-700 border border-zinc-300 hover:bg-zinc-50 transition-colors">
                 Cancelar
               </button>
               <button
                 onClick={saveRecipe}
                 disabled={!recipeForm.product_id && !editingRecipe || recipeForm.ingredients.length === 0}
-                className="flex-1 py-3 rounded-2xl text-sm font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] shadow-[0_4px_20px_var(--brand-shadow)] transition-all duration-200 active:scale-[0.98] disabled:opacity-50">
+                className="flex-1 h-12 rounded-xl text-sm font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] transition-colors disabled:opacity-50">
                 Guardar receta
               </button>
             </div>
