@@ -13,7 +13,9 @@ export default function CajaPanel() {
   const [movements, setMovements] = useState([])
   const [closingAmount, setClosingAmount] = useState('')
   const [history, setHistory] = useState([])
-  const [salesTotal, setSalesTotal] = useState(0)
+  // Solo el efectivo entra al cajón; las transferencias se muestran aparte
+  const [cashSales, setCashSales] = useState(0)
+  const [transferSales, setTransferSales] = useState(0)
 
   useEffect(() => {
     if (user) { loadCashRegister(); loadHistory() }
@@ -50,19 +52,19 @@ export default function CajaPanel() {
 
   // Cargar ventas desde que se abrió la caja
   async function loadSales(openedAt) {
-    // El total ya viene correcto (con descuentos aplicados) en payments.total —
-    // ya no hay que recalcular desde order_items ni sumar domicilio aparte.
+    // payments.cash / payments.transfer ya vienen con descuentos aplicados.
+    // El esperado del cajón usa solo el efectivo: las transferencias no entran a la caja.
     const { data: payments, error } = await supabase
       .from('payments')
-      .select('total')
+      .select('cash, transfer')
       .eq('restaurant_id', user.restaurant_id)
       .eq('voided', false)
       .gte('created_at', openedAt) // ← hora real de apertura, no medianoche
 
     if (error) { console.error(error); return }
 
-    const total = (payments || []).reduce((sum, p) => sum + Number(p.total), 0)
-    setSalesTotal(total)
+    setCashSales((payments || []).reduce((sum, p) => sum + Number(p.cash || 0), 0))
+    setTransferSales((payments || []).reduce((sum, p) => sum + Number(p.transfer || 0), 0))
   }
 
   async function loadHistory() {
@@ -91,7 +93,8 @@ export default function CajaPanel() {
       .single()
     if (error) { console.error(error); alert(error.message); return }
     setCashRegister(data)
-    setSalesTotal(0)
+    setCashSales(0)
+    setTransferSales(0)
     setOpeningAmount('0')
     await loadMovements(data.id)
     await loadHistory()
@@ -102,7 +105,7 @@ export default function CajaPanel() {
     const counted = Number(closingAmount)
     if (isNaN(counted) || counted < 0) { alert('Monto inválido'); return }
 
-    // Esperado final = apertura + ventas + ingresos - egresos
+    // Esperado final = apertura + ventas en efectivo + ingresos - egresos
     const expectedFinal = computedExpected
 
     const difference = counted - expectedFinal
@@ -123,7 +126,8 @@ export default function CajaPanel() {
     if (error) { console.error(error); alert(error.message); return }
     setCashRegister(null)
     setMovements([])
-    setSalesTotal(0)
+    setCashSales(0)
+    setTransferSales(0)
     setClosingAmount('')
     await loadHistory()
   }
@@ -156,7 +160,7 @@ export default function CajaPanel() {
     .reduce((sum, m) => sum + Number(m.amount), 0)
 
   const computedExpected = Number(cashRegister?.opening_amount || 0)
-    + salesTotal
+    + cashSales
     + manualIncome
     - manualExpense
 
@@ -220,9 +224,12 @@ export default function CajaPanel() {
 
             <div className="rounded-2xl bg-green-50 border border-green-200 p-5
               shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
-              <p className="text-xs font-semibold text-green-500 tracking-wide">VENTAS</p>
+              <p className="text-xs font-semibold text-green-500 tracking-wide">VENTAS EFECTIVO</p>
               <p className="text-xl font-black text-green-600 mt-2">
-                ${salesTotal.toLocaleString('es-CO')}
+                ${cashSales.toLocaleString('es-CO')}
+              </p>
+              <p className="text-xs text-zinc-500 mt-1">
+                Transferencias: ${transferSales.toLocaleString('es-CO')} (no entran al cajón)
               </p>
             </div>
 

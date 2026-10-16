@@ -11,6 +11,7 @@ export default function DebtPanel({ onClose }) {
   const [loadingMovements, setLoadingMovements] = useState(false)
   const [paymentAmount, setPaymentAmount] = useState('')
   const [paymentNote, setPaymentNote] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState('cash') // 'cash' | 'transfer'
   const [procesando, setProcesando] = useState(false)
 
   useEffect(() => {
@@ -54,13 +55,31 @@ export default function DebtPanel({ onClose }) {
       debtor_id: selectedDebtor.id,
       type: 'payment',
       amount,
-      note: paymentNote.trim() || null,
+      note: [paymentMethod === 'transfer' ? 'Transferencia' : 'Efectivo', paymentNote.trim()].filter(Boolean).join(' · '),
     })
 
     await supabase
       .from('debtors')
       .update({ total_debt: newDebt })
       .eq('id', selectedDebtor.id)
+
+    // Abono en efectivo: entra al cajón, así que se registra en la caja abierta
+    if (paymentMethod === 'cash') {
+      const { data: register } = await supabase
+        .from('cash_registers').select('id')
+        .eq('restaurant_id', user.restaurant_id).eq('status', 'open')
+        .order('created_at', { ascending: false }).limit(1).maybeSingle()
+      if (register) {
+        await supabase.from('cash_movements').insert({
+          register_id: register.id,
+          type: 'income',
+          amount,
+          description: `Abono fiado: ${selectedDebtor.name}`,
+        })
+      } else {
+        alert('No hay caja abierta: el abono quedó registrado en la deuda, pero súmalo a mano al abrir caja')
+      }
+    }
 
     // Refrescar
     const updatedDebtor = { ...selectedDebtor, total_debt: newDebt }
@@ -71,6 +90,7 @@ export default function DebtPanel({ onClose }) {
     )
     setPaymentAmount('')
     setPaymentNote('')
+    setPaymentMethod('cash')
     await fetchMovements(updatedDebtor)
     setProcesando(false)
   }
@@ -199,6 +219,22 @@ export default function DebtPanel({ onClose }) {
                   onChange={e => setPaymentNote(e.target.value)}
                   className={inputClass}
                 />
+
+                {/* Método del abono (efectivo por defecto: entra a la caja) */}
+                <div className="flex rounded-xl border border-zinc-200 overflow-hidden">
+                  {[['cash', 'Efectivo'], ['transfer', 'Transferencia']].map(([value, label]) => (
+                    <button
+                      key={value}
+                      onClick={() => setPaymentMethod(value)}
+                      className={`flex-1 py-2 text-xs font-semibold transition-colors ${paymentMethod === value
+                        ? 'bg-[var(--brand)] text-white'
+                        : 'bg-zinc-50 text-zinc-500'
+                        }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
 
                 {/* Botones rápidos */}
                 <div className="flex gap-2">

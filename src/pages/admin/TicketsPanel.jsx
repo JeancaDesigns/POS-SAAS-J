@@ -3,7 +3,6 @@ import { supabase } from '../../supabaseClient'
 import { Printer, Receipt, Clock3, ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 
-const DELETE_PASSWORD = '2307'
 
 export default function TicketsPanel() {
   const [orders, setOrders] = useState([])
@@ -16,7 +15,7 @@ export default function TicketsPanel() {
 
   useEffect(() => {
     loadOrders()
-    supabase.from('restaurants').select('delivery_fee').limit(1).single()
+    supabase.from('restaurants').select('delivery_fee').eq('id', user.restaurant_id).single()
       .then(({ data }) => { if (data) setDeliveryFee(data.delivery_fee || 0) })
   }, [])
 
@@ -91,18 +90,17 @@ export default function TicketsPanel() {
     setExpandedMonths(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
+  // Anulación lógica (antes: borrado físico protegido con una clave escrita en el código).
+  // El pedido queda como cancelado y sus pagos como anulados, para que haya rastro.
   async function handleDelete(order) {
-    const clave = window.prompt('Ingresa la clave de administrador para eliminar este registro:')
-    if (!clave) return
-    if (clave !== DELETE_PASSWORD) { alert('Clave incorrecta'); return }
+    if (!user?.roles?.some(r => ['admin', 'dev'].includes(r))) return
     const confirmed = window.confirm(
-      `¿Eliminar el pedido del ${new Date(order.created_at).toLocaleString('es-CO')}? Esta acción no se puede deshacer.`
+      `¿Anular el pedido del ${new Date(order.created_at).toLocaleString('es-CO')}? Dejará de contar en caja y reportes.`
     )
     if (!confirmed) return
     setDeletingId(order.id)
-    await supabase.from('payments').delete().eq('order_id', order.id)
-    await supabase.from('order_items').delete().eq('order_id', order.id)
-    await supabase.from('orders').delete().eq('id', order.id)
+    await supabase.from('payments').update({ voided: true }).eq('order_id', order.id)
+    await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id)
     setDeletingId(null)
     loadOrders()
   }
@@ -204,7 +202,8 @@ export default function TicketsPanel() {
                             </span>
                             <button
                               onClick={() => handleDelete(order)}
-                              disabled={deletingId === order.id}
+                              disabled={deletingId === order.id || order.status === 'cancelled'}
+                              title="Anular pedido"
                               className="
                                 p-2 rounded-xl
                                 text-red-400 hover:text-red-500
