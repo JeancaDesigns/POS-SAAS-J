@@ -47,23 +47,43 @@ export default function DebtPanel({ onClose }) {
   }
 
   async function registerPayment() {
-    if (!paymentAmount || Number(paymentAmount) <= 0) return
+    if (!paymentAmount || Number(paymentAmount) <= 0 || procesando) return
     setProcesando(true)
 
-    const amount = Number(paymentAmount)
-    const newDebt = Math.max(0, Number(selectedDebtor.total_debt) - amount)
+    // Saldo leído justo antes (un fiado hecho en caja mientras este panel estaba abierto se perdía)
+    const { data: fresh, error: readError } = await supabase
+      .from('debtors').select('total_debt').eq('id', selectedDebtor.id).single()
+    if (readError || !fresh) {
+      alert('No se pudo leer la deuda. Intenta de nuevo.')
+      setProcesando(false)
+      return
+    }
+    const currentDebt = Number(fresh.total_debt)
+    // El abono no puede ser mayor que la deuda: antes la caja recibía el monto completo
+    const amount = Math.min(Number(paymentAmount), currentDebt)
+    if (amount <= 0) { setProcesando(false); await fetchMovements({ ...selectedDebtor, total_debt: currentDebt }); return }
+    if (amount < Number(paymentAmount)) {
+      alert(`La deuda es de ${money(currentDebt)}: se registra un abono por ese valor`)
+    }
+    const newDebt = currentDebt - amount
 
-    await supabase.from('debt_movements').insert({
+    const { error: mvError } = await supabase.from('debt_movements').insert({
       debtor_id: selectedDebtor.id,
       type: 'payment',
       amount,
       note: [paymentMethod === 'transfer' ? 'Transferencia' : 'Efectivo', paymentNote.trim()].filter(Boolean).join(' · '),
     })
+    if (mvError) {
+      alert('No se pudo registrar el abono: ' + mvError.message)
+      setProcesando(false)
+      return
+    }
 
-    await supabase
+    const { error: upError } = await supabase
       .from('debtors')
       .update({ total_debt: newDebt })
       .eq('id', selectedDebtor.id)
+    if (upError) alert('El abono quedó en el historial, pero no se pudo actualizar el saldo: ' + upError.message)
 
     // Abono en efectivo: entra al cajón, así que se registra en la caja abierta
     if (paymentMethod === 'cash') {

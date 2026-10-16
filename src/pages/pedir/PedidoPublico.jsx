@@ -176,17 +176,20 @@ export default function PedidoPublico() {
     })
   }
 
-  function removeProduct(productId) {
+  // Con variantes hay varias líneas del mismo producto: se quita de la variante indicada
+  // (o de la última agregada) y la cantidad suma todas las variantes
+  function removeProduct(productId, variant) {
     setItems(prev => {
-      const existing = prev.find(i => i.product.id === productId)
+      const lines = prev.filter(i => i.product.id === productId && (variant === undefined || i.variant === variant))
+      const existing = lines[lines.length - 1]
       if (!existing) return prev
-      if (existing.quantity === 1) return prev.filter(i => i.product.id !== productId)
-      return prev.map(i => i.product.id === productId ? { ...i, quantity: i.quantity - 1 } : i)
+      if (existing.quantity === 1) return prev.filter(i => i !== existing)
+      return prev.map(i => i === existing ? { ...i, quantity: i.quantity - 1 } : i)
     })
   }
 
   function getQuantity(productId) {
-    return items.find(i => i.product.id === productId)?.quantity || 0
+    return items.filter(i => i.product.id === productId).reduce((s, i) => s + i.quantity, 0)
   }
 
   const total = useMemo(() => {
