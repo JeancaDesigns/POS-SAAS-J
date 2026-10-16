@@ -187,7 +187,7 @@ export default function DomiciliarioHome() {
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>
             <div className="flex items-center gap-2 mb-0.5">
-              <span className="text-lg">🛵</span>
+              
               <h2 className={`font-bold text-lg ${delivered ? 'text-zinc-400' : 'text-zinc-900'}`}>
                 {order.customer_name}
               </h2>
@@ -298,7 +298,7 @@ export default function DomiciliarioHome() {
             <button
               onClick={() => openWhatsApp(order.customer_phone)}
               className="
-                bg-green-500 hover:bg-green-600
+                bg-[#16A34A] hover:bg-[#15803D]
                 text-white font-semibold
                 rounded-2xl py-3
                 transition-colors text-sm
@@ -314,7 +314,7 @@ export default function DomiciliarioHome() {
             <button
               onClick={() => openMaps(order)}
               className="
-                bg-blue-500 hover:bg-blue-600
+                bg-[#1D6FE0] hover:bg-[#175CD3]
                 text-white font-semibold
                 rounded-2xl py-3
                 transition-colors text-sm
@@ -354,7 +354,7 @@ export default function DomiciliarioHome() {
             onClick={() => marcarEntregado(order)}
             className="
               w-full mt-3
-              bg-green-500 hover:bg-green-600
+              bg-[#16A34A] hover:bg-[#15803D]
               text-white font-bold
               rounded-2xl py-3
               transition-colors text-sm
@@ -433,7 +433,7 @@ export default function DomiciliarioHome() {
           {/* Empty state */}
           {pendingOrders.length === 0 && dispatchedOrders.length === 0 && (
             <div className="text-center py-24">
-              <p className="text-5xl mb-4">🛵</p>
+              
               <p className="text-zinc-400 text-sm">No hay domicilios pendientes</p>
             </div>
           )}
@@ -520,7 +520,7 @@ export default function DomiciliarioHome() {
                 active:scale-[0.98]
               "
             >
-              🛵 Salir con {tanda.length} domicilio{tanda.length !== 1 ? 's' : ''}
+              Salir con {tanda.length} domicilio{tanda.length !== 1 ? 's' : ''}
             </button>
           </div>
         </div>

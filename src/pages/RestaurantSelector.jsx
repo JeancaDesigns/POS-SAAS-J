@@ -19,82 +19,50 @@ export default function RestaurantSelector() {
     fetch()
   }, [])
 
-  // Emoji placeholder por restaurante mientras llegan los logos
-  function getEmoji(slug) {
-    if (slug === 'benditas-papas') return '🍟'
-    if (slug === 'entre-horas') return '☕'
-    return '🍔'
-  }
-
   return (
-    <div className="min-h-screen bg-canvas flex flex-col items-center justify-center px-4">
-
-      {/* Header */}
-      <div className="text-center mb-10">
-        <h1 className="text-3xl font-bold text-zinc-900 tracking-tight">
-          Bienvenido
-        </h1>
-        <p className="text-zinc-400 text-sm mt-2">
-          Selecciona tu restaurante para continuar
-        </p>
-      </div>
-
-      {/* Grid */}
-      {loading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-2 gap-4 w-full max-w-lg">
-          {[...Array(2)].map((_, i) => (
-            <div key={i} className="h-40 rounded-3xl bg-zinc-200 animate-pulse" />
-          ))}
+    <div className="min-h-screen bg-canvas flex flex-col">
+      <main className="flex-1 flex flex-col items-center justify-center px-4 py-12">
+        <div className="text-center mb-10">
+          <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900">Bienvenido</h1>
+          <p className="text-zinc-500 text-sm mt-2">Selecciona tu restaurante para continuar</p>
         </div>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 w-full max-w-lg">
-          {restaurants.map(r => (
-            <button
-              key={r.id}
-              onClick={() => navigate(`/${r.slug}/login`)}
-              className="
-                group
-                flex flex-col items-center justify-center
-                gap-4 p-8
-                rounded-3xl
-                bg-surface border border-zinc-200
-                shadow-[0_2px_8px_rgba(0,0,0,0.05)]
-                hover:border-[var(--brand-border)]
-                hover:shadow-[0_8px_30px_var(--brand-soft)]
-                hover:-translate-y-1
-                transition-all duration-300
-                active:scale-[0.97]
-              "
-            >
-              <div className="
-                w-20 h-20 rounded-2xl
-                flex items-center justify-center
-                text-4xl
-                bg-[var(--brand-light)] border border-[var(--brand-border)]
-                group-hover:bg-[var(--brand-light)]
-                group-hover:scale-110
-                transition-all duration-300
-                shadow-[0_4px_12px_var(--brand-soft)]
-              ">
-                {getEmoji(r.slug)}
-              </div>
-              <div className="text-center">
-                <p className="font-bold text-zinc-900 text-lg tracking-tight">
-                  {r.name}
-                </p>
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  Toca para ingresar
-                </p>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
 
-      <p className="absolute bottom-1 sm:pb-5 text-zinc-300 text-xs tracking-widest uppercase font-bold">
-        Powered by Jeanca
-      </p>
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-xl">
+            {[...Array(2)].map((_, i) => (
+              <div key={i} className="h-24 rounded-2xl bg-zinc-100 border border-zinc-200 animate-pulse" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-xl">
+            {restaurants.map(r => (
+              <button
+                key={r.id}
+                onClick={() => navigate(`/${r.slug}/login`)}
+                className="
+                  group h-24 px-5 rounded-2xl text-left
+                  flex items-center gap-4
+                  bg-surface border border-zinc-200 shadow-card
+                  hover:border-[var(--brand)] transition-colors
+                "
+              >
+                <div className="w-12 h-12 rounded-xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-sm font-extrabold text-zinc-700">
+                  {r.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-zinc-900 text-base truncate">{r.name}</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">Entrar como personal</p>
+                </div>
+                <svg className="text-zinc-400 group-hover:text-zinc-700 transition-colors" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+              </button>
+            ))}
+          </div>
+        )}
+      </main>
 
+      <footer className="pb-6 text-center text-xs text-zinc-400">
+        Desarrollado por <span className="font-bold text-zinc-500">Jeanca Dev</span>
+      </footer>
     </div>
   )
 }

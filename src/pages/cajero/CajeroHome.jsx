@@ -1163,7 +1163,7 @@ export default function CajeroHome() {
             <div className="flex-1 overflow-y-auto space-y-2">
               {onlineOrders.length === 0 ? (
                 <div className="text-center py-10">
-                  <p className="text-3xl mb-3">🛵</p>
+                  
                   <p className="text-zinc-400 text-sm">Sin pedidos online hoy</p>
                 </div>
               ) : (
@@ -1202,16 +1202,16 @@ export default function CajeroHome() {
                               onClick={e => { e.stopPropagation(); sendManualReport(order) }}
                               className="text-xs font-semibold text-green-600 hover:text-green-700 mt-2"
                             >
-                              📲 Enviar reporte
+                              Enviar reporte
                             </button>
                           </div>
                           <p className="text-xs text-zinc-400">
-                            {order.delivery_type === 'delivery' ? '🛵 Domicilio' : '🏠 Recoger'}
+                            {order.delivery_type === 'delivery' ? 'Domicilio' : 'Recoger'}
                             {order.customer_phone && ` · ${order.customer_phone}`}
                           </p>
                           {order.delivery_address && (
                             <p className="text-xs text-zinc-400 mt-0.5 truncate">
-                              📍 {order.delivery_address}
+                              {order.delivery_address}
                             </p>
                           )}
                         </div>
@@ -1242,7 +1242,7 @@ export default function CajeroHome() {
             "
           >
             <div className="flex items-start gap-3">
-              <span className="text-2xl">🛵</span>
+              
               <div className="min-w-0">
                 <p className="font-bold text-zinc-900 text-sm">
                   ¡Nuevo pedido online!

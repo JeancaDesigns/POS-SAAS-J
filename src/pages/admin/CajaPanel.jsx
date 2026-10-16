@@ -404,7 +404,7 @@ export default function CajaPanel() {
                 className="
                   mt-4 w-full rounded-2xl py-4
                   font-bold text-white
-                  bg-red-500 hover:bg-red-600
+                  bg-[#DC2626] hover:bg-[#B91C1C]
                   transition-all duration-200 active:scale-[0.98]
                 "
               >

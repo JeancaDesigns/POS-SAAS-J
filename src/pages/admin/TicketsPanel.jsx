@@ -311,7 +311,7 @@ export default function TicketsPanel() {
                           <div>
                             <p className="font-bold">{item.quantity}x {item.products?.name}</p>
                             {item.note && (
-                              <p className="text-xs text-zinc-400 mt-0.5">📝 {item.note}</p>
+                              <p className="text-xs text-zinc-400 mt-0.5">Nota: {item.note}</p>
                             )}
                           </div>
                           <span className="font-bold">${netTotal.toLocaleString('es-CO')}</span>

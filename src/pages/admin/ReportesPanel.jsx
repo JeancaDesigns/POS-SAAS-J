@@ -377,7 +377,7 @@ export default function ReportesPanel() {
               {stats.cancelledOrders > 0 && (
                 <div className="rounded-xl bg-surface border border-red-200 px-4 py-3">
                   <p className="text-sm text-zinc-700">
-                    ⚠️ Hay{' '}
+                    Hay{' '}
                     <span className="font-bold text-red-500">{stats.cancelledOrders}</span>{' '}
                     pedidos cancelados hoy
                   </p>
@@ -386,7 +386,7 @@ export default function ReportesPanel() {
               {products.filter(p => p.available === false).length > 0 && (
                 <div className="rounded-xl bg-surface border border-red-200 px-4 py-3">
                   <p className="text-sm text-zinc-700">
-                    📦 Hay productos marcados como no disponibles
+                    Hay productos marcados como no disponibles
                   </p>
 
                 </div>
@@ -475,7 +475,7 @@ export default function ReportesPanel() {
                                 {item.quantity}x {item.product?.name}
                               </span>
                               {item.note && (
-                                <p className="text-zinc-400 mt-0.5">📝 {item.note}</p>
+                                <p className="text-zinc-400 mt-0.5">Nota: {item.note}</p>
                               )}
                             </div>
                             <span className="text-zinc-500 font-semibold">

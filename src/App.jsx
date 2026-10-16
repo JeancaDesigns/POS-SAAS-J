@@ -39,7 +39,6 @@ function SlugGuard({ children }) {
 
   if (valid === false) return (
     <div className="min-h-screen bg-canvas flex flex-col items-center justify-center gap-4 px-4">
-      <p className="text-5xl">🍽️</p>
       <h1 className="text-zinc-900 font-bold text-xl tracking-tight">
         Restaurante no encontrado
       </h1>

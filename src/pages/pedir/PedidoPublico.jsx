@@ -318,7 +318,7 @@ export default function PedidoPublico() {
   // ── Restaurante no encontrado ────────────────────────────────────────────────
   if (notFound) return (
     <div className="min-h-screen bg-canvas flex flex-col items-center justify-center gap-4 px-4">
-      <p className="text-5xl">🍽️</p>
+      
       <h1 className="text-zinc-900 font-bold text-xl tracking-tight">
         Restaurante no encontrado
       </h1>
@@ -351,7 +351,7 @@ export default function PedidoPublico() {
               className="w-full h-full object-contain p-2"
             />
           ) : (
-            <span className="text-4xl">🍽️</span>
+            <span className="text-2xl font-extrabold text-[var(--brand-text)]">?</span>
           )}
         </div>
         <h1 className="text-2xl font-bold text-zinc-900 mb-1 tracking-tight">
@@ -456,13 +456,13 @@ export default function PedidoPublico() {
             {searchResult.cancelled ? (
               <p className="text-red-500 font-bold">Este pedido fue cancelado</p>
             ) : searchResult.done ? (
-              <p className="text-emerald-600 font-bold">¡Tu pedido ya está en camino o entregado! 🎉</p>
+              <p className="text-emerald-600 font-bold">¡Tu pedido ya está en camino o entregado!</p>
             ) : (
               <>
                 <p className="text-zinc-700 font-semibold">
                   {searchResult.pendingCount > 0
                     ? <>Hay <span className="text-[var(--brand-text)] font-bold">{searchResult.pendingCount}</span> pedido{searchResult.pendingCount !== 1 ? 's' : ''} antes que el tuyo</>
-                    : 'Tu pedido es el siguiente en prepararse 🎉'
+                    : 'Tu pedido es el siguiente en prepararse'
                   }
                 </p>
                 <p className="text-zinc-400 text-xs mt-2">
@@ -491,10 +491,9 @@ export default function PedidoPublico() {
           w-24 h-24 rounded-full mx-auto
           flex items-center justify-center
           text-5xl mb-6
-          bg-[var(--brand)]
-          shadow-[0_8px_30px_rgba(130,10,209,0.35)]
+          bg-green-50 border border-green-200 text-green-600
         ">
-          ✅
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>
         </div>
 
         <h2 className="text-2xl font-bold text-zinc-900 mb-1">
@@ -513,7 +512,7 @@ export default function PedidoPublico() {
           </p>
         ) : (
           <p className="text-zinc-500 text-sm">
-            Tu pedido es el siguiente en prepararse 🎉
+            Tu pedido es el siguiente en prepararse
           </p>
         )}
 
@@ -523,7 +522,7 @@ export default function PedidoPublico() {
 
         {domiciliarioActivo && (
           <p className="text-sm mt-2 text-[var(--brand-text)] font-medium">
-            🛵 Será entregado por: <span className="font-bold">{domiciliarioActivo}</span>
+            Te lo entrega: <span className="font-bold">{domiciliarioActivo}</span>
           </p>
         )}
 
@@ -548,17 +547,16 @@ export default function PedidoPublico() {
     <div className="h-[100dvh] overflow-hidden flex flex-col bg-canvas">
 
       {/* ── Header ── */}
-      <div className="shrink-0 bg-[var(--brand)] shadow-md">
+      <div className="shrink-0 bg-surface border-b border-zinc-200">
         <div className="max-w-7xl mx-auto px-4 pt-5 pb-4">
 
           {/* Info restaurante */}
           <div className="flex items-center gap-4 mb-4">
             <div className="
-              w-20 h-20 rounded-4xl
+              w-16 h-16 rounded-2xl shrink-0
               flex items-center justify-center
               overflow-hidden
-              bg-[var(--brand)] border border-white/30
-              shadow-[0_4px_15px_rgba(0,0,0,0.15)]
+              bg-zinc-50 border border-zinc-200
             ">
               {restaurant?.logo_url ? (
                 <img
@@ -567,48 +565,48 @@ export default function PedidoPublico() {
                   className="w-full h-full object-contain p-1.5"
                 />
               ) : (
-                <span className="text-2xl font-black">🍽️</span>
+                <span className="text-xl font-extrabold text-[var(--brand-text)]">{(restaurant?.name || '?').slice(0, 2).toUpperCase()}</span>
               )}
             </div>
             <div className="min-w-0">
-              <h1 className="text-xl font-bold text-white tracking-tight truncate">
+              <h1 className="text-xl font-extrabold text-zinc-900 tracking-tight truncate">
                 {restaurant?.name || 'Pedidos Online'}
               </h1>
               <div className="flex flex-wrap gap-2 mt-1.5">
                 <span className={`
                   text-xs px-3 py-1 rounded-full border font-semibold
                   ${open
-                    ? 'bg-white/15 border-white/20 text-white/80'
-                    : 'bg-red-500/30 border-red-400/40 text-red-200'
+                    ? 'bg-green-50 border-green-200 text-green-700'
+                    : 'bg-red-50 border-red-200 text-red-600'
                   }
                 `}>
                   {open
-                    ? `🟢 ${formatHour(restaurant?.opening_time)} — ${formatHour(restaurant?.closing_time)}`
-                    : `🔴 Cerrado · Abre ${formatHour(restaurant?.opening_time)}`
+                    ? `Abierto · ${formatHour(restaurant?.opening_time)} – ${formatHour(restaurant?.closing_time)}`
+                    : `Cerrado · abre ${formatHour(restaurant?.opening_time)}`
                   }
                 </span>
-                <span className="text-xs px-3 py-1 rounded-full bg-white/15 border border-white/20 text-white/80">
-                  🛵 Domicilio ${(restaurant?.delivery_fee || 0).toLocaleString('es-CO')}
+                <span className="text-xs px-3 py-1 rounded-full bg-zinc-50 border border-zinc-200 text-zinc-600 font-semibold">
+                  Domicilio ${(restaurant?.delivery_fee || 0).toLocaleString('es-CO')}
                 </span>
               </div>
             </div>
           </div>
 
           {/* Tabs sección */}
-          <div className="grid grid-cols-2 gap-2 bg-black/15 rounded-2xl p-1.5">
+          <div className="grid grid-cols-2 gap-1 bg-zinc-100 border border-zinc-200 rounded-xl p-1">
             {[
-              { key: 'menu', label: '🍔 Menú' },
-              { key: 'delivery', label: '🛵 Entrega' },
+              { key: 'menu', label: 'Menú' },
+              { key: 'delivery', label: 'Entrega y pago' },
             ].map(section => (
               <button
                 key={section.key}
                 onClick={() => setActiveSection(section.key)}
                 className={`
-                  py-2.5 rounded-xl font-bold text-sm
-                  transition-all duration-200
+                  h-10 rounded-lg font-bold text-sm
+                  transition-colors
                   ${activeSection === section.key
-                    ? 'bg-surface text-[var(--brand)] shadow-sm'
-                    : 'text-white/60 hover:text-white/80'
+                    ? 'bg-surface text-zinc-900 shadow-card'
+                    : 'text-zinc-500 hover:text-zinc-800'
                   }
                 `}
               >
@@ -635,7 +633,7 @@ export default function PedidoPublico() {
         flex items-start gap-4
         shadow-[0_2px_8px_rgba(0,0,0,0.05)]
       ">
-                  <span className="text-3xl">🕐</span>
+                  <svg className="shrink-0 text-red-600 mt-0.5" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
                   <div>
                     <p className="font-bold text-red-600 text-base">
                       Aún no estamos atendiendo
@@ -782,8 +780,8 @@ export default function PedidoPublico() {
                 {/* Tipo entrega */}
                 <div className="grid grid-cols-2 gap-2 mb-5">
                   {[
-                    { key: 'delivery', label: '🛵 Domicilio' },
-                    { key: 'pickup', label: '🏠 Recoger' },
+                    { key: 'delivery', label: 'A domicilio' },
+                    { key: 'pickup', label: 'Recoger en local' },
                   ].map(opt => (
                     <button
                       key={opt.key}
@@ -830,7 +828,7 @@ export default function PedidoPublico() {
                         transition-colors
                       "
                     >
-                      📍 Usar mi ubicación actual
+                      Usar mi ubicación actual
                     </button>
 
                     {/* Mapa */}
@@ -873,8 +871,8 @@ export default function PedidoPublico() {
                     <p className="text-zinc-700 font-semibold text-sm mb-2">¿Cómo vas a pagar?</p>
                     <div className="grid grid-cols-2 gap-2 mb-3">
                       {[
-                        { key: 'cash', label: '💵 Efectivo' },
-                        { key: 'transfer', label: '📲 Transferencia' },
+                        { key: 'cash', label: 'Efectivo' },
+                        { key: 'transfer', label: 'Transferencia' },
                       ].map(opt => (
                         <button
                           key={opt.key}

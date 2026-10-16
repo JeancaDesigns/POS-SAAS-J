@@ -235,8 +235,8 @@ export default function PedidoActivo({ table, onClose }) {
               `}
             >
               {order.delivery_type === 'delivery'
-                ? '🛵 A domicilio — cambiar a recoger'
-                : '🏠 Recoge en local — cambiar a domicilio'
+                ? 'A domicilio · cambiar a recoger'
+                : 'Recoge en local · cambiar a domicilio'
               }
             </button>
           </div>
@@ -316,7 +316,7 @@ export default function PedidoActivo({ table, onClose }) {
                             item.note ? 'text-[var(--brand-text)]' : 'text-zinc-300 hover:text-zinc-400'
                           }`}
                         >
-                          {item.note ? `📝 ${item.note}` : '+ Nota'}
+                          {item.note ? `Nota: ${item.note}` : '+ Nota'}
                         </button>
                       )}
                     </div>
@@ -447,7 +447,7 @@ export default function PedidoActivo({ table, onClose }) {
                                 item?.note ? 'text-[var(--brand-text)]' : 'text-zinc-300 hover:text-zinc-400'
                               }`}
                             >
-                              {item?.note ? `📝 ${item.note}` : '+ Agregar nota'}
+                              {item?.note ? `Nota: ${item.note}` : '+ Agregar nota'}
                             </button>
                           )}
                         </div>

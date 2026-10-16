@@ -159,7 +159,7 @@ export default function DebtPanel({ onClose }) {
 
             {!loading && debtors.length === 0 && (
               <div className="text-center py-12">
-                <p className="text-3xl mb-3">🎉</p>
+                
                 <p className="text-zinc-400 text-sm">Sin deudas pendientes</p>
               </div>
             )}

@@ -318,19 +318,18 @@ export default function DevConfig() {
   `
 
   // ── Cargando sesión ────────────────────────────────────────────────────────
-  if (checkingSession) return <div className="min-h-screen bg-[#0F0A1A]" />
+  if (checkingSession) return <div className="min-h-screen bg-canvas" />
 
   // ── Login ──────────────────────────────────────────────────────────────────
   if (!devUser) return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-[#0F0A1A]">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-canvas">
       <div className="
         w-full max-w-sm
-        rounded-[2.5rem] p-8
-        bg-white/[0.04] backdrop-blur-[40px]
-        border border-white/10
+        rounded-2xl p-6
+        bg-surface border border-zinc-200 shadow-card
       ">
-        <h1 className="text-white text-2xl font-bold mb-1">Panel Dev</h1>
-        <p className="text-white/40 text-sm mb-8">Acceso restringido</p>
+        <h1 className="text-zinc-900 text-2xl font-extrabold tracking-tight mb-1">Panel Dev</h1>
+        <p className="text-zinc-500 text-sm mb-6">Acceso restringido</p>
 
         <div className="flex flex-col gap-4">
           <input
@@ -338,7 +337,7 @@ export default function DevConfig() {
             placeholder="correo@dev.com"
             value={email}
             onChange={e => setEmail(e.target.value)}
-            className="w-full rounded-2xl px-5 py-4 text-white outline-none bg-white/5 border border-white/10 focus:border-[var(--brand-border)] placeholder:text-white/20"
+            className="w-full h-12 rounded-xl px-4 text-zinc-900 outline-none bg-surface border border-zinc-300 focus:border-[var(--brand)] placeholder:text-zinc-400"
           />
           <input
             type="password"
@@ -346,19 +345,19 @@ export default function DevConfig() {
             value={password}
             onChange={e => setPassword(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleLogin()}
-            className="w-full rounded-2xl px-5 py-4 text-white outline-none bg-white/5 border border-white/10 focus:border-[var(--brand-border)] placeholder:text-white/20"
+            className="w-full h-12 rounded-xl px-4 text-zinc-900 outline-none bg-surface border border-zinc-300 focus:border-[var(--brand)] placeholder:text-zinc-400"
           />
 
           {loginError && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-xl py-3 px-4">
-              <p className="text-red-400 text-xs text-center font-medium">{loginError}</p>
+            <div className="bg-red-50 border border-red-200 rounded-xl py-2.5 px-3">
+              <p className="text-red-600 text-sm font-semibold">{loginError}</p>
             </div>
           )}
 
           <button
             onClick={handleLogin}
             disabled={loggingIn}
-            className="w-full rounded-2xl py-4 font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand)] transition-all active:scale-[0.98] disabled:opacity-50"
+            className="w-full h-12 rounded-xl font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] transition-colors disabled:opacity-60"
           >
             {loggingIn ? 'Verificando...' : 'Entrar'}
           </button>
@@ -457,7 +456,7 @@ export default function DevConfig() {
                     <button
                       onClick={confirmDelete}
                       disabled={deleting}
-                      className="w-full py-3 rounded-2xl font-bold text-white bg-red-500 hover:bg-red-600 disabled:opacity-50"
+                      className="w-full py-3 rounded-2xl font-bold text-white bg-[#DC2626] hover:bg-[#B91C1C] disabled:opacity-50"
                     >
                       {deleting ? 'Eliminando...' : 'Sí, eliminar todo'}
                     </button>
@@ -475,7 +474,7 @@ export default function DevConfig() {
             <button
               onClick={editingId ? handleUpdateRestaurant : handleCreateRestaurant}
               disabled={creating}
-              className="w-full rounded-2xl py-4 font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand)] transition-all active:scale-[0.98] disabled:opacity-50"
+              className="w-full h-12 rounded-xl font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] transition-colors disabled:opacity-60"
             >
               {creating ? 'Guardando...' : editingId ? 'Guardar cambios' : 'Crear restaurante'}
             </button>

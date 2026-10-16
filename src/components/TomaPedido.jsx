@@ -373,7 +373,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                             className={`text-xs cursor-pointer transition-colors ${item?.note ? 'text-[var(--brand-text)]' : 'text-zinc-300 hover:text-zinc-400'
                               }`}
                           >
-                            {item?.note ? `📝 ${item.note}` : '+ Agregar nota'}
+                            {item?.note ? `Nota: ${item.note}` : '+ Agregar nota'}
                           </button>
                         )}
                       </div>
@@ -417,7 +417,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                         <p className="text-xs text-[var(--brand-text)]">→ {i.variant}</p>
                       )}
                       {i.note && (
-                        <p className="text-xs text-zinc-400">📝 {i.note}</p>
+                        <p className="text-xs text-zinc-400">Nota: {i.note}</p>
                       )}
                     </div>
                     <span className="text-sm font-semibold text-[var(--brand-text)]">

@@ -41,29 +41,29 @@ export default function ConnectionBanner() {
     `}
       style={{
         marginTop: isOnline ? '0' : '0',
-        background: !isOnline ? '#EF4444'
+        background: !isOnline ? '#DC2626'
           : pendingCount > 0 ? '#FACC15'
-          : '#22C55E'
+          : '#16A34A'
       }}
     >
       {!isOnline && (
         <>
-          <span className="w-2 h-2 rounded-full bg-surface animate-pulse shrink-0" />
+          <span className="w-2 h-2 rounded-full bg-white animate-pulse shrink-0" />
           <span className="text-white">Sin conexión — los cambios se guardan localmente</span>
         </>
       )}
       {isOnline && pendingCount > 0 && (
         <>
-          <span className="w-2 h-2 rounded-full bg-yellow-900 animate-pulse shrink-0" />
-          <span className="text-yellow-900">
+          <span className="w-2 h-2 rounded-full bg-[#422006] animate-pulse shrink-0" />
+          <span className="text-[#422006]">
             Sincronizando {pendingCount} operación{pendingCount !== 1 ? 'es' : ''} pendiente{pendingCount !== 1 ? 's' : ''}...
           </span>
         </>
       )}
       {isOnline && pendingCount === 0 && justSynced && (
         <>
-          <span className="w-2 h-2 rounded-full bg-surface shrink-0" />
-          <span className="text-white">✓ Todo sincronizado</span>
+          <span className="w-2 h-2 rounded-full bg-white shrink-0" />
+          <span className="text-white">Todo sincronizado</span>
         </>
       )}
     </div>
