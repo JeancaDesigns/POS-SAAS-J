@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  LayoutDashboard, Wallet, Receipt, UtensilsCrossed, Boxes, Grid3x3, Users, Settings,
+  LayoutDashboard, Wallet, Receipt, UtensilsCrossed, Boxes, Grid3x3, Users, Settings, ChevronDown, X, Check,
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 
@@ -53,6 +53,7 @@ export default function AdminHome() {
     setSectionState(key)
     try { localStorage.setItem('admin-seccion', key) } catch { /* sin storage */ }
   }
+  const [pickerOpen, setPickerOpen] = useState(false)
   const current = ALL.find(i => i.key === section) || ALL[0]
   const Panel = current.Panel
 
@@ -66,22 +67,65 @@ export default function AdminHome() {
           <p className="text-sm text-zinc-500">{user?.name}</p>
         </div>
 
-        {/* Celular: selector compacto */}
+        {/* Celular: botón que abre la lista de secciones */}
         <div className="lg:hidden px-5 pb-4">
-          <label className="sr-only" htmlFor="admin-section">Sección</label>
-          <select
-            id="admin-section"
-            value={section}
-            onChange={e => setSection(e.target.value)}
-            className="w-full h-12 px-3 rounded-xl bg-surface border border-zinc-300 text-[15px] font-bold text-zinc-900 outline-none focus:border-[var(--brand)]"
+          <button
+            onClick={() => setPickerOpen(true)}
+            aria-haspopup="dialog"
+            className="w-full h-12 px-3 rounded-xl bg-surface border border-zinc-300 flex items-center gap-3 text-[15px] font-bold text-zinc-900 active:bg-zinc-50"
           >
-            {GROUPS.map(g => (
-              <optgroup key={g.label} label={g.label}>
-                {g.items.map(i => <option key={i.key} value={i.key}>{i.label}</option>)}
-              </optgroup>
-            ))}
-          </select>
+            <current.icon size={18} className="text-[var(--brand-text)]" aria-hidden="true" />
+            <span className="flex-1 text-left">{current.label}</span>
+            <ChevronDown size={18} className="text-zinc-400" aria-hidden="true" />
+          </button>
         </div>
+
+        {pickerOpen && (
+          <div
+            className="lg:hidden fixed inset-0 z-[150] flex items-end"
+            style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}
+            onClick={() => setPickerOpen(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Elegir sección"
+              onClick={e => e.stopPropagation()}
+              className="w-full max-h-[85vh] overflow-y-auto bg-surface rounded-t-3xl border-t border-zinc-200 shadow-pop px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+16px)]"
+            >
+              <div className="w-10 h-1.5 rounded-full bg-zinc-300 mx-auto mb-3" aria-hidden="true" />
+              <div className="flex items-center justify-between px-3 pb-2">
+                <p className="text-lg font-extrabold tracking-tight text-zinc-900">Secciones</p>
+                <button onClick={() => setPickerOpen(false)} aria-label="Cerrar" className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-500 hover:bg-zinc-50">
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="flex flex-col gap-4">
+                {GROUPS.map(g => (
+                  <div key={g.label} className="flex flex-col gap-0.5">
+                    <p className="px-3 pb-1 text-[11px] font-bold text-zinc-500 uppercase tracking-wider">{g.label}</p>
+                    {g.items.map(item => {
+                      const active = item.key === section
+                      const Icon = item.icon
+                      return (
+                        <button
+                          key={item.key}
+                          onClick={() => { setSection(item.key); setPickerOpen(false) }}
+                          aria-current={active ? 'page' : undefined}
+                          className={`h-12 px-3 rounded-xl flex items-center gap-3 text-[15px] font-bold transition-colors ${active ? 'bg-[var(--brand-light)] text-zinc-900 shadow-[inset_3px_0_0_var(--brand)]' : 'text-zinc-600 active:bg-zinc-50'}`}
+                        >
+                          <Icon size={18} strokeWidth={active ? 2.2 : 1.8} className={active ? 'text-[var(--brand-text)]' : 'text-zinc-400'} aria-hidden="true" />
+                          <span className="flex-1 text-left">{item.label}</span>
+                          {active && <Check size={18} className="text-[var(--brand-text)]" aria-hidden="true" />}
+                        </button>
+                      )
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Escritorio: lista agrupada */}
         <nav aria-label="Secciones" className="hidden lg:flex flex-col gap-5 px-3 pb-6">

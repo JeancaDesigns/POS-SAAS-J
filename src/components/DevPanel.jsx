@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 import { useAuthStore } from '../store/authStore'
+import { confirmar } from '../utils/dialogo'
+import Selector from './Selector'
 
 export default function DevPanel({ onClose }) {
   const { user } = useAuthStore()
@@ -94,7 +96,7 @@ export default function DevPanel({ onClose }) {
 
   // ── Acciones mesas ──────────────────────────────────────────────────────────
   async function forceTableFree(table) {
-    if (!confirm(`¿Forzar mesa ${table.number} como libre? Esto cancelará el pedido activo si hay uno.`)) return
+    if (!(await confirmar(`¿Forzar mesa ${table.number} como libre? Esto cancelará el pedido activo si hay uno.`))) return
     await supabase.from('tables').update({ status: 'free' }).eq('id', table.id)
     await supabase.from('orders')
       .update({ status: 'cancelled' })
@@ -106,7 +108,7 @@ export default function DevPanel({ onClose }) {
 
   // ── Acciones caja ───────────────────────────────────────────────────────────
   async function deleteRegister(id) {
-    if (!confirm('¿Eliminar este registro de caja? No se puede deshacer.')) return
+    if (!(await confirmar('¿Eliminar este registro de caja? No se puede deshacer.'))) return
     await supabase.from('cash_movements').delete().eq('register_id', id)
     await supabase.from('cash_registers').delete().eq('id', id)
     showFeedback('Registro de caja eliminado')
@@ -114,7 +116,7 @@ export default function DevPanel({ onClose }) {
   }
 
   async function forceCloseRegister(id) {
-    if (!confirm('¿Forzar cierre de esta caja?')) return
+    if (!(await confirmar('¿Forzar cierre de esta caja?'))) return
     await supabase.from('cash_registers')
       .update({ status: 'closed', closed_at: new Date().toISOString(), difference_amount: 0 })
       .eq('id', id)
@@ -143,7 +145,7 @@ export default function DevPanel({ onClose }) {
 
   // ── Acciones pedidos ────────────────────────────────────────────────────────
   async function cancelOrder(order) {
-    if (!confirm(`¿Cancelar pedido de ${order.table?.is_delivery ? `Domicilio ${order.table.number}` : `Mesa ${order.table?.number}`}?`)) return
+    if (!(await confirmar(`¿Cancelar pedido de ${order.table?.is_delivery ? `Domicilio ${order.table.number}` : `Mesa ${order.table?.number}`}?`))) return
     await supabase.from('order_items').update({ status: 'cancelled' }).eq('order_id', order.id)
     await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id)
     await supabase.from('tables').update({ status: 'free' }).eq('id', order.table_id)
@@ -152,7 +154,7 @@ export default function DevPanel({ onClose }) {
   }
 
   async function deleteOrder(order) {
-    if (!confirm('¿ELIMINAR completamente este pedido? No se puede deshacer.')) return
+    if (!(await confirmar('¿ELIMINAR completamente este pedido? No se puede deshacer.'))) return
     await supabase.from('order_items').delete().eq('order_id', order.id)
     await supabase.from('orders').delete().eq('id', order.id)
     await supabase.from('tables').update({ status: 'free' }).eq('id', order.table_id)
@@ -162,7 +164,7 @@ export default function DevPanel({ onClose }) {
 
   // ── Acciones inventario ─────────────────────────────────────────────────────
   async function resetStock(item) {
-    if (!confirm(`¿Resetear stock de "${item.name}" a 0?`)) return
+    if (!(await confirmar(`¿Resetear stock de "${item.name}" a 0?`))) return
     await supabase.from('inventory_items')
       .update({ stock: 0, available: false })
       .eq('id', item.id)
@@ -364,7 +366,7 @@ export default function DevPanel({ onClose }) {
                       </div>
                       <button
                         onClick={async () => {
-                          if (!confirm('¿Eliminar este registro de caja cerrada?')) return
+                          if (!(await confirmar('¿Eliminar este registro de caja cerrada?'))) return
                           await supabase.from('cash_movements').delete().eq('register_id', reg.id)
                           await supabase.from('cash_registers').delete().eq('id', reg.id)
                           showFeedback('Registro eliminado')
@@ -388,20 +390,18 @@ export default function DevPanel({ onClose }) {
                 CAMBIAR CONTRASEÑA
               </p>
               <div className="rounded-2xl bg-zinc-50 border border-zinc-100 p-4 space-y-3">
-                <select
+                <Selector
+                  title="Usuario"
+                  placeholder="Selecciona un usuario..."
                   value={selectedUser?.id || ''}
-                  onChange={e => {
-                    const u = users.find(u => u.id === e.target.value)
+                  onChange={v => {
+                    const u = users.find(u => u.id === v)
                     setSelectedUser(u || null)
                     setNewPassword('')
                   }}
                   className={inputClass}
-                >
-                  <option value="">Selecciona un usuario...</option>
-                  {users.map(u => (
-                    <option key={u.id} value={u.id}>{u.name} (@{u.username})</option>
-                  ))}
-                </select>
+                  options={users.map(u => ({ value: u.id, label: `${u.name} (@${u.username})` }))}
+                />
                 {selectedUser && (
                   <>
                     <input

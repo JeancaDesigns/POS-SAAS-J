@@ -4,6 +4,7 @@ import { supabase } from '../../supabaseClient'
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import { useCartPersistence } from '../../hooks/useCartPersistence'
+import { avisar } from '../../utils/dialogo'
 
 const markerIcon = new L.Icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -202,9 +203,9 @@ export default function PedidoPublico() {
 
   async function handleConfirm() {
     if (items.length === 0) return
-    if (!customerName.trim()) { alert('El nombre es obligatorio'); return }
+    if (!customerName.trim()) { avisar('El nombre es obligatorio'); return }
     if (deliveryType === 'delivery' && !deliveryAddress.trim()) {
-      alert('La dirección es obligatoria'); return
+      avisar('La dirección es obligatoria'); return
     }
     setConfirming(true)
 
@@ -232,7 +233,7 @@ export default function PedidoPublico() {
     })
 
     if (error || !order) {
-      alert(error?.message?.includes('mesa de domicilio')
+      avisar(error?.message?.includes('mesa de domicilio')
         ? 'Error: no hay una mesa de domicilio configurada para este restaurante'
         : error?.message?.includes('fuera del horario')
           ? 'El restaurante está cerrado en este momento'
@@ -294,7 +295,7 @@ export default function PedidoPublico() {
   }
 
   function getCurrentLocation() {
-    if (!navigator.geolocation) { alert('Tu dispositivo no soporta ubicación'); return }
+    if (!navigator.geolocation) { avisar('Tu dispositivo no soporta ubicación'); return }
     navigator.geolocation.getCurrentPosition(
       position => {
         const lat = position.coords.latitude
@@ -302,7 +303,7 @@ export default function PedidoPublico() {
         setSelectedLocation({ lat, lng })
         setDeliveryAddress(`Ubicación GPS (${lat.toFixed(5)}, ${lng.toFixed(5)})`)
       },
-      () => alert('No se pudo obtener ubicación')
+      () => avisar('No se pudo obtener ubicación')
     )
   }
 

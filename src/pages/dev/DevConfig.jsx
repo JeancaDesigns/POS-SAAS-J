@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabaseClient'
+import { avisar } from '../../utils/dialogo'
 
 export default function DevConfig() {
   const [checkingSession, setCheckingSession] = useState(true)
@@ -234,7 +235,7 @@ export default function DevConfig() {
     setDeleting(true)
     const { error } = await supabase.rpc('delete_restaurant_cascade', { target_id: deleteTarget.id })
     if (error) {
-      alert('Error eliminando: ' + error.message)
+      avisar('Error eliminando: ' + error.message)
     }
     setDeleting(false)
     setDeleteTarget(null)
@@ -406,12 +407,6 @@ export default function DevConfig() {
               <input type="time" placeholder="Apertura" value={form.opening_time} onChange={e => updateForm('opening_time', e.target.value)} className={inputClass} />
               <input type="time" placeholder="Cierre" value={form.closing_time} onChange={e => updateForm('closing_time', e.target.value)} className={inputClass} />
               <input type="number" placeholder="Costo domicilio" value={form.delivery_fee} onChange={e => updateForm('delivery_fee', e.target.value)} className={inputClass} />
-              <select value={form.theme} onChange={e => updateForm('theme', e.target.value)} className={inputClass}>
-                <option value="purple">Morado</option>
-                <option value="orange">Naranja</option>
-                <option value="blue">Azul</option>
-                <option value="coffee">Café</option>
-              </select>
               <input placeholder="Número de Nequi" value={form.nequi_number} onChange={e => updateForm('nequi_number', e.target.value)} className={inputClass} />
               <input placeholder="Llave Bre-B" value={form.bre_b_key} onChange={e => updateForm('bre_b_key', e.target.value)} className={inputClass} />
             </div>

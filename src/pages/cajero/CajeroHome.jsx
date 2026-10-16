@@ -14,6 +14,7 @@ import { liberarMesaSiQuedaVacia } from '../../utils/mesas'
 import { inicioJornada } from '../../utils/jornada'
 import { useCajaResumen } from '../../hooks/useCajaResumen'
 import { Bell, Search } from 'lucide-react'
+import { avisar, confirmar } from '../../utils/dialogo'
 
 function useCajaOrders(restaurantId) {
   const [orders, setOrders] = useState([])
@@ -371,21 +372,21 @@ export default function CajeroHome() {
   async function handleCobrar() {
     if (!cobrarOrder) return
     if (!puedeCobrar(cobrarOrder)) {
-      alert('Este pedido aún no salió de cocina')
+      avisar('Este pedido aún no salió de cocina')
       return
     }
     if (fiado && !isOnline) {
       // La cola offline no registra deudas: el fiado se perdería al sincronizar
-      alert('El fiado necesita conexión a internet')
+      avisar('El fiado necesita conexión a internet')
       return
     }
     if (!fiado && sumaPagos !== total) {
-      alert('El efectivo + transferencia debe ser igual al total')
+      avisar('El efectivo + transferencia debe ser igual al total')
       return
     }
     const debtValue = fiado ? Number(debtAmount) || 0 : 0
     if (fiado && sumaPagos + debtValue !== total) {
-      alert(`Lo pagado (${money(sumaPagos)}) + lo fiado (${money(debtValue)}) debe ser igual al total (${money(total)})`)
+      avisar(`Lo pagado (${money(sumaPagos)}) + lo fiado (${money(debtValue)}) debe ser igual al total (${money(total)})`)
       return
     }
     setProcesando(true)
@@ -492,7 +493,7 @@ export default function CajeroHome() {
       setDiscountType('percent')
       setDiscountValue('')
     } catch (err) {
-      alert(err.message || 'No se pudo cobrar. Intenta de nuevo.')
+      avisar(err.message || 'No se pudo cobrar. Intenta de nuevo.')
     } finally {
       setProcesando(false)
       refetch()
@@ -501,11 +502,11 @@ export default function CajeroHome() {
   }
 
   async function handleVoid(payment) {
-    const confirm = window.confirm('¿Anular este pago? Dejará de contar en caja y reportes.')
-    if (!confirm) return
+    const ok = await confirmar('Dejará de contar en caja y reportes.', { titulo: '¿Anular este pago?', aceptar: 'Sí, anular' })
+    if (!ok) return
     // Anulación lógica: queda el registro para auditoría
     const { error } = await supabase.from('payments').update({ voided: true }).eq('id', payment.id)
-    if (error) { alert('No se pudo anular el pago: ' + error.message); return }
+    if (error) { avisar('No se pudo anular el pago: ' + error.message); return }
     fetchHistorial()
     caja.refresh()
   }

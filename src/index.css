@@ -1,14 +1,11 @@
 @import "tailwindcss";
 
 /* ══════════════════════════════════════════════════════════════════════════
-   Sistema visual "Nítido" — modo claro y oscuro
+   Sistema visual "Nítido" — solo modo oscuro, color de marca morado
    ──────────────────────────────────────────────────────────────────────────
-   - El modo se elige por dispositivo (src/utils/themeMode.js) y se aplica con
-     data-mode="light|dark" en <html>. El color de cada restaurante sigue en
-     data-theme="purple|orange|blue|coffee".
    - Los grises (zinc-*) y las tintas de estado (red/green/orange/… 50-200 y
-     600-700) se redefinen aquí: las clases de Tailwind que ya usa el código
-     cambian solas de claro a oscuro. Por eso NO usar bg-white para fondos:
+     600-700) se redefinen aquí con valores oscuros: las clases de Tailwind que
+     usa el código ya salen oscuras. Por eso NO usar bg-white para fondos:
      usar bg-surface (text-white sí es blanco siempre, para texto sobre la marca).
    ══════════════════════════════════════════════════════════════════════════ */
 
@@ -22,30 +19,8 @@
   --color-on-brand: var(--on-brand);
 }
 
-/* ── Claro (por defecto) ─────────────────────────────────────────────────── */
+/* ── Oscuro (único modo) ─────────────────────────────────────────────── */
 :root {
-  color-scheme: light;
-  --canvas: #F6F7F9;
-  --surface: #FFFFFF;
-  --surface-2: #FCFCFD;
-  --on-brand: #FFFFFF;
-  --shadow-color: 16 24 40;
-
-  --color-zinc-50: #F6F7F9;
-  --color-zinc-100: #F2F4F7;
-  --color-zinc-200: #E4E7EC;
-  --color-zinc-300: #D0D5DD;
-  --color-zinc-400: #667085;
-  --color-zinc-500: #5B6474;
-  --color-zinc-600: #475467;
-  --color-zinc-700: #344054;
-  --color-zinc-800: #1D2939;
-  --color-zinc-900: #101828;
-  --color-zinc-950: #0C111D;
-}
-
-/* ── Oscuro ──────────────────────────────────────────────────────────────── */
-:root[data-mode="dark"] {
   color-scheme: dark;
   --canvas: #0B0D12;
   --surface: #13161D;
@@ -84,43 +59,12 @@
   --color-pink-50: rgb(244 114 182 / 0.10); --color-pink-200: rgb(244 114 182 / 0.35);
 }
 
-/* ── Color de cada restaurante (claro / oscuro) ───────────────────────────
+/* ── Color de marca (morado, igual para todos los restaurantes) ─────────
    --brand: rellenos (botones, activos) · --brand-text: texto y enlaces de marca
    --brand-light: fondo suave seleccionado · --brand-border: borde suave        */
-[data-theme="purple"] {
-  --brand: #5B3DF5; --brand-hover: #4B2FE0; --brand-light: #F5F3FF; --brand-border: #DDD6FE;
-  --brand-text: #4B32D9; --brand-soft: rgb(91 61 245 / 0.16); --brand-shadow: rgb(91 61 245 / 0.25);
-}
-[data-mode="dark"][data-theme="purple"] {
+:root {
   --brand: #6D5DF0; --brand-hover: #7C6CF6; --brand-light: rgb(139 123 255 / 0.12); --brand-border: rgb(139 123 255 / 0.35);
   --brand-text: #B9AEFF; --brand-soft: rgb(139 123 255 / 0.20); --brand-shadow: rgb(0 0 0 / 0.4);
-}
-
-[data-theme="orange"] {
-  --brand: #C2410C; --brand-hover: #9A3412; --brand-light: #FFF4ED; --brand-border: #FED7AA;
-  --brand-text: #C2410C; --brand-soft: rgb(194 65 12 / 0.16); --brand-shadow: rgb(194 65 12 / 0.25);
-}
-[data-mode="dark"][data-theme="orange"] {
-  --brand: #C2410C; --brand-hover: #EA580C; --brand-light: rgb(251 139 75 / 0.12); --brand-border: rgb(251 139 75 / 0.35);
-  --brand-text: #FDBA74; --brand-soft: rgb(251 139 75 / 0.20); --brand-shadow: rgb(0 0 0 / 0.4);
-}
-
-[data-theme="blue"] {
-  --brand: #1D6FE0; --brand-hover: #175CD3; --brand-light: #EFF6FF; --brand-border: #BFDBFE;
-  --brand-text: #175CD3; --brand-soft: rgb(29 111 224 / 0.16); --brand-shadow: rgb(29 111 224 / 0.25);
-}
-[data-mode="dark"][data-theme="blue"] {
-  --brand: #2E6FE0; --brand-hover: #3B82F6; --brand-light: rgb(91 155 255 / 0.12); --brand-border: rgb(91 155 255 / 0.35);
-  --brand-text: #93C5FD; --brand-soft: rgb(91 155 255 / 0.20); --brand-shadow: rgb(0 0 0 / 0.4);
-}
-
-[data-theme="coffee"] {
-  --brand: #7A5644; --brand-hover: #5C4033; --brand-light: #F7F2EF; --brand-border: #E3D3CA;
-  --brand-text: #6B4A3A; --brand-soft: rgb(122 86 68 / 0.16); --brand-shadow: rgb(122 86 68 / 0.25);
-}
-[data-mode="dark"][data-theme="coffee"] {
-  --brand: #8A6450; --brand-hover: #9C735D; --brand-light: rgb(194 154 128 / 0.12); --brand-border: rgb(194 154 128 / 0.35);
-  --brand-text: #D9B9A4; --brand-soft: rgb(194 154 128 / 0.20); --brand-shadow: rgb(0 0 0 / 0.4);
 }
 
 /* ── Base ─────────────────────────────────────────────────────────────── */
@@ -142,6 +86,6 @@ html, body {
 /* Foco visible para teclado */
 :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
-/* Mapa de domicilios en modo oscuro: atenuar los mosaicos para no deslumbrar */
-[data-mode="dark"] .leaflet-tile-pane { filter: brightness(0.75) contrast(1.1) saturate(0.8); }
-[data-mode="dark"] .leaflet-container { background: var(--canvas); }
+/* Mapa de domicilios: atenuar los mosaicos para no deslumbrar */
+.leaflet-tile-pane { filter: brightness(0.75) contrast(1.1) saturate(0.8); }
+.leaflet-container { background: var(--canvas); }

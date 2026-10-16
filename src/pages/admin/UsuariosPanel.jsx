@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useAuthStore } from '../../store/authStore'
 import { UserPlus, UserX, UserCheck, Pencil, X } from 'lucide-react'
+import { avisar } from '../../utils/dialogo'
 
 // 'dev' da acceso a todos los restaurantes: solo un dev puede asignarlo
 const STAFF_ROLES = ['admin', 'cajero', 'mesero', 'cocina', 'domiciliario']
@@ -87,9 +88,9 @@ export default function UsuariosPanel() {
   }
 
   async function toggleActive(u) {
-    if (u.id === user.id) { alert('No puedes desactivar tu propia cuenta'); return }
+    if (u.id === user.id) { avisar('No puedes desactivar tu propia cuenta'); return }
     const { error } = await supabase.from('users').update({ active: !u.active }).eq('id', u.id)
-    if (error) { alert('No se pudo cambiar el estado: ' + error.message); return }
+    if (error) { avisar('No se pudo cambiar el estado: ' + error.message); return }
     fetchUsuarios()
   }
 

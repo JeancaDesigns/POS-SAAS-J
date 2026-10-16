@@ -74,19 +74,11 @@ export default function ConfigPanel() {
       setSaveError(error?.message || 'No tienes permiso para cambiar estos datos. Pídeselo al administrador del sistema.')
       return
     }
-    document.documentElement.setAttribute('data-theme', form.theme)
-    useAuthStore.setState({ theme: form.theme })
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
 
   const field = 'w-full h-11 rounded-xl px-3.5 bg-surface border border-zinc-300 text-[15px] text-zinc-900 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--brand-soft)] placeholder:text-zinc-400 transition-[border-color,box-shadow]'
-  const THEMES = [
-    { key: 'purple', label: 'Morado', color: '#5B3DF5' },
-    { key: 'orange', label: 'Naranja', color: '#C2410C' },
-    { key: 'blue', label: 'Azul', color: '#1D6FE0' },
-    { key: 'coffee', label: 'Café', color: '#7A5644' },
-  ]
   const set = key => e => setForm(p => ({ ...p, [key]: e.target.value }))
 
   return (
@@ -126,25 +118,6 @@ export default function ConfigPanel() {
         </label>
       </Section>
 
-      <Section title="Color del restaurante" desc="Se usa en botones y elementos activos de todo el sistema. El modo claro u oscuro lo elige cada dispositivo desde el menú lateral.">
-        <div role="radiogroup" aria-label="Color del restaurante" className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {THEMES.map(t => {
-            const on = form.theme === t.key
-            return (
-              <button
-                key={t.key}
-                role="radio"
-                aria-checked={on}
-                onClick={() => setForm(p => ({ ...p, theme: t.key }))}
-                className={`h-14 px-3 rounded-xl border flex items-center gap-3 transition-colors ${on ? 'border-zinc-900 border-2' : 'border-zinc-200 hover:bg-zinc-50'}`}
-              >
-                <span className="w-7 h-7 rounded-lg shrink-0" style={{ background: t.color }} aria-hidden="true" />
-                <span className="text-sm font-bold text-zinc-800">{t.label}</span>
-              </button>
-            )
-          })}
-        </div>
-      </Section>
 
       <div className="flex items-center justify-end gap-3 flex-wrap">
         {saveError && <p role="alert" className="text-sm font-semibold text-red-600">{saveError}</p>}

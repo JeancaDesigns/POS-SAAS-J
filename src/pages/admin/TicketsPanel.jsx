@@ -6,6 +6,7 @@ import { inicioJornada } from '../../utils/jornada'
 import { useAuthStore } from '../../store/authStore'
 import { precioUnitario } from '../../utils/precio'
 import { liberarMesaSiQuedaVacia } from '../../utils/mesas'
+import { avisar, confirmar } from '../../utils/dialogo'
 
 
 export default function TicketsPanel() {
@@ -83,15 +84,16 @@ export default function TicketsPanel() {
   // El pedido queda como cancelado y sus pagos como anulados, para que haya rastro.
   async function handleDelete(order) {
     if (!user?.roles?.some(r => ['admin', 'dev'].includes(r))) return
-    const confirmed = window.confirm(
-      `¿Anular el pedido del ${new Date(order.created_at).toLocaleString('es-CO')}? Dejará de contar en caja y reportes.`
+    const confirmed = await confirmar(
+      `Pedido del ${new Date(order.created_at).toLocaleString('es-CO')}. Dejará de contar en caja y reportes.`,
+      { titulo: '¿Anular este pedido?', aceptar: 'Sí, anular' }
     )
     if (!confirmed) return
     setDeletingId(order.id)
     const { error: e1 } = await supabase.from('payments').update({ voided: true }).eq('order_id', order.id)
     const { error: e2 } = e1 ? { error: null } : await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id)
     if (e1 || e2) {
-      alert('No se pudo anular el pedido: ' + (e1 || e2).message)
+      avisar('No se pudo anular el pedido: ' + (e1 || e2).message)
       setDeletingId(null)
       return
     }

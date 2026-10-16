@@ -10,6 +10,7 @@ import { precioUnitario } from '../utils/precio'
 import ProductPicker, { VariantSheet } from './ProductPicker'
 import { liberarMesaSiQuedaVacia } from '../utils/mesas'
 import { horaProgramadaISO } from '../utils/hora'
+import { avisar, confirmar } from '../utils/dialogo'
 
 const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
 const lineKey = (productId, variant) => `${productId}::${variant || ''}`
@@ -82,7 +83,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
     const { error } = item.quantity === 1
       ? await supabase.from('order_items').update({ status: 'cancelled' }).eq('id', item.id)
       : await supabase.from('order_items').update({ quantity: item.quantity - 1 }).eq('id', item.id)
-    if (error) alert('No se pudo quitar el producto: ' + error.message)
+    if (error) avisar('No se pudo quitar el producto: ' + error.message)
     await refetch()
     setBusyItem(null)
   }
@@ -103,7 +104,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
           kitchen_only: false,
         })
       : await supabase.from('order_items').update({ quantity: item.quantity + 1 }).eq('id', item.id)
-    if (error) alert('No se pudo agregar el producto: ' + error.message)
+    if (error) avisar('No se pudo agregar el producto: ' + error.message)
     await refetch()
     setBusyItem(null)
   }
@@ -136,7 +137,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
     // Primero el pedido: si esto falla, nada más cambia (antes la mesa vieja quedaba libre con el pedido adentro)
     const { error } = await supabase.from('orders').update({ table_id: nuevaMesa.id }).eq('id', order.id)
     if (error) {
-      alert('No se pudo mover el pedido: ' + error.message)
+      avisar('No se pudo mover el pedido: ' + error.message)
       setMoviendoMesa(false)
       return
     }
@@ -158,11 +159,11 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
   async function cancelFullOrder() {
     if (!order) return
     // Única confirmación del flujo: es irreversible
-    if (!window.confirm('¿Cancelar TODO el pedido de esta mesa?')) return
+    if (!(await confirmar('Se cancelan todos los productos y la mesa queda libre.', { titulo: '¿Cancelar todo el pedido?', aceptar: 'Sí, cancelar', cancelar: 'Volver' }))) return
     setCancelling(true)
     const { error } = await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id)
     if (error) {
-      alert('No se pudo cancelar el pedido: ' + error.message)
+      avisar('No se pudo cancelar el pedido: ' + error.message)
       setCancelling(false)
       return
     }
@@ -194,7 +195,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
       }))
     )
     if (error) {
-      alert('No se pudieron agregar los productos. Intenta de nuevo.')
+      avisar('No se pudieron agregar los productos. Intenta de nuevo.')
       setConfirming(false)
       return
     }

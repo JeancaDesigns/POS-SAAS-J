@@ -6,6 +6,7 @@ import { db } from '../../db/localDB'
 import { cacheOrders, getCachedOrders } from '../../db/cacheHelpers'
 import { buildWhatsappLink } from '../../utils/whatsapp'
 import { marcarListoYDescontar } from '../../utils/inventario'
+import { avisar } from '../../utils/dialogo'
 
 // Los cancelados se muestran a cocina solo durante 12 h (o hasta que los descarte)
 const CANCELLED_VISIBLE_MS = 12 * 60 * 60 * 1000
@@ -293,7 +294,7 @@ export default function CocinaHome() {
       // Solo descuenta inventario si la línea de verdad pasó a "lista" (evita doble descuento)
       const { error } = await marcarListoYDescontar({ itemId })
       setBusy(false)
-      if (error) alert('No se pudo marcar como listo: ' + error.message)
+      if (error) avisar('No se pudo marcar como listo: ' + error.message)
 
     } else {
       // ── Offline — guardar en cola ──────────────────────────────
@@ -336,7 +337,7 @@ export default function CocinaHome() {
         if (e2) throw e2
         await supabase.from('tables').update({ status: newTableStatus }).eq('id', order.table_id)
       } catch (err) {
-        alert('No se pudo marcar el pedido como listo: ' + (err.message || err))
+        avisar('No se pudo marcar el pedido como listo: ' + (err.message || err))
         return
       } finally {
         setBusy(false)

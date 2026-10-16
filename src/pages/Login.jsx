@@ -32,7 +32,6 @@ export default function Login() {
 
       if (data) {
         setRestaurantInfo(data)
-        document.documentElement.setAttribute('data-theme', data.theme || 'purple')
       }
     }
     if (slug) loadRestaurantInfo()
@@ -98,7 +97,6 @@ export default function Login() {
       .single()
 
     const theme = restaurantData?.theme || 'purple'
-    document.documentElement.setAttribute('data-theme', theme)
 
     // El dev entra a cualquier restaurante: se recuerda cuál eligió para que al recargar
     // la app no lo devuelva a su restaurante propio
