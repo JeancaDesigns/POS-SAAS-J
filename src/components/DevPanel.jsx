@@ -68,7 +68,7 @@ export default function DevPanel({ onClose }) {
     }
     if (s === 'usuarios') {
       const { data } = await supabase
-        .from('users').select('id, name, username, email, roles, active')
+        .from('users').select('id, auth_user_id, name, username, email, roles, active')
         .eq('restaurant_id', user.restaurant_id)
         .order('name')
       setUsers(data || [])
@@ -125,7 +125,8 @@ export default function DevPanel({ onClose }) {
   // ── Acciones usuarios ───────────────────────────────────────────────────────
   async function changePassword() {
     if (!selectedUser || !newPassword.trim()) return
-    if (newPassword.length < 4) { showFeedback('Mínimo 4 caracteres'); return }
+    if (newPassword.length < 8) { showFeedback('Mínimo 8 caracteres'); return }
+    if (!selectedUser.auth_user_id) { showFeedback('Este usuario no tiene cuenta de acceso vinculada'); return }
     setChangingPassword(true)
     const { error } = await supabase.functions.invoke('change-password', {
       body: { user_id: selectedUser.auth_user_id, new_password: newPassword }
