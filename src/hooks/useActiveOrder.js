@@ -1,5 +1,35 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
+import { db } from '../db/localDB'
+import { useAuthStore } from '../store/authStore'
+import { getCachedOrders } from '../db/cacheHelpers'
+
+const ACTIVE_STATUSES = ['draft', 'confirmed', 'inDelivery', 'delivered', 'dispatched']
+
+// Sin conexión: pedido de la mesa desde la caché local o desde la cola pendiente
+async function fetchOfflineOrder(tableId) {
+  const restaurantId = useAuthStore.getState().user?.restaurant_id
+  if (!restaurantId) return null
+
+  // Primero la cola pendiente: es lo más reciente (la caché puede tener un pedido viejo)
+  const pending = await db.pendingOrders.where('table_id').equals(tableId).last()
+  if (!pending) {
+    const cached = (await getCachedOrders(restaurantId, ACTIVE_STATUSES))
+      .filter(o => o.table_id === tableId)
+    return cached.length > 0 ? cached[cached.length - 1] : null
+  }
+  const products = await db.cachedProducts.where('restaurant_id').equals(restaurantId).toArray()
+  const items = await db.pendingOrderItems.where('local_order_id').equals(pending.id).toArray()
+  return {
+    ...pending,
+    id: pending.uuid || `local_${pending.id}`,
+    items: items.map(i => ({
+      ...i,
+      id: i.uuid || i.id,
+      product: products.find(p => p.id === i.product_id) || { name: '?', price: 0 },
+    })),
+  }
+}
 
 export function useActiveOrder(tableId) {
   const [order, setOrder] = useState(null)
@@ -7,11 +37,19 @@ export function useActiveOrder(tableId) {
   const [loading, setLoading] = useState(true)
 
   async function fetchOrder() {
+    if (!navigator.onLine) {
+      const offline = await fetchOfflineOrder(tableId)
+      setOrder(offline)
+      setItems(offline ? offline.items.filter(i => i.status !== 'cancelled') : [])
+      setLoading(false)
+      return
+    }
+
     const { data: orderData } = await supabase
       .from('orders')
       .select('*')
       .eq('table_id', tableId)
-      .in('status', ['draft', 'confirmed', 'inDelivery', 'delivered', 'dispatched'])
+      .in('status', ACTIVE_STATUSES)
       .order('created_at', { ascending: false })
       .limit(1)
       .single()

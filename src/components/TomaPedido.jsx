@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient'
 import { useAuthStore } from '../store/authStore'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import { db } from '../db/localDB'
+import { newId } from '../utils/uuid'
 import { useCartPersistence } from '../hooks/useCartPersistence'
 
 export default function TomaPedido({ table, onClose, onConfirmed }) {
@@ -110,7 +111,10 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
       onConfirmed(order)
 
     } else {
+      // uuid generado aquí = id definitivo en Supabase (la sincronización hace upsert con él),
+      // así las operaciones offline posteriores ya apuntan al pedido real
       const localOrderId = await db.pendingOrders.add({
+        uuid: newId(),
         restaurant_id: user.restaurant_id,
         table_id: table.id,
         status: 'confirmed',
@@ -127,6 +131,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
 
       await db.pendingOrderItems.bulkAdd(
         items.map(i => ({
+          uuid: newId(),
           local_order_id: localOrderId,
           product_id: i.product.id,
           quantity: i.quantity,

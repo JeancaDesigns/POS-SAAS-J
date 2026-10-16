@@ -50,11 +50,12 @@ function useCajaOrders(restaurantId) {
 
         return {
           ...p,
-          id: `local_${p.id}`,
+          id: p.uuid || `local_${p.id}`,
           items: items.map(i => {
             const prod = cachedProds.find(pr => pr.id === i.product_id)
             return {
               ...i,
+              id: i.uuid || i.id,
               product: { name: prod?.name || '?', price: prod?.price || 0 }
             }
           }),

@@ -2,6 +2,30 @@ import { useEffect, useRef } from 'react'
 import { db } from '../db/localDB'
 import { supabase } from '../supabaseClient'
 import { useOnlineStatus } from './useOnlineStatus'
+import { newId } from '../utils/uuid'
+
+// Código de Postgres para "uuid inválido": la operación apunta a un id que nunca va a
+// existir (p. ej. ids "local_N" de versiones anteriores). Reintentarla no sirve.
+const INVALID_UUID = '22P02'
+
+// Los pedidos offline nuevos ya traen un uuid generado en el cliente (TomaPedido).
+// Los que quedaron en cola de versiones anteriores no lo tienen: se les asigna uno y se
+// guarda en Dexie ANTES de enviar, para que un reintento use el mismo id.
+async function ensureOrderUuid(localOrder) {
+  if (localOrder.uuid) return localOrder.uuid
+  const uuid = newId()
+  await db.pendingOrders.update(localOrder.id, { uuid })
+  return uuid
+}
+
+async function ensureItemUuids(items) {
+  return Promise.all(items.map(async item => {
+    if (item.uuid) return item
+    const uuid = newId()
+    await db.pendingOrderItems.update(item.id, { uuid })
+    return { ...item, uuid }
+  }))
+}
 
 export function useSyncQueue() {
   const isOnline = useOnlineStatus()
@@ -14,35 +38,51 @@ export function useSyncQueue() {
     try {
       // 1. Sincronizar pedidos pendientes
       const pendingOrders = await db.pendingOrders.toArray()
+      // ids (pedido e ítems) de los pedidos que no subieron en esta vuelta
+      const blockedIds = new Set()
 
       for (const localOrder of pendingOrders) {
-        // Eliminar el id local antes de insertar en Supabase
-        const { id: localId, ...orderData } = localOrder
+        const orderId = await ensureOrderUuid(localOrder)
+        // eslint-disable-next-line no-unused-vars
+        const { id: localId, uuid, ...orderData } = localOrder
 
-        const { data: order, error } = await supabase
+        // upsert con id fijo: si el pedido ya llegó en un intento anterior, no se duplica
+        const { error } = await supabase
           .from('orders')
-          .insert(orderData)
-          .select()
-          .single()
+          .upsert({ ...orderData, id: orderId }, { onConflict: 'id', ignoreDuplicates: true })
 
         if (error) {
           console.error('Error sincronizando pedido:', error)
+          blockedIds.add(orderId)
+          for (const it of await db.pendingOrderItems.where('local_order_id').equals(localId).toArray()) {
+            if (it.uuid) blockedIds.add(it.uuid)
+          }
           continue
         }
 
-        // Insertar items
-        const items = await db.pendingOrderItems
-          .where('local_order_id').equals(localId).toArray()
+        const items = await ensureItemUuids(
+          await db.pendingOrderItems.where('local_order_id').equals(localId).toArray()
+        )
 
         if (items.length > 0) {
           const { error: itemsError } = await supabase
-            .from('order_items').insert(
-              items.map(({ id, local_order_id, ...item }) => ({
+            .from('order_items')
+            .upsert(
+              // eslint-disable-next-line no-unused-vars
+              items.map(({ id, uuid: itemUuid, local_order_id, ...item }) => ({
                 ...item,
-                order_id: order.id,
-              }))
+                id: itemUuid,
+                order_id: orderId,
+              })),
+              { onConflict: 'id', ignoreDuplicates: true }
             )
-          if (itemsError) console.error('Error sincronizando items:', itemsError)
+          if (itemsError) {
+            // No borrar nada: el próximo intento reenvía los ítems con los mismos ids
+            console.error('Error sincronizando items:', itemsError)
+            blockedIds.add(orderId)
+            items.forEach(it => blockedIds.add(it.uuid))
+            continue
+          }
         }
 
         // Actualizar mesa — hacerlo aquí directamente, no como operación separada
@@ -56,12 +96,13 @@ export function useSyncQueue() {
           .where('local_order_id').equals(localId).delete()
         await db.pendingOrders.delete(localId)
 
-        // Limpiar operación update_table_status asociada a esta mesa
+        // Limpiar operación update_table_status 'occupied' asociada a esta mesa
         // para evitar que quede pendiente infinitamente
         const relatedOps = await db.pendingOperations
           .filter(op =>
             op.type === 'update_table_status' &&
-            op.payload.tableId === orderData.table_id
+            op.payload.tableId === orderData.table_id &&
+            op.payload.status === 'occupied'
           ).toArray()
 
         for (const op of relatedOps) {
@@ -74,6 +115,11 @@ export function useSyncQueue() {
         .orderBy('created_at').toArray()
 
       for (const op of pendingOps) {
+        // Operaciones sobre un pedido que aún no subió: esperar a la próxima vuelta.
+        // (un update sobre 0 filas no da error y la operación se perdería)
+        const target = op.payload.orderId || op.payload.order_id || op.payload.itemId
+        if (target && blockedIds.has(target)) continue
+
         let error = null
 
         if (op.type === 'mark_item_done') {
@@ -104,16 +150,36 @@ export function useSyncQueue() {
         }
 
         if (op.type === 'register_payment') {
-          const { paid_at, order_id, table_id, ...paymentData } = op.payload
-          const { error: e1 } = await supabase.from('payments').insert(paymentData)
-          const { error: e2 } = await supabase.from('orders')
-            .update({ status: 'paid', paid_at }).eq('id', order_id)
-          const { error: e3 } = await supabase.from('tables')
-            .update({ status: 'free' }).eq('id', table_id)
-          error = e1 || e2 || e3
+          // Pagos encolados por versiones anteriores no traen id: asignarlo y guardarlo antes
+          let payload = op.payload
+          if (!payload.id) {
+            payload = { ...payload, id: newId() }
+            await db.pendingOperations.update(op.id, { payload })
+          }
+          // order_id y table_id también son columnas de payments (antes se perdían)
+          const { paid_at, ...paymentData } = payload
+
+          // 1º el pago (idempotente por id). Si falla, no marcar el pedido como pagado.
+          const { error: e1 } = await supabase
+            .from('payments')
+            .upsert(paymentData, { onConflict: 'id', ignoreDuplicates: true })
+          if (e1) {
+            error = e1
+          } else {
+            const { error: e2 } = await supabase.from('orders')
+              .update({ status: 'paid', paid_at }).eq('id', payload.order_id)
+            const { error: e3 } = await supabase.from('tables')
+              .update({ status: 'free' }).eq('id', payload.table_id)
+            error = e2 || e3
+          }
         }
 
-        if (!error) await db.pendingOperations.delete(op.id)
+        if (!error) {
+          await db.pendingOperations.delete(op.id)
+        } else if (error.code === INVALID_UUID) {
+          console.error('Operación descartada (id inválido, nunca podrá sincronizarse):', op, error)
+          await db.pendingOperations.delete(op.id)
+        }
       }
 
     } finally {
