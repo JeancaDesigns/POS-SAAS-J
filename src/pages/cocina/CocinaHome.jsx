@@ -159,6 +159,13 @@ export default function CocinaHome() {
 
   const activeOrder = orders.find(o => o.id === activeOrderId) || null
   const dismissedKey = `cocina-descartados-${user.restaurant_id}`
+  const [kind, setKindState] = useState(() => {
+    try { return localStorage.getItem('cocina-filtro') || 'all' } catch { return 'all' }
+  })
+  function setKind(k) {
+    setKindState(k)
+    try { localStorage.setItem('cocina-filtro', k) } catch { /* sin storage */ }
+  }
   const [dismissedIds, setDismissedIds] = useState(() => {
     try { return JSON.parse(localStorage.getItem(dismissedKey) || '[]') } catch { return [] }
   })
@@ -469,92 +476,89 @@ export default function CocinaHome() {
       Date.now() - new Date(o.started_at) < CANCELLED_VISIBLE_MS))
   const deliveredOrders = orders.filter(o => o.status === 'delivered')
 
+  // ── Filtro por tipo (se recuerda en este dispositivo) ───────────────────────
+  const kindOf = o => !o.table?.is_delivery ? 'mesa' : o.delivery_type === 'pickup' ? 'pickup' : 'delivery'
+  const matchKind = o => kind === 'all' || kindOf(o) === kind
+  const kindCounts = activeOrders.reduce((acc, o) => ({ ...acc, [kindOf(o)]: (acc[kindOf(o)] || 0) + 1 }), {})
+  const visibleOrders = activeOrders.filter(matchKind)
+  const visibleDelivered = deliveredOrders.filter(matchKind)
+  const KINDS = [
+    { key: 'all', label: 'Todos', count: activeOrders.length },
+    { key: 'mesa', label: 'Mesas', count: kindCounts.mesa || 0 },
+    { key: 'delivery', label: 'Domicilios', count: kindCounts.delivery || 0 },
+    { key: 'pickup', label: 'Para recoger', count: kindCounts.pickup || 0 },
+  ]
+
   // ── Contador de productos repetidos ─────────────────────────────────────────
   const productCounts = {}
-  activeOrders.forEach(order => {
+  visibleOrders.filter(o => o.status !== 'cancelled').forEach(order => {
     kitchenItems(order).forEach(item => {
       if (item.status === 'done' || item.status === 'cancelled') return
       const key = item.product.name
       productCounts[key] = (productCounts[key] || 0) + item.quantity
     })
   })
-  const repeatedProducts = Object.entries(productCounts)
-    .filter(([_, count]) => count >= 3)
+  const porPreparar = Object.entries(productCounts)
     .sort((a, b) => b[1] - a[1])
 
   return (
     <div className="min-h-screen flex flex-col bg-canvas pb-20 sm:pb-0">
 
-      {/* ── Header fijo ── */}
-      <div className="
-        fixed top-0 left-0 right-0 z-50
-        lg:left-[92px]
-        bg-surface/95 backdrop-blur border-b border-zinc-200 px-5 pt-5 pb-4
-      ">
-        <div className="flex items-center justify-between">
-          <div className="w-10" />
-          <div className="text-center">
-            <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900">
-              Cocina
-            </h1>
-            <p className="text-sm text-zinc-500 mt-0.5">
-              Tablero de pedidos
-            </p>
-          </div>
-          <div className="w-10" />
-        </div>
-      </div>
-
-      {/* ── Subheader — stats ── */}
-      <div className="pt-[88px] px-4 py-3 flex flex-col gap-2">
-
-        {/* Contador pedidos + repetidos */}
-        <div className="flex items-center gap-2 flex-wrap pt-5">
-
-          {/* Badge pedidos activos */}
-          <div className="
-            flex items-center gap-1.5
-            px-3 py-1.5 rounded-full
-            bg-surface border border-zinc-200
-            shadow-sm
-          ">
-            <span className="text-sm font-semibold text-zinc-700">
-              {activeOrders.length} pedido{activeOrders.length !== 1 ? 's' : ''} activos
-            </span>
-          </div>
-
-          {/* Chips productos repetidos */}
-          {repeatedProducts.map(([name, count]) => (
-            <div
-              key={name}
-              className="
-                flex items-center gap-1.5
-                px-3 py-1.5 rounded-full
-                bg-orange-50 border border-orange-200
-              "
-            >
-              <span className="text-sm font-semibold text-orange-700">
-                {count}x {name}
-              </span>
+      {/* ── Encabezado ── */}
+      <header className="sticky top-0 z-40 bg-surface/95 backdrop-blur border-b border-zinc-200">
+        <div className="px-5 pt-5 pb-4 flex flex-col gap-4">
+          <div className="flex items-end justify-between gap-4 flex-wrap">
+            <div>
+              <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900">Cocina</h1>
+              <p className="text-sm text-zinc-500">
+                {visibleOrders.length} pedido{visibleOrders.length !== 1 ? 's' : ''} en preparación
+                {kind !== 'all' ? ` · ${KINDS.find(k => k.key === kind)?.label.toLowerCase()}` : ''}
+              </p>
             </div>
-          ))}
+            <div role="radiogroup" aria-label="Tipo de pedido" className="flex gap-1 p-1 rounded-xl bg-zinc-100 border border-zinc-200 overflow-x-auto max-w-full">
+              {KINDS.map(k => (
+                <button
+                  key={k.key}
+                  role="radio"
+                  aria-checked={kind === k.key}
+                  onClick={() => setKind(k.key)}
+                  className={`shrink-0 h-10 px-3.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${kind === k.key ? 'bg-surface text-zinc-900 shadow-card' : 'text-zinc-500 hover:text-zinc-800'}`}
+                >
+                  {k.label}
+                  <span className={`font-mono text-xs ${kind === k.key ? 'text-[var(--brand-text)]' : 'text-zinc-400'}`}>{k.count}</span>
+                </button>
+              ))}
+            </div>
+          </div>
 
+          {!activeOrderId && porPreparar.length > 0 && (
+            <div className="flex items-center gap-2 overflow-x-auto -mx-1 px-1 pb-0.5">
+              <span className="shrink-0 text-xs font-bold text-zinc-500 uppercase tracking-wider">Por preparar</span>
+              {porPreparar.slice(0, 8).map(([name, n]) => (
+                <span key={name} className={`shrink-0 h-8 px-3 rounded-full border text-sm font-semibold flex items-center gap-1.5 ${n >= 3 ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-surface border-zinc-200 text-zinc-700'}`}>
+                  <span className="font-mono">{n}×</span> {name}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
-      </div>
+      </header>
+
+      <div className="h-4" />
 
       {/* ── Tablero de comandas ── */}
       {!activeOrderId && (
         <div className="flex-1 px-4 pb-6 flex flex-col gap-8">
-          {activeOrders.length === 0 && deliveredOrders.length === 0 && (
+          {visibleOrders.length === 0 && visibleDelivered.length === 0 && (
             <div className="py-20 text-center">
-              <p className="text-lg font-bold text-zinc-700">Sin pedidos activos</p>
+              <p className="text-lg font-bold text-zinc-700">{kind === 'all' ? 'Sin pedidos activos' : 'No hay pedidos de este tipo'}</p>
               <p className="text-sm text-zinc-500 mt-1">Los pedidos nuevos aparecerán aquí con un aviso sonoro.</p>
             </div>
           )}
 
-          {activeOrders.length > 0 && (
+          {visibleOrders.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {activeOrders.map(order => (
+              {visibleOrders.map(order => (
                 <ComandaCard
                   key={order.id}
                   order={order}
@@ -564,11 +568,11 @@ export default function CocinaHome() {
             </div>
           )}
 
-          {deliveredOrders.length > 0 && (
+          {visibleDelivered.length > 0 && (
             <section aria-label="Entregados" className="flex flex-col gap-3">
               <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Entregados</h2>
               <div className="flex flex-wrap gap-2">
-                {deliveredOrders.map(order => (
+                {visibleDelivered.map(order => (
                   <div key={order.id} className="h-10 px-3 rounded-xl bg-surface border border-zinc-200 flex items-center gap-2 text-sm">
                     <span className="font-bold text-zinc-700">{tableName(order)}</span>
                     <span className="font-mono text-xs text-zinc-500">{timeDuration(order.started_at, order.delivered_at)}</span>
