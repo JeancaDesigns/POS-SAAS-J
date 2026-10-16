@@ -9,20 +9,6 @@ import { buildWhatsappLink } from '../../utils/whatsapp'
 // Los cancelados se muestran a cocina solo durante 12 h (o hasta que los descarte)
 const CANCELLED_VISIBLE_MS = 12 * 60 * 60 * 1000
 
-const PASTEL_COLORS = [
-  { bg: '#FFFDE7', border: '#FFF176', shadow: 'rgba(249,224,71,0.3)' },
-  { bg: '#F1F8E9', border: '#DCEDC8', shadow: 'rgba(174,213,129,0.3)' },
-  { bg: '#E3F2FD', border: '#BBDEFB', shadow: 'rgba(100,181,246,0.3)' },
-  { bg: '#FCE4EC', border: '#F8BBD0', shadow: 'rgba(240,98,146,0.3)' },
-  { bg: '#EDE7F6', border: '#D1C4E9', shadow: 'rgba(149,117,205,0.3)' },
-  { bg: '#FFF3E0', border: '#FFE0B2', shadow: 'rgba(255,183,77,0.3)' },
-]
-
-function getPastelColor(orderId) {
-  const idx = orderId.charCodeAt(0) % PASTEL_COLORS.length
-  return PASTEL_COLORS[idx]
-}
-
 function playPing() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)()
@@ -76,112 +62,88 @@ function useCountdown(targetStr) {
   return display
 }
 
-function Pin({ color = '#C62828' }) {
-  return (
-    <svg width="24" height="36" viewBox="0 0 24 36" xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="12" cy="35" rx="4" ry="1.5" fill="rgba(0,0,0,0.2)" />
-      <line x1="12" y1="16" x2="12" y2="34" stroke={color} strokeWidth="2" strokeLinecap="round" opacity="0.7" />
-      <circle cx="12" cy="10" r="10" fill={color} />
-      <circle cx="8" cy="6" r="3.5" fill="rgba(255,255,255,0.25)" />
-      <circle cx="7" cy="5" r="1.5" fill="rgba(255,255,255,0.5)" />
-      <circle cx="12" cy="10" r="4" fill="rgba(0,0,0,0.2)" />
-      <ellipse cx="12" cy="34" rx="1.5" ry="1" fill="#B0BEC5" />
-    </svg>
+// Elementos que cocina debe preparar (las bebidas sin variantes no pasan por cocina)
+function kitchenItemsOf(order) {
+  return order.items.filter(i =>
+    i.product?.category?.icon !== '🥤' && i.status !== 'cancelled' ||
+    (i.product?.variants?.length > 0)
   )
 }
 
-const PIN_COLORS = ['#C62828', '#1565C0', '#2E7D32', '#6A1B9A', '#E65100', '#00695C']
-
-function getPinColor(orderId) {
-  return PIN_COLORS[orderId.charCodeAt(1) % PIN_COLORS.length]
-}
-
-function NotaPin({ order, onClick }) {
-  const color = getPastelColor(order.id)
-  const pinColor = getPinColor(order.id)
+// Tarjeta de comanda (vista de tablero)
+function ComandaCard({ order, onClick }) {
   const countdown = useCountdown(order.scheduled_for)
   const isCancelled = order.status === 'cancelled'
   const delayed = isDelayed(order.started_at)
   const isScheduled = !!order.scheduled_for && new Date(order.scheduled_for) > Date.now()
-  const rotation = (order.id.charCodeAt(1) % 7) - 3
+  const items = kitchenItemsOf(order)
+  const pending = items.filter(i => i.status !== 'done').length
 
-  const kitchenItems = order.items.filter(i =>
-    i.product?.category?.icon !== '🥤' && i.status !== 'cancelled' ||
-    (i.product?.variants?.length > 0)
-  )
-  const pending = kitchenItems.filter(i => i.status !== 'done').length
+  const tone = isCancelled
+    ? 'border-red-200 bg-red-50'
+    : delayed
+      ? 'border-orange-200 bg-surface'
+      : 'border-zinc-200 bg-surface'
 
   return (
-    <div
+    <button
       onClick={onClick}
-      className="relative cursor-pointer transition-all duration-200 hover:-translate-y-2"
-      style={{ marginTop: '20px' }}
+      className={`text-left rounded-2xl border shadow-card overflow-hidden flex flex-col transition-transform active:scale-[0.98] ${tone}`}
     >
-      <div className="absolute -top-5 left-1/2 -translate-x-1/2 z-10 drop-shadow-md">
-        <Pin color={isCancelled ? '#B71C1C' : pinColor} />
-      </div>
+      <div className={`h-1 w-full ${isCancelled ? 'bg-red-500' : delayed ? 'bg-orange-500' : 'bg-[var(--brand)]'}`} />
+      <div className="p-4 flex flex-col gap-3 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-lg font-extrabold tracking-tight text-zinc-900 truncate">
+              {order.table?.is_delivery ? `Domicilio ${order.table.number}` : `Mesa ${order.table?.number}`}
+            </p>
+            {order.table?.is_delivery && order.customer_name && (
+              <p className="text-sm text-zinc-500 truncate">{order.customer_name}</p>
+            )}
+          </div>
+          <span className={`shrink-0 font-mono text-sm font-semibold tabular ${delayed && !isCancelled ? 'text-orange-700' : 'text-zinc-500'}`}>
+            {timeAgo(order.started_at)}
+          </span>
+        </div>
 
-      <div
-        className="rounded-sm pt-5 px-4 pb-4 min-w-36 max-w-44"
-        style={{
-          background: isCancelled ? '#FFEBEE' : color.bg,
-          border: `1px solid ${isCancelled ? '#FFCDD2' : color.border}`,
-          fontFamily: "'Caveat', cursive",
-          transform: `rotate(${rotation}deg)`,
-          boxShadow: `3px 5px 15px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(255,255,255,0.8)`,
-        }}
-      >
-        <p className="font-bold text-lg leading-tight mb-1" style={{ color: '#2D1B0E' }}>
-          {order.table?.is_delivery ? `🛵 D-${order.table.number}` : `Mesa ${order.table?.number}`}
-          {order.table?.is_delivery && order.customer_name && (
-            <span className="block text-sm font-normal">{order.customer_name}</span>
-          )}
-        </p>
-
-        <p className="text-sm mb-2" style={{ color: delayed ? '#C62828' : '#795548' }}>
-          {delayed ? `⚠️ ${timeAgo(order.started_at)}` : timeAgo(order.started_at)}
-        </p>
-
-        {isScheduled && (
-          <p className="text-sm mb-2" style={{ color: '#1565C0' }}>
-            🕐 {new Date(order.scheduled_for).toLocaleTimeString('es-CO', {
-              hour: '2-digit', minute: '2-digit'
-            })} ({countdown})
-          </p>
-        )}
-
-        <div className="border-t border-dashed mb-2" style={{ borderColor: color.border }} />
-
-        {isCancelled ? (
-          <p className="text-base font-bold" style={{ color: '#C62828' }}>✕ Cancelado</p>
-        ) : (
-          <div className="flex flex-col gap-0.5">
-            {kitchenItems.slice(0, 4).map(item => (
-              <p key={item.id} className="text-base leading-snug"
-                style={{
-                  color: item.status === 'done' ? '#BDBDBD' : '#2D1B0E',
-                  textDecoration: item.status === 'done' ? 'line-through' : 'none',
-                }}>
-                {item.quantity}x {item.product.name}
-              </p>
-            ))}
-            {kitchenItems.length > 4 && (
-              <p className="text-sm" style={{ color: '#795548' }}>+{kitchenItems.length - 4} más...</p>
+        {(isScheduled || order.is_addition) && (
+          <div className="flex flex-wrap gap-1.5">
+            {isScheduled && (
+              <span className="h-6 px-2 inline-flex items-center rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                Programado {new Date(order.scheduled_for).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })} · {countdown}
+              </span>
+            )}
+            {order.is_addition && (
+              <span className="h-6 px-2 inline-flex items-center rounded-full text-[11px] font-bold bg-[var(--brand-light)] text-[var(--brand-text)] border border-[var(--brand-border)]">
+                Adición
+              </span>
             )}
           </div>
         )}
 
-        {!isCancelled && (
-          <p className="text-sm mt-2" style={{ color: '#9E9E9E' }}>
-            {pending} pendiente{pending !== 1 ? 's' : ''}
-          </p>
+        {isCancelled ? (
+          <p className="text-base font-bold text-red-600">Pedido cancelado</p>
+        ) : (
+          <ul className="flex flex-col gap-1">
+            {items.slice(0, 5).map(item => (
+              <li key={item.id} className={`flex gap-2 text-[15px] leading-snug ${item.status === 'done' ? 'text-zinc-400 line-through' : 'text-zinc-800 font-semibold'}`}>
+                <span className="font-mono w-6 shrink-0">{item.quantity}×</span>
+                <span className="min-w-0">{item.product.name}{item.variant ? <span className="text-[var(--brand-text)]"> · {item.variant}</span> : null}</span>
+              </li>
+            ))}
+            {items.length > 5 && (
+              <li className="text-sm text-zinc-500">+{items.length - 5} más</li>
+            )}
+          </ul>
         )}
 
-        {order.is_addition && (
-          <p className="text-sm mt-1 font-bold" style={{ color: '#1565C0' }}>⚡ Adición</p>
+        {!isCancelled && (
+          <p className="mt-auto pt-2 border-t border-zinc-100 text-xs font-semibold text-zinc-500">
+            {pending === 0 ? 'Todo listo' : `${pending} pendiente${pending !== 1 ? 's' : ''}`}
+          </p>
         )}
       </div>
-    </div>
+    </button>
   )
 }
 
@@ -571,7 +533,6 @@ export default function CocinaHome() {
                 bg-orange-50 border border-orange-200
               "
             >
-              <span className="text-sm">🔥</span>
               <span className="text-sm font-semibold text-orange-700">
                 {count}x {name}
               </span>
@@ -581,74 +542,40 @@ export default function CocinaHome() {
         </div>
       </div>
 
-      {/* ── Tablero de corcho ── */}
+      {/* ── Tablero de comandas ── */}
       {!activeOrderId && (
-        <div
-          className="flex-1 mx-4 mb-4 rounded-2xl p-6 overflow-y-auto"
-          style={{
-            background: '#A0785A',
-            backgroundImage: `
-              repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.03) 3px, rgba(0,0,0,0.03) 4px),
-              repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(0,0,0,0.03) 3px, rgba(0,0,0,0.03) 4px),
-              radial-gradient(ellipse at 30% 20%, rgba(180,140,100,0.5) 0%, transparent 60%),
-              radial-gradient(ellipse at 70% 80%, rgba(130,90,60,0.4) 0%, transparent 60%)
-            `,
-            boxShadow: 'inset 0 0 30px rgba(0,0,0,0.3), 0 4px 20px rgba(0,0,0,0.2)',
-            border: '6px solid #5D3A1A',
-            minHeight: '300px',
-          }}
-        >
+        <div className="flex-1 px-4 pb-6 flex flex-col gap-8">
           {activeOrders.length === 0 && deliveredOrders.length === 0 && (
-            <p className="text-center py-16 text-xl"
-              style={{ fontFamily: "'Caveat', cursive", color: 'rgba(255,255,255,0.5)' }}>
-              Sin pedidos activos
-            </p>
+            <div className="py-20 text-center">
+              <p className="text-lg font-bold text-zinc-700">Sin pedidos activos</p>
+              <p className="text-sm text-zinc-500 mt-1">Los pedidos nuevos aparecerán aquí con un aviso sonoro.</p>
+            </div>
           )}
 
-          <div className="flex flex-wrap gap-8 pt-2">
-            {activeOrders.map(order => (
-              <NotaPin
-                key={order.id}
-                order={order}
-                onClick={() => setActiveOrderId(order.id)}
-              />
-            ))}
-          </div>
+          {activeOrders.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {activeOrders.map(order => (
+                <ComandaCard
+                  key={order.id}
+                  order={order}
+                  onClick={() => setActiveOrderId(order.id)}
+                />
+              ))}
+            </div>
+          )}
 
           {deliveredOrders.length > 0 && (
-            <div className="mt-10">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="flex-1 border-t border-dashed" style={{ borderColor: 'rgba(255,255,255,0.2)' }} />
-                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>Entregados</p>
-                <div className="flex-1 border-t border-dashed" style={{ borderColor: 'rgba(255,255,255,0.2)' }} />
-              </div>
-              <div className="flex flex-wrap gap-6 opacity-50">
+            <section aria-label="Entregados" className="flex flex-col gap-3">
+              <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Entregados</h2>
+              <div className="flex flex-wrap gap-2">
                 {deliveredOrders.map(order => (
-                  <div key={order.id} className="relative" style={{ marginTop: '16px' }}>
-                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
-                      <Pin color="#9E9E9E" />
-                    </div>
-                    <div
-                      className="rounded-sm px-3 py-3 pt-4 shadow"
-                      style={{
-                        background: '#F5F5F5',
-                        border: '1px solid #E0E0E0',
-                        fontFamily: "'Caveat', cursive",
-                        transform: `rotate(${(order.id.charCodeAt(2) % 5) - 2}deg)`,
-                        minWidth: '110px',
-                      }}
-                    >
-                      <p className="font-bold text-base" style={{ color: '#9E9E9E' }}>
-                        {tableName(order)}
-                      </p>
-                      <p className="text-sm" style={{ color: '#BDBDBD' }}>
-                        Tardó {timeDuration(order.started_at, order.delivered_at)}
-                      </p>
-                    </div>
+                  <div key={order.id} className="h-10 px-3 rounded-xl bg-surface border border-zinc-200 flex items-center gap-2 text-sm">
+                    <span className="font-bold text-zinc-700">{tableName(order)}</span>
+                    <span className="font-mono text-xs text-zinc-500">{timeDuration(order.started_at, order.delivered_at)}</span>
                   </div>
                 ))}
               </div>
-            </div>
+            </section>
           )}
         </div>
       )}
@@ -659,7 +586,6 @@ export default function CocinaHome() {
           style={{ background: 'rgba(0,0,0,0.5)' }}
         >
           <div className="w-full max-w-sm bg-surface rounded-3xl p-6 text-center shadow-2xl">
-            <p className="text-3xl mb-3">✅</p>
             <p className="font-bold text-zinc-900 mb-1">
               Pedido de {readyToNotify.customer_name} listo
             </p>
@@ -670,14 +596,14 @@ export default function CocinaHome() {
               <a
                 href={buildWhatsappLink(
                   readyToNotify.customer_phone,
-                  `¡Hola ${readyToNotify.customer_name}! Tu pedido #${String(readyToNotify.order_number).padStart(3, '0')} ya está listo${readyToNotify.delivery_type === 'delivery' ? ' y va en camino 🛵' : ' para recoger 🏠'}.`
+                  `¡Hola ${readyToNotify.customer_name}! Tu pedido #${String(readyToNotify.order_number).padStart(3, '0')} ya está listo${readyToNotify.delivery_type === 'delivery' ? ' y va en camino' : ' para recoger'}.`
                 )}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setReadyToNotify(null)}
-                className="w-full py-3 rounded-2xl font-bold text-white bg-green-500 hover:bg-green-600 transition-all"
+                className="w-full h-12 flex items-center justify-center rounded-xl font-bold text-white bg-[#16A34A] hover:bg-[#15803D] transition-colors"
               >
-                📲 Enviar por WhatsApp
+                Enviar por WhatsApp
               </a>
               <button
                 onClick={() => setReadyToNotify(null)}
@@ -692,138 +618,100 @@ export default function CocinaHome() {
 
       {/* ── Vista detallada ── */}
       {activeOrderId && activeOrder && (() => {
-        const color = getPastelColor(activeOrder.id)
-        const pinColor = getPinColor(activeOrder.id)
         const isCancelled = activeOrder.status === 'cancelled'
         const kItems = kitchenItems(activeOrder)
-        const rotation = (activeOrder.id.charCodeAt(1) % 5) - 2
+        const delayed = isDelayed(activeOrder.started_at)
 
         return (
-          <div className={`flex-1 flex flex-col p-4 transition-all duration-150 ${flashing ? 'brightness-110' : ''}`}>
-            <div className="max-w-lg mx-auto w-full flex flex-col flex-1" style={{ marginTop: '24px' }}>
-              <div
-                className="relative flex-1 flex flex-col"
-                style={{
-                  background: isCancelled ? '#FFEBEE' : color.bg,
-                  border: `2px solid ${isCancelled ? '#FFCDD2' : color.border}`,
-                  fontFamily: "'Caveat', cursive",
-                  borderRadius: '4px',
-                  boxShadow: `6px 8px 24px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.8)`,
-                  padding: '24px',
-                  transform: `rotate(${rotation * 0.5}deg)`,
-                }}
-              >
-                {/* Pin grande */}
-                <div className="absolute -top-8 left-1/2 -translate-x-1/2 drop-shadow-lg">
-                  <Pin color={isCancelled ? '#B71C1C' : pinColor} />
-                </div>
+          <div className={`flex-1 flex flex-col px-4 pb-6 transition-[filter] duration-150 ${flashing ? 'brightness-110' : ''}`}>
+            <div className="max-w-2xl mx-auto w-full flex flex-col flex-1 bg-surface border border-zinc-200 rounded-2xl shadow-card overflow-hidden">
+              <div className={`h-1.5 w-full ${isCancelled ? 'bg-red-500' : delayed ? 'bg-orange-500' : 'bg-[var(--brand)]'}`} />
 
-                <div className="flex items-start justify-between mb-4 mt-2">
-                  <div>
-                    <h2 className="text-3xl font-bold" style={{ color: '#2D1B0E' }}>
-                      {activeOrder.table?.is_delivery
-                        ? `🛵 D-${activeOrder.table.number}`
-                        : `Mesa ${activeOrder.table?.number}`}
-                    </h2>
-                    {activeOrder.table?.is_delivery && activeOrder.customer_name && (
-                      <p className="text-xl" style={{ color: '#5D4037' }}>
-                        {activeOrder.customer_name}
-                      </p>
+              <div className="p-5 flex items-start justify-between gap-4 border-b border-zinc-200">
+                <div className="min-w-0">
+                  <h2 className="text-3xl font-extrabold tracking-tight text-zinc-900">
+                    {activeOrder.table?.is_delivery
+                      ? `Domicilio ${activeOrder.table.number}`
+                      : `Mesa ${activeOrder.table?.number}`}
+                  </h2>
+                  <p className="text-base text-zinc-500 mt-1">
+                    {[activeOrder.table?.is_delivery ? activeOrder.customer_name : null, `hace ${timeAgo(activeOrder.started_at)}`].filter(Boolean).join(' · ')}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {activeOrder.is_addition && (
+                      <span className="h-7 px-2.5 inline-flex items-center rounded-full text-xs font-bold bg-[var(--brand-light)] text-[var(--brand-text)] border border-[var(--brand-border)]">Adición posterior</span>
                     )}
-                    <p className="text-lg mt-1"
-                      style={{ color: isDelayed(activeOrder.started_at) ? '#C62828' : '#795548' }}>
-                      {isDelayed(activeOrder.started_at)
-                        ? `⚠️ ${timeAgo(activeOrder.started_at)}`
-                        : timeAgo(activeOrder.started_at)}
-                    </p>
+                    {delayed && !isCancelled && (
+                      <span className="h-7 px-2.5 inline-flex items-center rounded-full text-xs font-bold bg-orange-50 text-orange-700 border border-orange-200">Más de 1 hora esperando</span>
+                    )}
                   </div>
-                  <button
-                    onClick={() => setActiveOrderId(null)}
-                    className="px-3 py-1 rounded-lg text-xl font-bold transition-all active:scale-95"
-                    style={{
-                      color: '#795548',
-                      background: 'rgba(0,0,0,0.08)',
-                      fontFamily: "'Caveat', cursive"
-                    }}
-                  >
-                    ← Todos
-                  </button>
                 </div>
+                <button
+                  onClick={() => setActiveOrderId(null)}
+                  className="shrink-0 h-11 px-4 rounded-xl border border-zinc-300 bg-surface text-sm font-bold text-zinc-700 hover:bg-zinc-50 transition-colors"
+                >
+                  ← Todos
+                </button>
+              </div>
 
-                {activeOrder.is_addition && (
-                  <p className="text-xl font-bold mb-2" style={{ color: '#1565C0' }}>⚡ Adición posterior</p>
-                )}
-                {isDelayed(activeOrder.started_at) && (
-                  <p className="text-lg font-bold mb-2" style={{ color: '#C62828' }}>⚠️ Más de 1 hora esperando</p>
-                )}
-
-                <div className="border-t-2 border-dashed mb-4" style={{ borderColor: color.border }} />
-
-                {isCancelled ? (
-                  <div className="flex-1 flex items-center justify-center py-8">
-                    <p className="text-3xl font-bold text-center" style={{ color: '#C62828' }}>
-                      ✕ Pedido Cancelado
-                    </p>
-                  </div>
-                ) : (
-                  <div className="flex-1 flex flex-col gap-3 overflow-y-auto mb-4">
-                    {kItems.map(item => {
-                      const isCancelledItem = item.status === 'cancelled'
-                      const isDone = item.status === 'done'
-                      return (
-                        <div key={item.id} className="flex items-center justify-between gap-3">
-                          <div className="flex-1">
-                            <p className="text-2xl leading-snug"
-                              style={{
-                                color: isCancelledItem ? '#EF9A9A' : isDone ? '#BDBDBD' : '#2D1B0E',
-                                textDecoration: isCancelledItem || isDone ? 'line-through' : 'none',
-                              }}>
-                              {item.quantity}x {item.product.name}
-                            </p>
-                            {item.variant && (
-                              <p className="text-lg font-bold" style={{ color: '#1565C0' }}>
-                                → {item.variant}
-                              </p>
-                            )}
-                            {item.note && (
-                              <p className="text-lg" style={{ color: '#795548' }}>📝 {item.note}</p>
-                            )}
-                          </div>
-                          {!isDone && !isCancelledItem && (
-                            <button
-                              onClick={() => markItemDone(item.id)}
-                              className="px-4 py-2 rounded-xl font-bold text-white text-xl transition-all active:scale-95 shrink-0"
-                              style={{ background: '#388E3C', fontFamily: "'Caveat', cursive" }}
-                            >
-                              ✓
-                            </button>
+              {isCancelled ? (
+                <div className="flex-1 flex items-center justify-center py-12">
+                  <p className="text-2xl font-extrabold text-red-600 text-center">Este pedido fue cancelado</p>
+                </div>
+              ) : (
+                <ul className="flex-1 overflow-y-auto divide-y divide-zinc-100">
+                  {kItems.map(item => {
+                    const isCancelledItem = item.status === 'cancelled'
+                    const isDone = item.status === 'done'
+                    return (
+                      <li key={item.id} className="px-5 py-4 flex items-center gap-4">
+                        <span className={`font-mono text-2xl font-semibold w-12 shrink-0 ${isDone || isCancelledItem ? 'text-zinc-400' : 'text-zinc-900'}`}>
+                          {item.quantity}×
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xl leading-snug font-bold ${isCancelledItem ? 'text-red-600 line-through' : isDone ? 'text-zinc-400 line-through' : 'text-zinc-900'}`}>
+                            {item.product.name}
+                          </p>
+                          {item.variant && (
+                            <p className="text-base font-bold text-[var(--brand-text)] mt-0.5">{item.variant}</p>
+                          )}
+                          {item.note && (
+                            <p className="text-base text-orange-700 mt-0.5">Nota: {item.note}</p>
                           )}
                         </div>
-                      )
-                    })}
-                  </div>
+                        {!isDone && !isCancelledItem ? (
+                          <button
+                            onClick={() => markItemDone(item.id)}
+                            aria-label={`Marcar ${item.product.name} como listo`}
+                            className="shrink-0 h-14 w-14 rounded-xl flex items-center justify-center text-white bg-[#16A34A] hover:bg-[#15803D] transition-colors active:scale-95"
+                          >
+                            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>
+                          </button>
+                        ) : (
+                          <span className="shrink-0 text-sm font-bold text-zinc-400">{isDone ? 'Listo' : 'Cancelado'}</span>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+
+              <div className="p-5 border-t border-zinc-200 bg-surface-2">
+                {isCancelled ? (
+                  <button
+                    onClick={() => discardCancelledOrder(activeOrder)}
+                    className="w-full h-16 rounded-xl font-extrabold text-lg text-white bg-[#DC2626] hover:bg-[#B91C1C] transition-colors active:scale-[0.99]"
+                  >
+                    Entendido, quitar del tablero
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => markOrderDone(activeOrder)}
+                    className="w-full h-16 rounded-xl font-extrabold text-lg text-white bg-[#16A34A] hover:bg-[#15803D] transition-colors active:scale-[0.99]"
+                  >
+                    Pedido listo — entregar
+                  </button>
                 )}
-
-                <div className="border-t-2 border-dashed pt-4" style={{ borderColor: color.border }}>
-                  {isCancelled ? (
-                    <button
-                      onClick={() => discardCancelledOrder(activeOrder)}
-                      className="w-full py-4 rounded-xl font-bold text-white text-xl transition-all active:scale-95"
-                      style={{ background: '#C62828', fontFamily: "'Caveat', cursive" }}
-                    >
-                      Aceptar y desechar
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => markOrderDone(activeOrder)}
-                      className="w-full py-4 rounded-xl font-bold text-white text-xl transition-all active:scale-95"
-                      style={{ background: '#388E3C', fontFamily: "'Caveat', cursive" }}
-                    >
-                      ✓ Pedido listo — entregar
-                    </button>
-                  )}
-                </div>
-
               </div>
             </div>
           </div>
