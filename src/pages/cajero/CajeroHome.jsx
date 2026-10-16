@@ -6,6 +6,7 @@ import { useDeliveryCount } from '../../hooks/useDeliveryCount'
 import { useOnlineStatus } from '../../hooks/useOnlineStatus'
 import { db } from '../../db/localDB'
 import { cacheOrders, getCachedOrders } from '../../db/cacheHelpers'
+import { buildWhatsappLink, getEstimatedTime } from '../../utils/whatsapp'
 
 function useCajaOrders(restaurantId) {
   const [orders, setOrders] = useState([])
@@ -66,7 +67,13 @@ function useCajaOrders(restaurantId) {
         }
       }))
 
+      // Ocultar los pedidos ya cobrados offline (pago en cola, aún sin sincronizar)
+      const paidOffline = new Set((await db.pendingOperations
+        .filter(op => op.type === 'register_payment').toArray())
+        .map(op => op.payload.order_id))
+
       setOrders([...cached, ...pendingFormatted]
+        .filter(o => !paidOffline.has(o.id))
         .sort((a, b) => new Date(a.started_at) - new Date(b.started_at))
       )
     }
@@ -134,16 +141,20 @@ function orderTotal(order, deliveryFee) {
   return subtotal - orderDiscount
 }
 
+// Un pedido se cobra cuando ya salió de cocina (mesa/recoger) o fue entregado (domicilio).
+// Misma regla para el botón del ticket y para handleCobrar.
+function puedeCobrar(order) {
+  return ['delivered', 'dispatched'].includes(order.status)
+}
+
 // ─── Ticket ──────────────────────────────────────────────────────────────────
-function TicketActivo({ order, deliveryFee, onVerPedido, onCobrar }) {
+function TicketActivo({ order, deliveryFee, restaurantName, onVerPedido, onCobrar }) {
   const activeItems = order.items.filter(i => i.status !== 'cancelled')
   const isDelivery = order.delivery_type === 'delivery' && order.table?.is_delivery
   const total = orderTotal(order, deliveryFee)
   const hasDraft = order.status === 'draft'
   const isReady = ['delivered', 'inDelivery', 'dispatched'].includes(order.status)
-  const canPay = !order.table?.is_delivery ||
-    order.delivery_type === 'pickup' ||
-    ['dispatched', 'inDelivery'].includes(order.status)
+  const canPay = puedeCobrar(order)
 
   const now = new Date()
   const timeStr = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
@@ -168,7 +179,7 @@ function TicketActivo({ order, deliveryFee, onVerPedido, onCobrar }) {
           marginBottom: '8px'
         }}>
           <p style={{ fontFamily: 'monospace', fontSize: '13px', fontWeight: 'bold', color: '#2D1B0E' }}>
-            BENDITAS PAPAS
+            {(restaurantName || '').toUpperCase()}
           </p>
           <p style={{ fontFamily: 'monospace', fontSize: '10px', color: '#795548' }}>
             {dateStr} · {timeStr}
@@ -280,6 +291,7 @@ export default function CajeroHome() {
   const [discountType, setDiscountType] = useState('percent')
   const [discountValue, setDiscountValue] = useState('')
   const [deliveryFee, setDeliveryFee] = useState(0)
+  const [restaurantName, setRestaurantName] = useState('')
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [view, setView] = useState('mesas')
   const [cobrarOrder, setCobrarOrder] = useState(null)
@@ -314,8 +326,10 @@ export default function CajeroHome() {
 
   useEffect(() => {
     if (!user?.restaurant_id || !isOnline) return
-    supabase.from('restaurants').select('delivery_fee').eq('id', user.restaurant_id).single()
-      .then(({ data }) => { if (data) setDeliveryFee(data.delivery_fee || 0) })
+    supabase.from('restaurants').select('delivery_fee, name').eq('id', user.restaurant_id).single()
+      .then(({ data }) => {
+        if (data) { setDeliveryFee(data.delivery_fee || 0); setRestaurantName(data.name || '') }
+      })
   }, [user?.restaurant_id, isOnline])
 
   async function fetchHistorial() {
@@ -412,6 +426,15 @@ export default function CajeroHome() {
     ? { ...cobrarOrder, discount_type: discountType, discount_value: Number(discountValue) || 0 }
     : cobrarOrder
 
+  function handleDiscountChange(type, value) {
+    setDiscountType(type)
+    setDiscountValue(value)
+    if (fiado || !cobrarOrder) return
+    const t = orderTotal({ ...cobrarOrder, discount_type: type, discount_value: Number(value) || 0 }, deliveryFee)
+    const tr = parseInt(transferencia) || 0
+    setEfectivo(String(Math.max(0, t - tr)))
+  }
+
   function handleEfectivoChange(val) {
     setEfectivo(val)
     if (fiado) return // ← si hay fiado, no auto-completar
@@ -439,131 +462,144 @@ export default function CajeroHome() {
 
   async function handleCobrar() {
     if (!cobrarOrder) return
-    if (!['delivered', 'dispatched'].includes(cobrarOrder.status)) {
+    if (!puedeCobrar(cobrarOrder)) {
       alert('Este pedido aún no salió de cocina')
       return
     }
+    if (fiado && !isOnline) {
+      // La cola offline no registra deudas: el fiado se perdería al sincronizar
+      alert('El fiado necesita conexión a internet')
+      return
+    }
+    if (!fiado && sumaPagos !== total) {
+      alert('El efectivo + transferencia debe ser igual al total')
+      return
+    }
     setProcesando(true)
-
-    if (isOnline) {
-      // Guardar el descuento en el pedido (solo si el usuario es admin/dev; la BD también lo valida vía trigger)
-      if (canDiscount && Number(discountValue) > 0) {
-        await supabase.from('orders')
-          .update({ discount_type: discountType, discount_value: Number(discountValue) })
-          .eq('id', cobrarOrder.id)
-      }
-
-      // Registrar pago normal
-      await supabase.from('payments').insert({
-        restaurant_id: user.restaurant_id,
-        order_id: cobrarOrder.id,
-        table_id: cobrarOrder.table_id,
-        cash: parseInt(efectivo) || 0,
-        transfer: parseInt(transferencia) || 0,
-        total: sumaPagos, // lo que realmente pagó
-        voided: false,
-        is_delivery: cobrarOrder.delivery_type === 'delivery' && cobrarOrder.table?.is_delivery,
-      })
-
-      // Registrar fiado si aplica
-      if (fiado && debtorName.trim() && Number(debtAmount) > 0) {
-        const debtValue = Number(debtAmount)
-
-        // Buscar o crear deudor
-        let debtorId = selectedDebtor?.id || null
-
-        if (!debtorId) {
-          // Intentar encontrar deudor existente con ese nombre
-          const { data: existing } = await supabase
-            .from('debtors')
-            .select('id, total_debt')
-            .eq('restaurant_id', user.restaurant_id)
-            .eq('name', debtorName.trim())
-            .maybeSingle()
-
-          if (existing) {
-            debtorId = existing.id
-            // Actualizar total
-            await supabase
-              .from('debtors')
-              .update({ total_debt: Number(existing.total_debt) + debtValue })
-              .eq('id', existing.id)
-          } else {
-            // Crear nuevo deudor
-            const { data: newDebtor } = await supabase
-              .from('debtors')
-              .insert({
-                restaurant_id: user.restaurant_id,
-                name: debtorName.trim(),
-                total_debt: debtValue,
-              })
-              .select()
-              .single()
-            debtorId = newDebtor.id
-          }
-        } else {
-          // Actualizar total del deudor existente
-          await supabase
-            .from('debtors')
-            .update({ total_debt: Number(selectedDebtor.total_debt) + debtValue })
-            .eq('id', debtorId)
+    try {
+      if (isOnline) {
+        // Guardar el descuento en el pedido (solo si el usuario es admin/dev; la BD también lo valida vía trigger)
+        if (canDiscount && Number(discountValue) > 0) {
+          await supabase.from('orders')
+            .update({ discount_type: discountType, discount_value: Number(discountValue) })
+            .eq('id', cobrarOrder.id)
         }
 
-        // Registrar movimiento de deuda
-        await supabase.from('debt_movements').insert({
-          debtor_id: debtorId,
-          order_id: cobrarOrder.id,
-          type: 'debt',
-          amount: debtValue,
-          note: `Fiado en ${tableName(cobrarOrder)}`,
-        })
-      }
-
-      await supabase.from('orders')
-        .update({ status: 'paid', paid_at: new Date().toISOString() })
-        .eq('id', cobrarOrder.id)
-      await supabase.from('tables')
-        .update({ status: 'free' })
-        .eq('id', cobrarOrder.table_id)
-
-    } else {
-      // Offline — cola de sincronización
-      await db.pendingOperations.add({
-        type: 'register_payment',
-        payload: {
+        // Registrar pago normal
+        await supabase.from('payments').insert({
           restaurant_id: user.restaurant_id,
           order_id: cobrarOrder.id,
           table_id: cobrarOrder.table_id,
           cash: parseInt(efectivo) || 0,
           transfer: parseInt(transferencia) || 0,
-          total: sumaPagos,
+          total: sumaPagos, // lo que realmente pagó
           voided: false,
           is_delivery: cobrarOrder.delivery_type === 'delivery' && cobrarOrder.table?.is_delivery,
-          paid_at: new Date().toISOString(),
-        },
-        created_at: new Date().toISOString(),
-      })
-      setOrders(prev => prev.filter(o => o.id !== cobrarOrder.id))
-    }
+        })
 
-    setCobrarOrder(null)
-    setEfectivo('')
-    setRecibido('')
-    setTransferencia('')
-    setFiado(false)
-    setDebtorName('')
-    setDebtAmount('')
-    setSelectedDebtor(null)
-    setDiscountType('percent')
-    setDiscountValue('')
-    setProcesando(false)
-    if (isOnline) refetch()
+        // Registrar fiado si aplica
+        if (fiado && debtorName.trim() && Number(debtAmount) > 0) {
+          const debtValue = Number(debtAmount)
+
+          // Buscar o crear deudor
+          let debtorId = selectedDebtor?.id || null
+
+          if (!debtorId) {
+            // Intentar encontrar deudor existente con ese nombre
+            const { data: existing } = await supabase
+              .from('debtors')
+              .select('id, total_debt')
+              .eq('restaurant_id', user.restaurant_id)
+              .eq('name', debtorName.trim())
+              .maybeSingle()
+
+            if (existing) {
+              debtorId = existing.id
+              // Actualizar total
+              await supabase
+                .from('debtors')
+                .update({ total_debt: Number(existing.total_debt) + debtValue })
+                .eq('id', existing.id)
+            } else {
+              // Crear nuevo deudor
+              const { data: newDebtor } = await supabase
+                .from('debtors')
+                .insert({
+                  restaurant_id: user.restaurant_id,
+                  name: debtorName.trim(),
+                  total_debt: debtValue,
+                })
+                .select()
+                .single()
+              debtorId = newDebtor.id
+            }
+          } else {
+            // Actualizar total del deudor existente
+            await supabase
+              .from('debtors')
+              .update({ total_debt: Number(selectedDebtor.total_debt) + debtValue })
+              .eq('id', debtorId)
+          }
+
+          // Registrar movimiento de deuda
+          await supabase.from('debt_movements').insert({
+            debtor_id: debtorId,
+            order_id: cobrarOrder.id,
+            type: 'debt',
+            amount: debtValue,
+            note: `Fiado en ${tableName(cobrarOrder)}`,
+          })
+        }
+
+        await supabase.from('orders')
+          .update({ status: 'paid', paid_at: new Date().toISOString() })
+          .eq('id', cobrarOrder.id)
+        await supabase.from('tables')
+          .update({ status: 'free' })
+          .eq('id', cobrarOrder.table_id)
+
+      } else {
+        // Offline — cola de sincronización
+        await db.pendingOperations.add({
+          type: 'register_payment',
+          payload: {
+            // id generado en el cliente: si la sincronización se reintenta, no duplica el pago
+            id: crypto.randomUUID(),
+            restaurant_id: user.restaurant_id,
+            order_id: cobrarOrder.id,
+            table_id: cobrarOrder.table_id,
+            cash: parseInt(efectivo) || 0,
+            transfer: parseInt(transferencia) || 0,
+            total: sumaPagos,
+            voided: false,
+            is_delivery: cobrarOrder.delivery_type === 'delivery' && cobrarOrder.table?.is_delivery,
+            paid_at: new Date().toISOString(),
+          },
+          created_at: new Date().toISOString(),
+        })
+      }
+
+      setCobrarOrder(null)
+      setEfectivo('')
+      setRecibido('')
+      setTransferencia('')
+      setFiado(false)
+      setDebtorName('')
+      setDebtAmount('')
+      setSelectedDebtor(null)
+      setDiscountType('percent')
+      setDiscountValue('')
+    } finally {
+      setProcesando(false)
+      refetch()
+    }
   }
 
   async function handleVoid(payment) {
-    const confirm = window.confirm('¿Eliminar este registro de pago? Esta acción no se puede deshacer.')
+    const confirm = window.confirm('¿Anular este pago? Dejará de contar en caja y reportes.')
     if (!confirm) return
-    await supabase.from('payments').delete().eq('id', payment.id)
+    // Anulación lógica: queda el registro para auditoría
+    await supabase.from('payments').update({ voided: true }).eq('id', payment.id)
     fetchHistorial()
   }
 
@@ -692,11 +728,12 @@ export default function CajeroHome() {
                   key={order.id}
                   order={order}
                   deliveryFee={deliveryFee}
+                  restaurantName={restaurantName}
                   onVerPedido={o => setSelectedOrder(o)}
                   onCobrar={o => {
                     setCobrarOrder(o)
-                    setEfectivo('')
-                    setTransferencia('')
+                    setEfectivo(String(orderTotal(o, deliveryFee)))
+                    setTransferencia('0')
                     setFiado(false)
                     setDebtorName('')
                     setDebtAmount('')
@@ -798,7 +835,7 @@ export default function CajeroHome() {
               <div className="flex items-center gap-2">
                 <div className="flex rounded-xl border border-zinc-200 overflow-hidden shrink-0">
                   <button
-                    onClick={() => setDiscountType('percent')}
+                    onClick={() => handleDiscountChange('percent', discountValue)}
                     className={`px-3 py-2 text-sm font-semibold transition-colors ${discountType === 'percent'
                       ? 'bg-[var(--brand)] text-white'
                       : 'bg-zinc-50 text-zinc-500'
@@ -807,7 +844,7 @@ export default function CajeroHome() {
                     %
                   </button>
                   <button
-                    onClick={() => setDiscountType('fixed')}
+                    onClick={() => handleDiscountChange('fixed', discountValue)}
                     className={`px-3 py-2 text-sm font-semibold transition-colors ${discountType === 'fixed'
                       ? 'bg-[var(--brand)] text-white'
                       : 'bg-zinc-50 text-zinc-500'
@@ -819,7 +856,7 @@ export default function CajeroHome() {
                 <input
                   type="number"
                   value={discountValue}
-                  onChange={e => setDiscountValue(e.target.value)}
+                  onChange={e => handleDiscountChange(discountType, e.target.value)}
                   placeholder={discountType === 'percent' ? '0%' : '$0'}
                   className="
                     flex-1 rounded-xl px-4 py-2
@@ -1044,7 +1081,7 @@ export default function CajeroHome() {
           {/* Botón cobrar */}
           <button
             onClick={handleCobrar}
-            disabled={procesando || (fiado && (!debtorName.trim() || !debtAmount || Number(debtAmount) <= 0))}
+            disabled={procesando || (!fiado && descuadre) || (fiado && (!debtorName.trim() || !debtAmount || Number(debtAmount) <= 0))}
             className="
               w-full text-white font-bold
               rounded-2xl py-4
