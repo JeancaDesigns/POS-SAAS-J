@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useAuthStore } from '../../store/authStore'
 
-const ROLES = ['admin', 'cajero', 'mesero', 'cocina', 'domiciliario', 'dev']
+// 'dev' da acceso a todos los restaurantes: solo un dev puede asignarlo
+const STAFF_ROLES = ['admin', 'cajero', 'mesero', 'cocina', 'domiciliario']
 
 const inputClass = `
   w-full rounded-xl px-4 py-3
@@ -14,6 +15,7 @@ const inputClass = `
 
 export default function UsuariosPanel() {
   const { user } = useAuthStore()
+  const ROLES = user?.roles?.includes('dev') ? [...STAFF_ROLES, 'dev'] : STAFF_ROLES
   const [usuarios, setUsuarios] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)

@@ -212,7 +212,7 @@ export default function DomiciliarioHome() {
                 <p className="text-[11px] uppercase tracking-wide text-zinc-400 mb-1 font-semibold">
                   Dirección
                 </p>
-                <p className="text-sm text-zinc-800 leading-relaxed">
+                <p className="text-base font-medium text-zinc-900 leading-relaxed">
                   {order.delivery_address}
                 </p>
               </div>
@@ -222,7 +222,7 @@ export default function DomiciliarioHome() {
                 <p className="text-[11px] uppercase tracking-wide text-zinc-400 mb-1 font-semibold">
                   Referencia
                 </p>
-                <p className="text-sm text-zinc-500 leading-relaxed">
+                <p className="text-base text-zinc-600 leading-relaxed">
                   {order.delivery_reference}
                 </p>
               </div>

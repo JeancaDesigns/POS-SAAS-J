@@ -1,6 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom'
-import { useAuthStore } from '../store/authStore'
-import { supabase } from '../supabaseClient'
+import { useAuthStore, signOutAndClear } from '../store/authStore'
 import {
   UtensilsCrossed, Wallet, ChefHat, Bike, Settings, LogOut,
 } from 'lucide-react'
@@ -22,7 +21,7 @@ const ROLE_TABS = {
 }
 
 export default function NavBar() {
-  const { user, slug, modules, clearUser } = useAuthStore()
+  const { user, slug, modules } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -37,8 +36,7 @@ export default function NavBar() {
 
   async function handleLogout() {
     if (!window.confirm('¿Seguro que deseas cerrar sesión?')) return
-    await supabase.auth.signOut()
-    clearUser()
+    await signOutAndClear()
     navigate('/')
   }
 
