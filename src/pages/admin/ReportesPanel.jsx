@@ -94,8 +94,6 @@ export default function ReportesPanel() {
   const [selectedMonth, setSelectedMonth] = useState(null)
   const [monthlyDetail, setMonthlyDetail] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [todayOrders, setTodayOrders] = useState([])
-  const [todayItems, setTodayItems] = useState([])
   const [orders, setOrders] = useState([])
   const [todayPaidOrders, setTodayPaidOrders] = useState([])
   const [expandedPayment, setExpandedPayment] = useState(null)
@@ -233,8 +231,6 @@ export default function ReportesPanel() {
       .gte('created_at', todayISO)
       .order('created_at'))
 
-    setTodayOrders(todayOrdersData || [])
-    setTodayItems(todayItemsData || [])
     setOrders(allOrdersData || [])
     setOrderItems(allItemsData || [])
     setProducts(productsData || [])

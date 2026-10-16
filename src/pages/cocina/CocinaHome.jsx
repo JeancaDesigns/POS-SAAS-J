@@ -24,7 +24,7 @@ function playPing() {
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6)
     osc.start(ctx.currentTime)
     osc.stop(ctx.currentTime + 0.6)
-  } catch (e) { }
+  } catch { /* el navegador bloqueó el audio: la comanda igual aparece en pantalla */ }
 }
 
 function timeAgo(dateStr) {

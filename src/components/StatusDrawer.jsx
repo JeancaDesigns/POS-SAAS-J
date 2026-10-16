@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import { useAuthStore, signOutAndClear } from '../store/authStore'
 import { db } from '../db/localDB'
@@ -16,7 +16,7 @@ export default function StatusDrawer() {
   const [open, setOpen] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
   const [justSynced, setJustSynced] = useState(false)
-  const prevOnlineRef = useState(false)
+  const prevOnlineRef = useRef(true)
   const [showDevPanel, setShowDevPanel] = useState(false)
   const isDev = user?.roles?.includes('dev')
   const [showDebtPanel, setShowDebtPanel] = useState(false)
