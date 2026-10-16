@@ -133,12 +133,10 @@ export default function DevConfig() {
 
     // 2. Subir el logo si se seleccionó uno
     if (logoFile) {
-      const { data: sessionCheck } = await supabase.auth.getSession()
-
       const ext = logoFile.name.split('.').pop()
       const path = `${restaurant.slug}/logo.${ext}`
 
-      const { data: uploadData, error: uploadError } = await supabase
+      const { error: uploadError } = await supabase
         .storage
         .from('restaurant-logos')
         .upload(path, logoFile)
@@ -153,11 +151,12 @@ export default function DevConfig() {
           .getPublicUrl(path)
 
 
-        const { data: updateData, error: logoUpdateError } = await supabase
+        const { error: logoUpdateError } = await supabase
           .from('restaurants')
           .update({ logo_url: publicUrlData.publicUrl })
           .eq('id', restaurant.id)
           .select()
+        if (logoUpdateError) setCreateError('El logo se subió, pero no se guardó: ' + logoUpdateError.message)
       }
     }
 

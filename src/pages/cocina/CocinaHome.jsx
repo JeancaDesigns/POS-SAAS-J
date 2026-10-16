@@ -311,7 +311,7 @@ export default function CocinaHome() {
 
       if (orderItem) {
 
-        const { data: recipe, error: recipeError } = await supabase
+        const { data: recipe } = await supabase
           .from('recipes')
           .select('id')
           .eq('product_id', orderItem.product_id)
@@ -319,7 +319,7 @@ export default function CocinaHome() {
 
 
         if (recipe) {
-          const { data: recipeItems, error: recipeItemsError } = await supabase
+          const { data: recipeItems } = await supabase
             .from('recipe_items')
             .select('inventory_item_id, quantity')
             .eq('recipe_id', recipe.id)
@@ -340,6 +340,7 @@ export default function CocinaHome() {
                 .from('inventory_items')
                 .update({ stock: newStock, available: newStock > 0 })
                 .eq('id', ingredient.inventory_item_id)
+              if (updateError) console.error('Error descontando inventario:', updateError)
 
               await supabase
                 .from('inventory_movements')
