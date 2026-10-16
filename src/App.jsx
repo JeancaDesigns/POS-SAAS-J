@@ -123,8 +123,11 @@ export default function App() {
     navigate('/')
   }, [clearUser, navigate])
 
+  // La pantalla de cocina suele estar fija y sin tocar: si se cierra la sesión dejan
+  // de llegar las comandas. Por eso no aplica el cierre por inactividad allí.
+  const isKitchenScreen = location.pathname.endsWith('/cocina')
   const { showWarning, countdown, cancelLogout } = useInactivityTimer(
-    user && !isPublicRoute ? handleInactivityLogout : null
+    user && !isPublicRoute && !isKitchenScreen ? handleInactivityLogout : null
   )
 
   useEffect(() => {
