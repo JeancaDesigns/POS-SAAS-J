@@ -620,7 +620,7 @@ export default function CajeroHome() {
 
   // ─── Page ────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen flex flex-col bg-[#F6F6F8] relative overflow-hidden pt-[88px]">
+    <div className="min-h-screen flex flex-col bg-canvas relative overflow-hidden pt-[88px]">
 
       {/* ── Header fijo — SOLO bloque morado ── */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-[var(--brand)] sm:left-[92px] px-4 pt-6 pb-4 shadow-md">
@@ -705,7 +705,7 @@ export default function CajeroHome() {
             active:scale-95
             ${view === v.key
                 ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
-                : 'bg-white text-[#71717A] border-[#ECECF0] hover:bg-[#FAFAFA]'
+                : 'bg-surface text-zinc-500 border-zinc-200 hover:bg-zinc-50'
               }
           `}
           >
@@ -829,7 +829,7 @@ export default function CajeroHome() {
 
           {/* Descuento — solo admin/dev */}
           {canDiscount && (
-            <div className="rounded-2xl p-4 mb-4 bg-white border border-zinc-100 shadow-sm">
+            <div className="rounded-2xl p-4 mb-4 bg-surface border border-zinc-100 shadow-sm">
               <p className="text-xs font-semibold mb-3 text-[var(--brand-text)] tracking-wide">
                 DESCUENTO
               </p>
@@ -871,7 +871,7 @@ export default function CajeroHome() {
           )}
 
           {/* Método de pago */}
-          <div className="rounded-2xl p-4 mb-4 bg-white border border-zinc-100 shadow-sm">
+          <div className="rounded-2xl p-4 mb-4 bg-surface border border-zinc-100 shadow-sm">
             <p className="text-xs font-semibold mb-3 text-[var(--brand-text)] tracking-wide">
               MÉTODO DE PAGO
             </p>
@@ -946,7 +946,7 @@ export default function CajeroHome() {
           </div>
 
           {/* ── Fiado ── */}
-          <div className="rounded-2xl p-4 mb-4 bg-white border border-zinc-100 shadow-sm">
+          <div className="rounded-2xl p-4 mb-4 bg-surface border border-zinc-100 shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">
                 FIADO
@@ -961,7 +961,7 @@ export default function CajeroHome() {
                 style={{ background: fiado ? 'var(--brand)' : '#E4E4E7' }}
               >
                 <div className={`
-                  absolute top-0.5 w-5 h-5 bg-white rounded-full
+                  absolute top-0.5 w-5 h-5 bg-surface rounded-full
                   shadow-sm transition-transform duration-200
                   ${fiado ? 'translate-x-6' : 'translate-x-0.5'}
                 `} />
@@ -999,7 +999,7 @@ export default function CajeroHome() {
                   />
                   {/* Sugerencias de deudores existentes */}
                   {debtorSuggestions.length > 0 && (
-                    <div className="mt-1 rounded-xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
+                    <div className="mt-1 rounded-xl border border-zinc-200 bg-surface shadow-sm overflow-hidden">
                       {debtorSuggestions.map(d => (
                         <button
                           key={d.id}
@@ -1117,7 +1117,7 @@ export default function CajeroHome() {
               className="
               w-full rounded-xl px-4 py-2.5
               text-zinc-800 text-sm outline-none
-              bg-white border border-zinc-200
+              bg-surface border border-zinc-200
               focus:border-[var(--brand-border)] transition-colors
               placeholder:text-zinc-400
             "
@@ -1138,7 +1138,7 @@ export default function CajeroHome() {
                   border transition-all duration-200
                   ${filterMethod === f.key
                       ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
-                      : 'bg-white text-zinc-400 border-zinc-200 hover:border-[var(--brand-border)] hover:text-[var(--brand-text)]'
+                      : 'bg-surface text-zinc-400 border-zinc-200 hover:border-[var(--brand-border)] hover:text-[var(--brand-text)]'
                     }
                 `}
                 >
@@ -1170,7 +1170,7 @@ export default function CajeroHome() {
             {filteredHistorial.map(payment => (
               <div
                 key={payment.id}
-                className="rounded-2xl p-4 bg-white border border-zinc-100 shadow-sm"
+                className="rounded-2xl p-4 bg-surface border border-zinc-100 shadow-sm"
               >
                 <div className="flex justify-between items-start mb-1">
                   <span className="font-semibold text-zinc-900 text-sm">
@@ -1224,7 +1224,7 @@ export default function CajeroHome() {
         >
           <div className="
             w-full max-w-lg
-            bg-white rounded-t-3xl
+            bg-surface rounded-t-3xl
             border border-b-0 border-zinc-200
             shadow-[0_-8px_40px_rgba(0,0,0,0.10)]
             p-6 pb-10
@@ -1323,7 +1323,7 @@ export default function CajeroHome() {
             onClick={() => dismissToast(order.id)}
             className="
               text-left
-              rounded-2xl bg-white border border-[var(--brand-border)]
+              rounded-2xl bg-surface border border-[var(--brand-border)]
               shadow-[0_8px_30px_rgba(0,0,0,0.15)]
               p-4
               animate-[slidein_0.3s_ease]

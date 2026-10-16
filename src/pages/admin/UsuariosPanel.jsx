@@ -99,7 +99,7 @@ export default function UsuariosPanel() {
 
       {/* ── Lista ── */}
       {!showForm && (
-        <div className="rounded-2xl bg-white border border-zinc-200 p-6
+        <div className="rounded-2xl bg-surface border border-zinc-200 p-6
           shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
 
           <div className="flex justify-between items-center mb-4">
@@ -157,7 +157,7 @@ export default function UsuariosPanel() {
                     onClick={() => openEdit(u)}
                     className="
                       flex-1 rounded-xl py-2 text-sm font-semibold
-                      bg-white hover:bg-zinc-50
+                      bg-surface hover:bg-zinc-50
                       border border-zinc-200
                       text-zinc-600
                       transition-colors
@@ -187,7 +187,7 @@ export default function UsuariosPanel() {
 
       {/* ── Form ── */}
       {showForm && (
-        <div className="rounded-2xl bg-white border border-zinc-200 p-6 max-w-lg
+        <div className="rounded-2xl bg-surface border border-zinc-200 p-6 max-w-lg
           shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
 
           <div className="flex items-center gap-3 mb-6">
@@ -251,7 +251,7 @@ export default function UsuariosPanel() {
                       border transition-all duration-200
                       ${form.roles.includes(role)
                         ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
-                        : 'bg-white text-zinc-500 border-zinc-200 hover:border-[var(--brand-border)]'
+                        : 'bg-surface text-zinc-500 border-zinc-200 hover:border-[var(--brand-border)]'
                       }
                     `}
                   >

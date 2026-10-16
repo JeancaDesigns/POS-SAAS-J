@@ -40,7 +40,7 @@ export default function AdminHome() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F6F6F8] pb-20 sm:pb-0">
+    <div className="min-h-screen flex flex-col bg-canvas pb-20 sm:pb-0">
 
       {/* ── Header fijo ── */}
       <div className="
@@ -73,7 +73,7 @@ export default function AdminHome() {
                 border transition-all duration-200
                 active:scale-95
                 ${activeGroup === key
-                  ? 'bg-white text-[var(--brand)] border-white'
+                  ? 'bg-surface text-[var(--brand)] border-surface'
                   : 'bg-white/10 text-white/70 border-white/20 hover:bg-white/20'
                 }
               `}
@@ -98,7 +98,7 @@ export default function AdminHome() {
               active:scale-95
               ${section === item.key
                 ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
-                : 'bg-white text-[#71717A] border-[#ECECF0] hover:bg-[#FAFAFA]'
+                : 'bg-surface text-zinc-500 border-zinc-200 hover:bg-zinc-50'
               }
             `}
           >

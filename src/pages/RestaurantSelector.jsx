@@ -27,7 +27,7 @@ export default function RestaurantSelector() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F6F6F8] flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen bg-canvas flex flex-col items-center justify-center px-4">
 
       {/* Header */}
       <div className="text-center mb-10">
@@ -57,7 +57,7 @@ export default function RestaurantSelector() {
                 flex flex-col items-center justify-center
                 gap-4 p-8
                 rounded-3xl
-                bg-white border border-zinc-200
+                bg-surface border border-zinc-200
                 shadow-[0_2px_8px_rgba(0,0,0,0.05)]
                 hover:border-[var(--brand-border)]
                 hover:shadow-[0_8px_30px_var(--brand-soft)]
@@ -70,7 +70,7 @@ export default function RestaurantSelector() {
                 w-20 h-20 rounded-2xl
                 flex items-center justify-center
                 text-4xl
-                bg-[var(--brand-light)] border border-violet-100
+                bg-[var(--brand-light)] border border-[var(--brand-border)]
                 group-hover:bg-[var(--brand-light)]
                 group-hover:scale-110
                 transition-all duration-300

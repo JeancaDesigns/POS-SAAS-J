@@ -176,10 +176,10 @@ export default function DomiciliarioHome() {
         rounded-2xl border p-4 md:p-5
         transition-all duration-200
         ${inTanda
-          ? 'bg-purple-50 border-purple-200'
+          ? 'bg-[var(--brand-light)] border-[var(--brand-border)]'
           : delivered
             ? 'bg-zinc-50 border-zinc-100 opacity-60'
-            : 'bg-white border-zinc-200 hover:border-[var(--brand-border)] shadow-sm'
+            : 'bg-surface border-zinc-200 hover:border-[var(--brand-border)] shadow-sm'
         }
       `}>
 
@@ -198,7 +198,7 @@ export default function DomiciliarioHome() {
           </div>
           <div className="text-right">
             <p className="text-xs text-zinc-400 mb-0.5">Total</p>
-            <p className={`font-bold text-lg ${inTanda ? 'text-purple-500' : 'text-[var(--brand-text)]'}`}>
+            <p className={`font-bold text-lg ${inTanda ? 'text-[var(--brand-text)]' : 'text-[var(--brand-text)]'}`}>
               ${orderTotal(order).toLocaleString('es-CO')}
             </p>
           </div>
@@ -234,7 +234,7 @@ export default function DomiciliarioHome() {
         {order.delivery_lat && order.delivery_lng && (
           <div className="relative overflow-hidden rounded-2xl border border-zinc-200 mb-4">
             <div className="absolute top-3 left-3 z-[1000]">
-              <div className="bg-white/80 backdrop-blur px-3 py-1 rounded-full border border-zinc-200 shadow-sm">
+              <div className="bg-surface/80 backdrop-blur px-3 py-1 rounded-full border border-zinc-200 shadow-sm">
                 <p className="text-[11px] text-zinc-500 font-semibold">
                   Mantén presionado para mover mapa
                 </p>
@@ -339,8 +339,8 @@ export default function DomiciliarioHome() {
               border transition-all duration-200
               active:scale-[0.98]
               ${inTanda
-                ? 'bg-purple-50 text-purple-600 border-purple-300 hover:bg-purple-100'
-                : 'bg-white text-zinc-600 border-zinc-200 hover:border-[var(--brand-border)] hover:text-[var(--brand-text)]'
+                ? 'bg-[var(--brand-light)] text-[var(--brand-text)] border-[var(--brand-border)] hover:bg-[var(--brand-light)]'
+                : 'bg-surface text-zinc-600 border-zinc-200 hover:border-[var(--brand-border)] hover:text-[var(--brand-text)]'
               }
             `}
           >
@@ -371,7 +371,7 @@ export default function DomiciliarioHome() {
 
   // ─── Loading ─────────────────────────────────────────────────────────────────
   if (loading) return (
-    <div className="min-h-screen bg-[#F6F6F8] flex items-center justify-center sm:ml-[92px]">
+    <div className="min-h-screen bg-canvas flex items-center justify-center sm:ml-[92px]">
       <p className="text-zinc-400 text-sm font-medium">Cargando domicilios...</p>
     </div>
   )
@@ -383,7 +383,7 @@ export default function DomiciliarioHome() {
 
   // ─── UI ──────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen flex flex-col bg-[#F6F6F8]">
+    <div className="min-h-screen flex flex-col bg-canvas">
 
       {/* ── Header fijo ── */}
       <div className="
@@ -445,7 +445,7 @@ export default function DomiciliarioHome() {
                 <span className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">
                   Listos para entregar
                 </span>
-                <span className="text-xs bg-white border border-zinc-200 rounded-full px-3 py-1 text-zinc-500 shadow-sm">
+                <span className="text-xs bg-surface border border-zinc-200 rounded-full px-3 py-1 text-zinc-500 shadow-sm">
                   {noTandaOrders.length} pedidos
                 </span>
               </div>
@@ -461,10 +461,10 @@ export default function DomiciliarioHome() {
           {tandaOrders.length > 0 && (
             <div className="mb-8">
               <div className="flex items-center justify-between mb-4">
-                <span className="text-xs uppercase tracking-wider text-purple-500 font-semibold">
+                <span className="text-xs uppercase tracking-wider text-[var(--brand-text)] font-semibold">
                   En esta tanda
                 </span>
-                <span className="text-xs bg-purple-50 border border-purple-200 rounded-full px-3 py-1 text-purple-500">
+                <span className="text-xs bg-[var(--brand-light)] border border-[var(--brand-border)] rounded-full px-3 py-1 text-[var(--brand-text)]">
                   {tandaOrders.length} pedidos
                 </span>
               </div>
@@ -512,11 +512,11 @@ export default function DomiciliarioHome() {
               onClick={salir}
               className="
                 w-full
-                bg-purple-500 hover:bg-purple-600
+                bg-[var(--brand)] hover:bg-[var(--brand)]
                 text-white font-black
                 rounded-3xl py-5 text-lg
                 transition-colors
-                shadow-lg shadow-purple-500/20
+                shadow-lg shadow-[var(--brand-soft)]
                 active:scale-[0.98]
               "
             >

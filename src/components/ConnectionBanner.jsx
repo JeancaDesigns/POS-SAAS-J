@@ -48,7 +48,7 @@ export default function ConnectionBanner() {
     >
       {!isOnline && (
         <>
-          <span className="w-2 h-2 rounded-full bg-white animate-pulse shrink-0" />
+          <span className="w-2 h-2 rounded-full bg-surface animate-pulse shrink-0" />
           <span className="text-white">Sin conexión — los cambios se guardan localmente</span>
         </>
       )}
@@ -62,7 +62,7 @@ export default function ConnectionBanner() {
       )}
       {isOnline && pendingCount === 0 && justSynced && (
         <>
-          <span className="w-2 h-2 rounded-full bg-white shrink-0" />
+          <span className="w-2 h-2 rounded-full bg-surface shrink-0" />
           <span className="text-white">✓ Todo sincronizado</span>
         </>
       )}

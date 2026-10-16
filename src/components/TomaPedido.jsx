@@ -156,7 +156,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
 
   // ── Loading ──────────────────────────────────────────────────────────────────
   if (loading) return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#F6F6F8]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-canvas">
       <p className="text-zinc-400 text-sm font-medium">Cargando menú...</p>
     </div>
   )
@@ -171,7 +171,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
         w-full h-full
         md:max-w-4xl md:h-[90vh] md:rounded-3xl
         flex flex-col relative overflow-hidden
-        bg-white shadow-2xl
+        bg-surface shadow-2xl
       ">
 
         {/* ── Header ── */}
@@ -218,8 +218,8 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                 className="
                   w-full rounded-xl px-4 py-2.5
                   text-zinc-800 text-sm outline-none
-                  bg-white border border-[var(--brand-border)]
-                  focus:border-white transition-colors
+                  bg-surface border border-[var(--brand-border)]
+                  focus:border-surface transition-colors
                   placeholder:text-zinc-400
                 "
               />
@@ -231,8 +231,8 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                 className="
                   w-full rounded-xl px-4 py-2.5
                   text-zinc-800 text-sm outline-none
-                  bg-white border border-[var(--brand-border)]
-                  focus:border-white transition-colors
+                  bg-surface border border-[var(--brand-border)]
+                  focus:border-surface transition-colors
                   placeholder:text-zinc-400
                 "
               />
@@ -249,7 +249,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                       text-sm font-semibold
                       border transition-all duration-200
                       ${deliveryType === opt.key
-                        ? 'bg-white text-[var(--brand)] border-white'
+                        ? 'bg-surface text-[var(--brand)] border-surface'
                         : 'bg-white/10 text-white/50 border-[var(--brand-border)]/20 hover:bg-white/20 hover:text-white/70'
                       }
                     `}
@@ -280,7 +280,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                   text-sm font-semibold whitespace-nowrap
                   border transition-all duration-200
                   ${displayCategory === cat.id
-                    ? 'bg-white text-[var(--brand)] border-white'
+                    ? 'bg-surface text-[var(--brand)] border-surface'
                     : 'bg-white/10 text-white/60 border-transparent hover:bg-white/20 hover:text-white/80'
                   }
                 `}
@@ -363,7 +363,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                             className="
                               w-full rounded-xl px-3 py-1.5
                               text-zinc-800 text-sm outline-none
-                              bg-white border border-[var(--brand-border)]
+                              bg-surface border border-[var(--brand-border)]
                               focus:border-[var(--brand)] transition-colors
                             "
                           />
@@ -387,7 +387,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
 
         {/* ── Footer ── */}
         {items.length > 0 && (
-          <div className="px-4 pb-24 pt-3 md:pb-4 border-t border-zinc-100 bg-white">
+          <div className="px-4 pb-24 pt-3 md:pb-4 border-t border-zinc-100 bg-surface">
             <div className="mb-3">
               <p className="text-xs mb-1 text-[var(--brand-text)] font-medium">
                 ¿Pedido programado? (opcional)
@@ -466,7 +466,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
         >
           <div className="
             w-full max-w-lg
-            bg-white rounded-t-3xl
+            bg-surface rounded-t-3xl
             border border-b-0 border-zinc-200
             shadow-[0_-8px_40px_rgba(0,0,0,0.10)]
             p-6 pb-[90px] sm:pb-8

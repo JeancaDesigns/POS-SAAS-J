@@ -210,8 +210,8 @@ export default function MeseroHome() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F6F6F8]">
-        <p className="text-[#71717A] text-sm font-medium">
+      <div className="min-h-screen flex items-center justify-center bg-canvas">
+        <p className="text-zinc-500 text-sm font-medium">
           Cargando...
         </p>
       </div>
@@ -248,8 +248,8 @@ export default function MeseroHome() {
       default:
         return {
           bg: 'bg-[var(--brand-light)]/50',
-          border: 'border-violet-100',
-          shadow: 'hover:shadow-violet-100/80',
+          border: 'border-[var(--brand-border)]',
+          shadow: 'hover:shadow-[var(--brand-soft)]',
         }
     }
   }
@@ -278,17 +278,17 @@ export default function MeseroHome() {
 
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full bg-[#71717A]" />
-              <span className="text-sm text-[#71717A]">Libre</span>
+              <span className="text-sm text-zinc-500">Libre</span>
             </div>
 
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />
-              <span className="text-sm text-[#71717A]">Ocupada</span>
+              <span className="text-sm text-zinc-500">Ocupada</span>
             </div>
 
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
-              <span className="text-sm text-[#71717A]">Por cobrar</span>
+              <span className="text-sm text-zinc-500">Por cobrar</span>
             </div>
 
           </div>
@@ -320,10 +320,10 @@ export default function MeseroHome() {
                     border-[var(--brand)]
                   `
                       : `
-                    bg-white
-                    text-[#71717A]
-                    border-[#ECECF0]
-                    hover:bg-[#FAFAFA]
+                    bg-surface
+                    text-zinc-500
+                    border-zinc-200
+                    hover:bg-zinc-50
                   `
                     }
             `}
@@ -394,7 +394,7 @@ export default function MeseroHome() {
                       group-hover:opacity-100
                       transition-opacity duration-300
                       bg-gradient-to-br
-                      from-white/70
+                      from-surface/70
                       via-white/20
                       to-transparent
                       pointer-events-none
@@ -412,7 +412,7 @@ export default function MeseroHome() {
                         ? 'bg-orange-200/20'
                         : table.status === 'waiting_payment'
                           ? 'bg-green-200/20'
-                          : 'bg-violet-200/20'
+                          : 'bg-[var(--brand-light)]/20'
                       }
               `}
                   />
@@ -442,7 +442,7 @@ export default function MeseroHome() {
                     className="
                 absolute top-0 left-0 right-0
                 h-[1px]
-                bg-white/70
+                bg-surface/70
               "
                   />
 
@@ -496,7 +496,7 @@ export default function MeseroHome() {
       w-[22px]
       h-[86%]
 
-      bg-white/40
+      bg-surface/40
       blur-[6px]
       skew-x-[-20deg]
 

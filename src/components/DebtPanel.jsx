@@ -110,7 +110,7 @@ export default function DebtPanel({ onClose }) {
     >
       <div className="
         w-full max-w-lg max-h-[90vh]
-        bg-white rounded-3xl
+        bg-surface rounded-3xl
         border border-zinc-200
         shadow-2xl flex flex-col
         overflow-hidden
@@ -200,7 +200,7 @@ export default function DebtPanel({ onClose }) {
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
 
             {/* Registrar abono */}
-            <div className="rounded-2xl bg-white border border-zinc-200 p-4 shadow-sm">
+            <div className="rounded-2xl bg-surface border border-zinc-200 p-4 shadow-sm">
               <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-3">
                 REGISTRAR ABONO O PAGO
               </p>

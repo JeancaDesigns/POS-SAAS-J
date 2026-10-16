@@ -521,7 +521,7 @@ export default function CocinaHome() {
     .sort((a, b) => b[1] - a[1])
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F6F6F8] pb-20 sm:pb-0">
+    <div className="min-h-screen flex flex-col bg-canvas pb-20 sm:pb-0">
 
       {/* ── Header fijo ── */}
       <div className="
@@ -553,7 +553,7 @@ export default function CocinaHome() {
           <div className="
             flex items-center gap-1.5
             px-3 py-1.5 rounded-full
-            bg-white border border-zinc-200
+            bg-surface border border-zinc-200
             shadow-sm
           ">
             <span className="text-sm font-semibold text-zinc-700">
@@ -658,7 +658,7 @@ export default function CocinaHome() {
           className="fixed inset-0 z-[80] flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.5)' }}
         >
-          <div className="w-full max-w-sm bg-white rounded-3xl p-6 text-center shadow-2xl">
+          <div className="w-full max-w-sm bg-surface rounded-3xl p-6 text-center shadow-2xl">
             <p className="text-3xl mb-3">✅</p>
             <p className="font-bold text-zinc-900 mb-1">
               Pedido de {readyToNotify.customer_name} listo

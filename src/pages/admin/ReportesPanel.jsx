@@ -279,7 +279,7 @@ export default function ReportesPanel() {
                   key={card.title}
                   className={`
                     rounded-2xl border p-5
-                    bg-white
+                    bg-surface
                     shadow-[0_2px_8px_rgba(0,0,0,0.05)]
                   `}
                 >
@@ -307,7 +307,7 @@ export default function ReportesPanel() {
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
 
             {/* Top productos */}
-            <div className="rounded-2xl bg-white border border-zinc-200 p-5
+            <div className="rounded-2xl bg-surface border border-zinc-200 p-5
               shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
               <div className="flex items-center gap-2 mb-4">
                 <Package size={18} className="text-[var(--brand-text)]" />
@@ -336,7 +336,7 @@ export default function ReportesPanel() {
             </div>
 
             {/* Clientes frecuentes */}
-            <div className="rounded-2xl bg-white border border-zinc-200 p-5
+            <div className="rounded-2xl bg-surface border border-zinc-200 p-5
               shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
               <div className="flex items-center gap-2 mb-4">
                 <Users size={18} className="text-blue-500" />
@@ -375,7 +375,7 @@ export default function ReportesPanel() {
             </div>
             <div className="space-y-2">
               {stats.cancelledOrders > 0 && (
-                <div className="rounded-xl bg-white border border-red-200 px-4 py-3">
+                <div className="rounded-xl bg-surface border border-red-200 px-4 py-3">
                   <p className="text-sm text-zinc-700">
                     ⚠️ Hay{' '}
                     <span className="font-bold text-red-500">{stats.cancelledOrders}</span>{' '}
@@ -384,7 +384,7 @@ export default function ReportesPanel() {
                 </div>
               )}
               {products.filter(p => p.available === false).length > 0 && (
-                <div className="rounded-xl bg-white border border-red-200 px-4 py-3">
+                <div className="rounded-xl bg-surface border border-red-200 px-4 py-3">
                   <p className="text-sm text-zinc-700">
                     📦 Hay productos marcados como no disponibles
                   </p>
@@ -394,7 +394,7 @@ export default function ReportesPanel() {
 
               {stats.cancelledOrders === 0 &&
                 products.filter(p => p.available === false).length === 0 && (
-                  <div className="rounded-xl bg-white border border-green-200 px-4 py-3">
+                  <div className="rounded-xl bg-surface border border-green-200 px-4 py-3">
                     <p className="text-sm text-green-600">✅ Todo funcionando correctamente</p>
                   </div>
                 )}
@@ -405,7 +405,7 @@ export default function ReportesPanel() {
       )}
 
       {/* ── Desglose de ventas del día ── */}
-      <div className="rounded-2xl bg-white border border-zinc-200 p-5
+      <div className="rounded-2xl bg-surface border border-zinc-200 p-5
         shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
         <div className="flex items-center justify-between mb-4">
           <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">
@@ -502,7 +502,7 @@ export default function ReportesPanel() {
       </div>
 
       {/* ── Reportes mensuales ── */}
-      <div className="rounded-2xl bg-white border border-zinc-200 p-5
+      <div className="rounded-2xl bg-surface border border-zinc-200 p-5
         shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
         <div className="flex items-center gap-2 mb-4">
           <TrendingUp size={18} className="text-[var(--brand-text)]" />
@@ -551,7 +551,7 @@ export default function ReportesPanel() {
         >
           <div className="
             w-full max-w-2xl
-            bg-white rounded-3xl
+            bg-surface rounded-3xl
             border border-zinc-200
             shadow-2xl overflow-hidden
             max-h-[90vh] flex flex-col

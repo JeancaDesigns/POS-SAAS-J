@@ -35,10 +35,10 @@ function SlugGuard({ children }) {
     validate()
   }, [slug])
 
-  if (valid === null) return <div className="min-h-screen bg-[#F6F6F8]" />
+  if (valid === null) return <div className="min-h-screen bg-canvas" />
 
   if (valid === false) return (
-    <div className="min-h-screen bg-[#F6F6F8] flex flex-col items-center justify-center gap-4 px-4">
+    <div className="min-h-screen bg-canvas flex flex-col items-center justify-center gap-4 px-4">
       <p className="text-5xl">🍽️</p>
       <h1 className="text-zinc-900 font-bold text-xl tracking-tight">
         Restaurante no encontrado
@@ -68,7 +68,7 @@ function RoleRedirect() {
   const { user, loading } = useAuthStore()
   const { slug } = useParams()
 
-  if (loading) return <div className="min-h-screen bg-[#F6F6F8]" />
+  if (loading) return <div className="min-h-screen bg-canvas" />
   if (!user) return <Navigate to={`/${slug}/login`} />
   if (user.roles.includes('cocina')) return <Navigate to={`/${slug}/cocina`} />
   if (user.roles.includes('cajero')) return <Navigate to={`/${slug}/caja`} />
@@ -83,9 +83,9 @@ function ProtectedRoute({ children, roles }) {
   const { user, slug: storeSlug, loading } = useAuthStore()
   const { slug: urlSlug } = useParams()
 
-  if (loading) return <div className="min-h-screen bg-[#F6F6F8]" />
+  if (loading) return <div className="min-h-screen bg-canvas" />
   if (!user) return <Navigate to={`/${urlSlug}/login`} />
-  if (!storeSlug) return <div className="min-h-screen bg-[#F6F6F8]" />
+  if (!storeSlug) return <div className="min-h-screen bg-canvas" />
 
   const isDev = user.roles.includes('dev')
 
@@ -220,7 +220,7 @@ export default function App() {
         >
           <div className="
             w-full max-w-sm
-            bg-white rounded-3xl
+            bg-surface rounded-3xl
             border border-zinc-200
             shadow-2xl p-8 text-center
           ">

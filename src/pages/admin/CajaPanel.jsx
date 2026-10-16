@@ -173,7 +173,7 @@ export default function CajaPanel() {
 
       {/* ── Caja cerrada ── */}
       {!cashRegister && (
-        <div className="rounded-2xl bg-white border border-zinc-200 p-6 max-w-md
+        <div className="rounded-2xl bg-surface border border-zinc-200 p-6 max-w-md
           shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
           <h2 className="text-zinc-900 font-bold text-base mb-4">Abrir caja</h2>
           <div className="space-y-3">
@@ -214,7 +214,7 @@ export default function CajaPanel() {
         <>
           {/* Resumen */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="rounded-2xl bg-white border border-zinc-200 p-5
+            <div className="rounded-2xl bg-surface border border-zinc-200 p-5
               shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
               <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">APERTURA</p>
               <p className="text-xl font-black text-zinc-900 mt-2">
@@ -249,7 +249,7 @@ export default function CajaPanel() {
           </div>
 
           {/* Registrar movimiento */}
-          <div className="rounded-2xl bg-white border border-zinc-200 p-6
+          <div className="rounded-2xl bg-surface border border-zinc-200 p-6
             shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
             <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-4">
               REGISTRAR MOVIMIENTO
@@ -309,7 +309,7 @@ export default function CajaPanel() {
           </div>
 
           {/* Movimientos */}
-          <div className="rounded-2xl bg-white border border-zinc-200 p-6
+          <div className="rounded-2xl bg-surface border border-zinc-200 p-6
             shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
             <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-4">
               MOVIMIENTOS MANUALES
@@ -416,7 +416,7 @@ export default function CajaPanel() {
       )}
 
       {/* ── Historial de cajas ── */}
-      <div className="rounded-2xl bg-white border border-zinc-200 p-6
+      <div className="rounded-2xl bg-surface border border-zinc-200 p-6
         shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
         <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide mb-4">
           HISTORIAL DE CAJAS

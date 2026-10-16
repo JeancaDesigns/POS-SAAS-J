@@ -129,7 +129,7 @@ export default function MenuPanel() {
               border transition-all duration-200 active:scale-95
               ${view === v.key
                 ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
-                : 'bg-white text-zinc-500 border-zinc-200 hover:bg-zinc-50'
+                : 'bg-surface text-zinc-500 border-zinc-200 hover:bg-zinc-50'
               }
             `}
           >
@@ -140,7 +140,7 @@ export default function MenuPanel() {
 
       {/* ── Lista categorías ── */}
       {view === 'categorias' && !showForm && (
-        <div className="rounded-2xl bg-white border border-zinc-200 p-6
+        <div className="rounded-2xl bg-surface border border-zinc-200 p-6
           shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
 
           <div className="flex justify-between items-center mb-4">
@@ -180,7 +180,7 @@ export default function MenuPanel() {
                   <button
                     onClick={() => openEditCat(cat)}
                     className="
-                      bg-white hover:bg-zinc-50
+                      bg-surface hover:bg-zinc-50
                       border border-zinc-200
                       text-zinc-600 rounded-xl px-3 py-2
                       text-sm transition-colors
@@ -208,7 +208,7 @@ export default function MenuPanel() {
 
       {/* ── Form categoría ── */}
       {view === 'categorias' && showForm && (
-        <div className="rounded-2xl bg-white border border-zinc-200 p-6
+        <div className="rounded-2xl bg-surface border border-zinc-200 p-6
           shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
 
           <div className="flex items-center gap-3 mb-6">
@@ -270,7 +270,7 @@ export default function MenuPanel() {
 
       {/* ── Lista productos ── */}
       {view === 'productos' && !showForm && (
-        <div className="rounded-2xl bg-white border border-zinc-200 p-6
+        <div className="rounded-2xl bg-surface border border-zinc-200 p-6
           shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
 
           <div className="flex justify-between items-center mb-4">
@@ -344,7 +344,7 @@ export default function MenuPanel() {
                   <button
                     onClick={() => openEditProd(prod)}
                     className="
-                      bg-white hover:bg-zinc-50
+                      bg-surface hover:bg-zinc-50
                       border border-zinc-200
                       text-zinc-600 rounded-xl px-3 py-2
                       text-sm transition-colors
@@ -372,7 +372,7 @@ export default function MenuPanel() {
 
       {/* ── Form producto ── */}
       {view === 'productos' && showForm && (
-        <div className="rounded-2xl bg-white border border-zinc-200 p-6
+        <div className="rounded-2xl bg-surface border border-zinc-200 p-6
           shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
 
           <div className="flex items-center gap-3 mb-6">
@@ -423,7 +423,7 @@ export default function MenuPanel() {
                       border transition-all duration-200
                       ${prodForm.category_id === cat.id
                         ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
-                        : 'bg-white text-zinc-500 border-zinc-200 hover:border-[var(--brand-border)]'
+                        : 'bg-surface text-zinc-500 border-zinc-200 hover:border-[var(--brand-border)]'
                       }
                     `}
                   >
@@ -445,7 +445,7 @@ export default function MenuPanel() {
                 style={{ background: prodForm.local_only ? 'var(--brand)' : '#E4E4E7' }}
               >
                 <div className={`
-                  absolute top-0.5 w-5 h-5 bg-white rounded-full
+                  absolute top-0.5 w-5 h-5 bg-surface rounded-full
                   shadow-sm transition-transform duration-200
                   ${prodForm.local_only ? 'translate-x-6' : 'translate-x-0.5'}
                 `} />

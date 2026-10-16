@@ -317,7 +317,7 @@ export default function PedidoPublico() {
 
   // ── Restaurante no encontrado ────────────────────────────────────────────────
   if (notFound) return (
-    <div className="min-h-screen bg-[#F6F6F8] flex flex-col items-center justify-center gap-4 px-4">
+    <div className="min-h-screen bg-canvas flex flex-col items-center justify-center gap-4 px-4">
       <p className="text-5xl">🍽️</p>
       <h1 className="text-zinc-900 font-bold text-xl tracking-tight">
         Restaurante no encontrado
@@ -330,10 +330,10 @@ export default function PedidoPublico() {
 
   // ── Modal de entrada ─────────────────────────────────────────────────────────
   if (showEntryModal && !checkingCart) return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-[#F6F6F8]">
+    <div className="min-h-screen flex items-center justify-center p-6 bg-canvas">
       <div className="
         w-full max-w-md
-        bg-white rounded-3xl
+        bg-surface rounded-3xl
         border border-zinc-200
         shadow-[0_20px_60px_var(--brand-soft)]
         p-8 text-center
@@ -342,7 +342,7 @@ export default function PedidoPublico() {
           w-20 h-20 rounded-full mx-auto mb-6
           flex items-center justify-center
           overflow-hidden
-          bg-[var(--brand)] border border-violet-100
+          bg-[var(--brand)] border border-[var(--brand-border)]
         ">
           {restaurant?.logo_url ? (
             <img
@@ -393,10 +393,10 @@ export default function PedidoPublico() {
 
   // ── Pantalla de búsqueda de estado ──────────────────────────────────────────
   if (showOrderSearch) return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-[#F6F6F8]">
+    <div className="min-h-screen flex items-center justify-center p-6 bg-canvas">
       <div className="
         w-full max-w-md
-        bg-white rounded-3xl
+        bg-surface rounded-3xl
         border border-zinc-200
         shadow-[0_20px_60px_var(--brand-soft)]
         p-8
@@ -478,10 +478,10 @@ export default function PedidoPublico() {
 
   // ── Pantalla de éxito ────────────────────────────────────────────────────────
   if (orderSuccess) return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-[#F6F6F8]">
+    <div className="min-h-screen flex items-center justify-center p-6 bg-canvas">
       <div className="
         w-full max-w-md
-        bg-white rounded-3xl
+        bg-surface rounded-3xl
         border border-zinc-200
         shadow-[0_20px_60px_var(--brand-soft)]
         p-8 text-center
@@ -545,7 +545,7 @@ export default function PedidoPublico() {
 
   // ── UI principal ─────────────────────────────────────────────────────────────
   return (
-    <div className="h-[100dvh] overflow-hidden flex flex-col bg-[#F6F6F8]">
+    <div className="h-[100dvh] overflow-hidden flex flex-col bg-canvas">
 
       {/* ── Header ── */}
       <div className="shrink-0 bg-[var(--brand)] shadow-md">
@@ -607,7 +607,7 @@ export default function PedidoPublico() {
                   py-2.5 rounded-xl font-bold text-sm
                   transition-all duration-200
                   ${activeSection === section.key
-                    ? 'bg-white text-[var(--brand)] shadow-sm'
+                    ? 'bg-surface text-[var(--brand)] shadow-sm'
                     : 'text-white/60 hover:text-white/80'
                   }
                 `}
@@ -666,7 +666,7 @@ export default function PedidoPublico() {
                       whitespace-nowrap border transition-all duration-200
                       ${activeCategory === cat.id
                         ? 'bg-[var(--brand)] text-white border-[var(--brand)] shadow-[0_4px_12px_var(--brand-shadow)]'
-                        : 'bg-white text-zinc-500 border-zinc-200 hover:border-[var(--brand-border)]'
+                        : 'bg-surface text-zinc-500 border-zinc-200 hover:border-[var(--brand-border)]'
                       }
                       ${!open ? 'opacity-50' : ''}
                     `}
@@ -684,14 +684,14 @@ export default function PedidoPublico() {
                     <div
                       key={product.id}
                       className={`
-                        rounded-2xl p-4 bg-white border
+                        rounded-2xl p-4 bg-surface border
                         transition-all duration-200
                         shadow-[0_2px_8px_rgba(0,0,0,0.05)]
                         ${!open
                           ? 'border-zinc-100 opacity-50 pointer-events-none'
                           : qty > 0
                             ? 'border-[var(--brand-border)] shadow-[0_4px_16px_var(--brand-soft)]'
-                            : 'border-zinc-100 hover:border-violet-100'
+                            : 'border-zinc-100 hover:border-[var(--brand-border)]'
                         }
                       `}
                     >
@@ -754,7 +754,7 @@ export default function PedidoPublico() {
           {/* ── Entrega ── */}
           {activeSection === 'delivery' && (
             <div className="max-w-3xl mx-auto">
-              <div className="rounded-2xl bg-white border border-zinc-200 p-5 md:p-7
+              <div className="rounded-2xl bg-surface border border-zinc-200 p-5 md:p-7
                 shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
 
                 <h2 className="text-zinc-900 font-bold text-lg mb-5">
@@ -836,7 +836,7 @@ export default function PedidoPublico() {
                     {/* Mapa */}
                     <div className="relative overflow-hidden rounded-2xl border border-zinc-200">
                       <div className="absolute top-3 left-3 z-[1000]">
-                        <div className="bg-white/80 backdrop-blur px-3 py-1 rounded-full border border-zinc-200 shadow-sm">
+                        <div className="bg-surface/80 backdrop-blur px-3 py-1 rounded-full border border-zinc-200 shadow-sm">
                           <p className="text-[11px] text-zinc-500 font-semibold">
                             Toca el mapa para elegir ubicación
                           </p>
@@ -972,7 +972,7 @@ export default function PedidoPublico() {
       {/* ── FAB — Continuar pedido ── */}
       {items.length > 0 && activeSection === 'menu' && (
         <div className="fixed bottom-0 left-0 right-0 z-40 p-4
-          bg-gradient-to-t from-[#F6F6F8] via-[#F6F6F8]/90 to-transparent">
+          bg-gradient-to-t from-canvas via-canvas/90 to-transparent">
           <div className="max-w-3xl mx-auto">
             <button
               onClick={() => setActiveSection('delivery')}
@@ -999,7 +999,7 @@ export default function PedidoPublico() {
         >
           <div className="
             w-full max-w-lg
-            bg-white rounded-t-3xl
+            bg-surface rounded-t-3xl
             border border-b-0 border-zinc-200
             shadow-[0_-8px_40px_rgba(0,0,0,0.10)]
             p-6 pb-20 sm:pb-8

@@ -129,7 +129,7 @@ export default function TicketsPanel() {
             return (
               <div
                 key={key}
-                className="rounded-2xl bg-white border border-zinc-200 overflow-hidden
+                className="rounded-2xl bg-surface border border-zinc-200 overflow-hidden
                   shadow-[0_2px_8px_rgba(0,0,0,0.05)]"
               >
                 {/* Header mes */}
@@ -235,7 +235,7 @@ export default function TicketsPanel() {
         >
           <div className="
             w-full max-w-md
-            bg-white rounded-3xl
+            bg-surface rounded-3xl
             border border-zinc-200
             shadow-2xl overflow-hidden
           ">
@@ -273,7 +273,7 @@ export default function TicketsPanel() {
             {/* Ticket imprimible */}
             <div
               id="ticket-print"
-              className="bg-white text-black mx-auto p-5 w-full max-w-[320px] print:max-w-full"
+              className="bg-surface text-black mx-auto p-5 w-full max-w-[320px] print:max-w-full"
             >
               <div className="text-center">
                 <h1 className="text-xl font-black mt-3">BENDITAS PAPAS</h1>

@@ -165,7 +165,7 @@ export default function PedidoActivo({ table, onClose }) {
 
   // ─── Loading ────────────────────────────────────────────────────────────────
   if (loading) return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#F6F6F8]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-canvas">
       <p className="text-zinc-400 text-sm font-medium">Cargando pedido...</p>
     </div>
   )
@@ -181,7 +181,7 @@ export default function PedidoActivo({ table, onClose }) {
         w-full h-full
         md:max-w-4xl md:h-[90vh] md:rounded-3xl
         flex flex-col relative overflow-hidden
-        bg-white
+        bg-surface
         shadow-2xl
       ">
 
@@ -229,7 +229,7 @@ export default function PedidoActivo({ table, onClose }) {
                 mt-2 w-full py-1.5 rounded-xl cursor-pointer text-sm font-semibold
                 border transition-all duration-200
                 ${order.delivery_type === 'delivery'
-                  ? 'bg-[var(--brand-light)] text-[var(--brand-text)] border-[var(--brand-border)] hover:bg-violet-200'
+                  ? 'bg-[var(--brand-light)] text-[var(--brand-text)] border-[var(--brand-border)] hover:bg-[var(--brand-light)]'
                   : 'bg-zinc-50 text-zinc-400 border-zinc-200 hover:bg-zinc-100'
                 }
               `}
@@ -305,7 +305,7 @@ export default function PedidoActivo({ table, onClose }) {
                           onKeyDown={e => e.key === 'Enter' && saveNote(item.id, e.target.value)}
                           className="
                             rounded-xl px-3 py-1 text-zinc-800 text-xs outline-none w-40
-                            bg-white border border-[var(--brand-border)]
+                            bg-surface border border-[var(--brand-border)]
                             focus:border-[var(--brand)] transition-colors
                           "
                         />
@@ -326,7 +326,7 @@ export default function PedidoActivo({ table, onClose }) {
             </div>
 
             {/* Footer pedido activo */}
-            <div className="px-4 pb-24 pt-3 md:pb-4 border-t border-zinc-100 bg-white">
+            <div className="px-4 pb-24 pt-3 md:pb-4 border-t border-zinc-100 bg-surface">
               <div className="flex justify-between mb-4">
                 <span className="text-zinc-400">Total</span>
                 <span className="text-zinc-900 font-bold text-lg">
@@ -362,7 +362,7 @@ export default function PedidoActivo({ table, onClose }) {
                     border transition-all duration-200
                     ${displayCategory === cat.id
                       ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
-                      : 'bg-white text-zinc-400 border-zinc-200 hover:border-[var(--brand-border)] hover:text-[var(--brand-text)]'
+                      : 'bg-surface text-zinc-400 border-zinc-200 hover:border-[var(--brand-border)] hover:text-[var(--brand-text)]'
                     }
                   `}
                 >
@@ -436,7 +436,7 @@ export default function PedidoActivo({ table, onClose }) {
                               className="
                                 w-full rounded-xl px-3 py-1.5
                                 text-zinc-800 text-sm outline-none
-                                bg-white border border-[var(--brand-border)]
+                                bg-surface border border-[var(--brand-border)]
                                 focus:border-[var(--brand)] transition-colors
                               "
                             />
@@ -460,7 +460,7 @@ export default function PedidoActivo({ table, onClose }) {
 
             {/* Footer agregar más */}
             {newItems.length > 0 && (
-              <div className="px-4 pb-24 pt-3 md:pb-4 border-t border-zinc-100 bg-white">
+              <div className="px-4 pb-24 pt-3 md:pb-4 border-t border-zinc-100 bg-surface">
                 <div className="flex justify-between mb-3">
                   <span className="text-zinc-400 text-sm">
                     {newItems.reduce((s, i) => s + i.quantity, 0)} ítems nuevos
@@ -515,7 +515,7 @@ export default function PedidoActivo({ table, onClose }) {
         >
           <div className="
             w-full max-w-lg
-            bg-white
+            bg-surface
             rounded-t-3xl
             border border-b-0 border-zinc-200
             shadow-[0_-8px_40px_rgba(0,0,0,0.10)]
@@ -545,7 +545,7 @@ export default function PedidoActivo({ table, onClose }) {
                     border transition-all duration-200
                     ${zonaSeleccionada === zona.id
                       ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
-                      : 'bg-white text-zinc-400 border-zinc-200 hover:border-[var(--brand-border)] hover:text-[var(--brand-text)]'
+                      : 'bg-surface text-zinc-400 border-zinc-200 hover:border-[var(--brand-border)] hover:text-[var(--brand-text)]'
                     }
                   `}
                 >
@@ -594,7 +594,7 @@ export default function PedidoActivo({ table, onClose }) {
         >
           <div className="
             w-full max-w-lg
-            bg-white
+            bg-surface
             rounded-t-3xl
             border border-b-0 border-zinc-200
             shadow-[0_-8px_40px_rgba(0,0,0,0.10)]

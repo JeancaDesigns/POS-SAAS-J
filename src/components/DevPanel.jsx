@@ -197,14 +197,14 @@ export default function DevPanel({ onClose }) {
       style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}>
       <div className="
         w-full max-w-2xl max-h-[90vh]
-        bg-white rounded-3xl
+        bg-surface rounded-3xl
         border border-zinc-200
         shadow-2xl flex flex-col
         overflow-hidden
       ">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 bg-zinc-900">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 bg-[#101828]">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-[var(--brand-light)]0 flex items-center justify-center">
               <span className="text-white text-xs font-black">DEV</span>
@@ -232,7 +232,7 @@ export default function DevPanel({ onClose }) {
                 px-4 py-2 rounded-xl text-xs font-semibold
                 whitespace-nowrap border transition-all duration-200
                 ${section === s.key
-                  ? 'bg-zinc-900 text-white border-zinc-900'
+                  ? 'bg-[#101828] text-white border-[#101828]'
                   : 'bg-zinc-50 text-zinc-500 border-zinc-200 hover:border-zinc-400'
                 }
               `}
@@ -416,7 +416,7 @@ export default function DevPanel({ onClose }) {
                       disabled={changingPassword || !newPassword.trim()}
                       className="
                         w-full py-3 rounded-xl text-sm font-bold text-white
-                        bg-zinc-900 hover:bg-zinc-800
+                        bg-[#101828] hover:bg-[#1D2939]
                         transition-all active:scale-[0.98] disabled:opacity-50
                       "
                     >

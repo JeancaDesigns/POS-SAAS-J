@@ -114,7 +114,7 @@ export default function MesasPanel() {
 
   // ── Form zona ────────────────────────────────────────────────────────────────
   if (showZoneForm) return (
-    <div className="rounded-2xl bg-white border border-zinc-200 p-6 max-w-lg
+    <div className="rounded-2xl bg-surface border border-zinc-200 p-6 max-w-lg
       shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
       <div className="flex items-center gap-3 mb-6">
         <button
@@ -154,7 +154,7 @@ export default function MesasPanel() {
 
   // ── Form mesa ────────────────────────────────────────────────────────────────
   if (showTableForm) return (
-    <div className="rounded-2xl bg-white border border-zinc-200 p-6 max-w-lg
+    <div className="rounded-2xl bg-surface border border-zinc-200 p-6 max-w-lg
       shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
       <div className="flex items-center gap-3 mb-6">
         <button
@@ -197,7 +197,7 @@ export default function MesasPanel() {
                   border transition-all duration-200
                   ${tableForm.zone_id === zone.id
                     ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
-                    : 'bg-white text-zinc-500 border-zinc-200 hover:border-[var(--brand-border)]'
+                    : 'bg-surface text-zinc-500 border-zinc-200 hover:border-[var(--brand-border)]'
                   }
                 `}
               >
@@ -218,7 +218,7 @@ export default function MesasPanel() {
             style={{ background: tableForm.is_delivery ? 'var(--brand)' : '#E4E4E7' }}
           >
             <div className={`
-              absolute top-0.5 w-5 h-5 bg-white rounded-full
+              absolute top-0.5 w-5 h-5 bg-surface rounded-full
               shadow-sm transition-transform duration-200
               ${tableForm.is_delivery ? 'translate-x-6' : 'translate-x-0.5'}
             `} />
@@ -247,7 +247,7 @@ export default function MesasPanel() {
     <div className="space-y-4">
 
       {/* Zonas */}
-      <div className="rounded-2xl bg-white border border-zinc-200 p-6
+      <div className="rounded-2xl bg-surface border border-zinc-200 p-6
         shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
 
         <div className="flex items-center justify-between mb-4">
@@ -297,7 +297,7 @@ export default function MesasPanel() {
                 <button
                   onClick={e => { e.stopPropagation(); openEditZone(zone) }}
                   className="
-                    bg-white hover:bg-zinc-50
+                    bg-surface hover:bg-zinc-50
                     border border-zinc-200
                     text-zinc-600 rounded-xl px-3 py-1.5
                     text-xs transition-colors
@@ -324,7 +324,7 @@ export default function MesasPanel() {
 
       {/* Mesas de la zona activa */}
       {activeZone && (
-        <div className="rounded-2xl bg-white border border-zinc-200 p-6
+        <div className="rounded-2xl bg-surface border border-zinc-200 p-6
           shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
 
           <div className="flex items-center justify-between mb-4">
@@ -381,7 +381,7 @@ export default function MesasPanel() {
                   <button
                     onClick={() => openEditTable(table)}
                     className="
-                      bg-white hover:bg-zinc-50
+                      bg-surface hover:bg-zinc-50
                       border border-zinc-200
                       text-zinc-600 rounded-xl px-3 py-1.5
                       text-xs transition-colors

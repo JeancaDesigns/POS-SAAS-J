@@ -21,7 +21,7 @@ const ROLE_TABS = {
 }
 
 export default function NavBar() {
-  const { user, slug, modules } = useAuthStore()
+  const { user, slug, modules, logoUrl } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -40,30 +40,32 @@ export default function NavBar() {
     navigate('/')
   }
 
-  return (
-    <nav className="
-      fixed bottom-0 left-0 right-0
-      h-[82px]
-      lg:h-full lg:w-[92px]
-      lg:top-0 lg:left-0 lg:right-auto
-      z-50
-      border-t lg:border-t-0 lg:border-r
-      border-[#E5E7EB]
-      backdrop-blur-xl
-      bg-white/90
-      flex lg:flex-col
-      items-center
-    ">
+  const initials = (slug || '').split('-').map(w => w[0]).join('').slice(0, 2).toUpperCase()
 
-      <div className="
-        flex lg:flex-col
-        items-center
-        justify-around lg:justify-start
-        w-full
-        px-2 py-2
-        lg:pt-6
-        lg:gap-4
-      ">
+  return (
+    <nav
+      aria-label="Navegación principal"
+      className="
+        fixed bottom-0 left-0 right-0 z-50
+        h-[80px] lg:h-full lg:w-[92px]
+        lg:top-0 lg:right-auto
+        bg-surface border-t lg:border-t-0 lg:border-r border-zinc-200
+        flex lg:flex-col items-center
+        pb-[env(safe-area-inset-bottom)]
+      "
+    >
+      {/* Marca del restaurante (solo escritorio / tablet horizontal) */}
+      <div className="hidden lg:flex pt-5 pb-4">
+        {logoUrl ? (
+          <img src={logoUrl} alt="" className="w-11 h-11 rounded-xl object-contain bg-zinc-50 border border-zinc-200" />
+        ) : (
+          <div className="w-11 h-11 rounded-xl bg-[var(--brand)] text-white flex items-center justify-center text-sm font-extrabold">
+            {initials}
+          </div>
+        )}
+      </div>
+
+      <div className="flex lg:flex-col items-stretch justify-around lg:justify-start w-full px-2 lg:px-3 lg:gap-1">
         {orderedTabs.map(tab => {
           const item = NAV_ITEMS[tab]
           const fullPath = `/${slug}/${item.path}`
@@ -74,22 +76,22 @@ export default function NavBar() {
             <button
               key={tab}
               onClick={() => navigate(fullPath)}
+              aria-current={isActive ? 'page' : undefined}
               className={`
-                group
-                w-[68px] lg:w-[72px]
-                h-[62px] lg:h-[72px]
-                rounded-2xl
+                relative flex-1 lg:flex-none
+                h-[60px] lg:h-[64px] rounded-xl
                 flex flex-col items-center justify-center gap-1
-                transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]
-                active:scale-[0.96] cursor-pointer border
+                transition-colors cursor-pointer
                 ${isActive
-                  ? 'bg-[var(--brand)]/10 border-[var(--brand)]/25 text-[var(--brand)] shadow-[0_8px_20px_var(--brand-soft)]'
-                  : 'bg-white border-[#ECECF0] text-[#71717A] hover:bg-[#FAFAFA] hover:text-[#111113]'
-                }
+                  ? 'text-[var(--brand-text)] lg:bg-[var(--brand-light)]'
+                  : 'text-zinc-500 hover:text-zinc-900 lg:hover:bg-zinc-50'}
               `}
             >
-              <Icon size={22} strokeWidth={2.2} className="transition-all duration-200" />
-              <span className="text-[11px] font-semibold tracking-wide">
+              {isActive && (
+                <span aria-hidden="true" className="absolute top-0 lg:top-3 lg:bottom-3 left-1/2 lg:left-0 -translate-x-1/2 lg:translate-x-0 w-8 lg:w-[3px] h-[3px] lg:h-auto rounded-full bg-[var(--brand)]" />
+              )}
+              <Icon size={22} strokeWidth={isActive ? 2.2 : 1.8} aria-hidden="true" />
+              <span className={`text-[11px] ${isActive ? 'font-bold' : 'font-semibold'}`}>
                 {item.label}
               </span>
             </button>
@@ -97,18 +99,17 @@ export default function NavBar() {
         })}
       </div>
 
-      <div className="hidden lg:flex mt-auto mb-5">
+      <div className="hidden lg:flex mt-auto mb-5 px-3 w-full">
         <button
           onClick={handleLogout}
           className="
-            w-[72px] h-[72px] rounded-2xl
+            w-full h-[64px] rounded-xl
             flex flex-col items-center justify-center gap-1
-            text-[#71717A] hover:text-red-500 hover:bg-red-50
-            transition-all border border-transparent
-            cursor-pointer active:scale-[0.96]
+            text-zinc-500 hover:text-red-600 hover:bg-red-50
+            transition-colors cursor-pointer
           "
         >
-          <LogOut size={22} strokeWidth={2.2} />
+          <LogOut size={22} strokeWidth={1.8} aria-hidden="true" />
           <span className="text-[11px] font-semibold">Salir</span>
         </button>
       </div>

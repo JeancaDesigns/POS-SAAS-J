@@ -254,7 +254,7 @@ export default function InventarioPanel() {
               transition-all duration-200 active:scale-95
               ${view === v.key
                 ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
-                : 'bg-white text-zinc-500 border-zinc-200 hover:bg-zinc-50'
+                : 'bg-surface text-zinc-500 border-zinc-200 hover:bg-zinc-50'
               }
             `}
           >
@@ -275,7 +275,7 @@ export default function InventarioPanel() {
               { title: 'Stock bajo', value: stats.low,   icon: <AlertTriangle size={20} />, accent: 'text-yellow-600', bg: 'bg-yellow-50 border-yellow-200'  },
               { title: 'Agotados',   value: stats.empty, icon: <X size={20} />,             accent: 'text-red-500',    bg: 'bg-red-50 border-red-200'        },
             ].map(card => (
-              <div key={card.title} className="rounded-2xl bg-white border border-zinc-200 p-5
+              <div key={card.title} className="rounded-2xl bg-surface border border-zinc-200 p-5
                 shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
                 <div className="flex items-center justify-between">
                   <div>
@@ -291,7 +291,7 @@ export default function InventarioPanel() {
           </div>
 
           {/* Lista */}
-          <div className="rounded-2xl bg-white border border-zinc-200 p-6
+          <div className="rounded-2xl bg-surface border border-zinc-200 p-6
             shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs font-semibold text-[var(--brand-text)] tracking-wide">
@@ -349,7 +349,7 @@ export default function InventarioPanel() {
                               `Mín: ${item.min_stock}`,
                               `$${Number(item.cost).toLocaleString('es-CO')}`,
                             ].map(label => (
-                              <span key={label} className="text-xs px-2 py-0.5 rounded-full bg-white border border-zinc-200 text-zinc-600 font-semibold">
+                              <span key={label} className="text-xs px-2 py-0.5 rounded-full bg-surface border border-zinc-200 text-zinc-600 font-semibold">
                                 {label}
                               </span>
                             ))}
@@ -366,7 +366,7 @@ export default function InventarioPanel() {
                         </div>
                         <div className="flex flex-col gap-2 shrink-0">
                           <button onClick={() => openEditItem(item)}
-                            className="w-9 h-9 rounded-xl flex items-center justify-center bg-white border border-zinc-200 text-zinc-500 hover:text-[var(--brand-text)] hover:border-[var(--brand-border)] transition-colors">
+                            className="w-9 h-9 rounded-xl flex items-center justify-center bg-surface border border-zinc-200 text-zinc-500 hover:text-[var(--brand-text)] hover:border-[var(--brand-border)] transition-colors">
                             <Pencil size={15} />
                           </button>
                           <button onClick={() => setMovementModal(item)}
@@ -392,7 +392,7 @@ export default function InventarioPanel() {
           RECETAS
       ══════════════════════════════════════════════════════════════════════════ */}
       {view === 'recetas' && (
-        <div className="rounded-2xl bg-white border border-zinc-200 p-6
+        <div className="rounded-2xl bg-surface border border-zinc-200 p-6
           shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
 
           <div className="flex items-center justify-between mb-4">
@@ -444,7 +444,7 @@ export default function InventarioPanel() {
                         {recipe.recipe_items.map(ri => (
                           <span
                             key={ri.id}
-                            className="text-xs px-2 py-0.5 rounded-full bg-white border border-zinc-200 text-zinc-600 font-semibold"
+                            className="text-xs px-2 py-0.5 rounded-full bg-surface border border-zinc-200 text-zinc-600 font-semibold"
                           >
                             {ri.quantity} {ri.inventory_item.unit} {ri.inventory_item.name}
                           </span>
@@ -454,7 +454,7 @@ export default function InventarioPanel() {
                     <div className="flex gap-2 shrink-0">
                       <button
                         onClick={() => openEditRecipe(recipe)}
-                        className="w-9 h-9 rounded-xl flex items-center justify-center bg-white border border-zinc-200 text-zinc-500 hover:text-[var(--brand-text)] hover:border-[var(--brand-border)] transition-colors"
+                        className="w-9 h-9 rounded-xl flex items-center justify-center bg-surface border border-zinc-200 text-zinc-500 hover:text-[var(--brand-text)] hover:border-[var(--brand-border)] transition-colors"
                       >
                         <Pencil size={15} />
                       </button>
@@ -479,7 +479,7 @@ export default function InventarioPanel() {
       {showItemModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}>
-          <div className="w-full max-w-lg bg-white rounded-3xl border border-zinc-200 shadow-2xl p-6">
+          <div className="w-full max-w-lg bg-surface rounded-3xl border border-zinc-200 shadow-2xl p-6">
             <h2 className="text-zinc-900 font-bold text-lg mb-5">
               {editingItem ? 'Editar producto' : 'Nuevo producto'}
             </h2>
@@ -528,7 +528,7 @@ export default function InventarioPanel() {
       {movementModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}>
-          <div className="w-full max-w-lg bg-white rounded-3xl border border-zinc-200 shadow-2xl p-6 max-h-[90vh] flex flex-col">
+          <div className="w-full max-w-lg bg-surface rounded-3xl border border-zinc-200 shadow-2xl p-6 max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-zinc-900 font-bold">
                 Movimiento — {movementModal.name}
@@ -582,7 +582,7 @@ export default function InventarioPanel() {
       {showRecipeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}>
-          <div className="w-full max-w-lg bg-white rounded-3xl border border-zinc-200 shadow-2xl p-6 max-h-[90vh] flex flex-col">
+          <div className="w-full max-w-lg bg-surface rounded-3xl border border-zinc-200 shadow-2xl p-6 max-h-[90vh] flex flex-col">
 
             <h2 className="text-zinc-900 font-bold text-lg mb-5 shrink-0">
               {editingRecipe ? 'Editar receta' : 'Nueva receta'}
