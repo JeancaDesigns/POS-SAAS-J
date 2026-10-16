@@ -205,12 +205,13 @@ export default function DomiciliarioHome() {
   const actionBtn = 'h-12 rounded-xl border border-zinc-200 bg-surface text-sm font-bold text-zinc-700 hover:bg-zinc-50 flex items-center justify-center gap-2 transition-colors disabled:opacity-40'
 
   // Parada en ruta: dirección grande y acciones de un toque
-  function StopCard({ order, index }) {
+  // Función de render (no componente): así el mapa no se vuelve a montar en cada actualización
+  function renderStop(order, index) {
     const pay = payInfo(order)
     const hasMap = order.delivery_lat && order.delivery_lng
     const open = openMap === order.id
     return (
-      <article className="bg-surface border border-zinc-200 rounded-2xl shadow-card overflow-hidden">
+      <article key={order.id} className="bg-surface border border-zinc-200 rounded-2xl shadow-card overflow-hidden">
         <div className="p-4 flex items-start gap-3">
           <span className="shrink-0 w-9 h-9 rounded-full bg-[var(--brand)] text-white font-mono text-base font-semibold flex items-center justify-center">{index + 1}</span>
           <div className="flex-1 min-w-0">
@@ -374,7 +375,7 @@ export default function DomiciliarioHome() {
                 <span className="text-sm font-bold text-zinc-700">{tandaOrders.length} parada{tandaOrders.length !== 1 ? 's' : ''}</span>
                 <span className="text-sm text-zinc-600">A cobrar <b className="font-mono text-zinc-900 tabular">{money(aCobrar(tandaOrders))}</b></span>
               </div>
-              {tandaOrders.map((order, i) => <StopCard key={order.id} order={order} index={i} />)}
+              {tandaOrders.map((order, i) => renderStop(order, i))}
             </>
           )
         )}
