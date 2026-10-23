@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient'
 import { useAuthStore } from '../store/authStore'
 import { confirmar } from '../utils/dialogo'
 import Selector from './Selector'
+import { useRecarga } from '../hooks/useRecarga'
 
 export default function DevPanel({ onClose }) {
   const { user } = useAuthStore()
@@ -28,7 +29,7 @@ export default function DevPanel({ onClose }) {
   // ── Inventario ─────────────────────────────────────────────────────────────
   const [inventoryItems, setInventoryItems] = useState([])
 
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [feedback, setFeedback] = useState('')
 
   function showFeedback(msg) {
@@ -36,62 +37,79 @@ export default function DevPanel({ onClose }) {
     setTimeout(() => setFeedback(''), 3000)
   }
 
+  const restaurantId = user?.restaurant_id
+  const { tick, recargar } = useRecarga()
+
+  // Carga la sección visible; recargar() la vuelve a pedir después de un cambio
   useEffect(() => {
+    let vivo = true
+    async function loadSection(s) {
+      if (s === 'mesas') {
+        const { data: z } = await supabase
+          .from('zones').select('*')
+          .eq('restaurant_id', restaurantId).order('name')
+        const { data: t } = await supabase
+          .from('tables').select('*')
+          .eq('restaurant_id', restaurantId).order('number')
+        if (!vivo) return
+        setZones(z || [])
+        setTables(t || [])
+      }
+      if (s === 'caja') {
+        const { data } = await supabase
+          .from('cash_registers').select('*')
+          .eq('restaurant_id', restaurantId)
+          .eq('status', 'open')
+          .order('created_at', { ascending: false })
+        if (!vivo) return
+        setOpenRegisters(data || [])
+
+        const { data: all } = await supabase
+          .from('cash_registers').select('*')
+          .eq('restaurant_id', restaurantId)
+          .eq('status', 'closed')
+          .order('created_at', { ascending: false })
+          .limit(20)
+        if (!vivo) return
+        setAllRegisters(all || [])
+      }
+      if (s === 'usuarios') {
+        const { data } = await supabase
+          .from('users').select('id, auth_user_id, name, username, email, roles, active')
+          .eq('restaurant_id', restaurantId)
+          .order('name')
+        if (!vivo) return
+        setUsers(data || [])
+      }
+      if (s === 'pedidos') {
+        const { data } = await supabase
+          .from('orders')
+          .select('*, table:tables(number, is_delivery)')
+          .eq('restaurant_id', restaurantId)
+          .in('status', ['confirmed', 'draft', 'delivered', 'inDelivery', 'dispatched'])
+          .order('started_at', { ascending: true })
+        if (!vivo) return
+        setStuckOrders(data || [])
+      }
+      if (s === 'inventario') {
+        const { data } = await supabase
+          .from('inventory_items').select('*')
+          .eq('restaurant_id', restaurantId)
+          .order('name')
+        if (!vivo) return
+        setInventoryItems(data || [])
+      }
+      if (vivo) setLoading(false)
+    }
+
     loadSection(section)
-  }, [section])
+    return () => { vivo = false }
+  }, [section, restaurantId, tick])
 
-  async function loadSection(s) {
+  function cambiarSeccion(key) {
+    if (key === section) return
     setLoading(true)
-    if (s === 'mesas') {
-      const { data: z } = await supabase
-        .from('zones').select('*')
-        .eq('restaurant_id', user.restaurant_id).order('name')
-      const { data: t } = await supabase
-        .from('tables').select('*')
-        .eq('restaurant_id', user.restaurant_id).order('number')
-      setZones(z || [])
-      setTables(t || [])
-    }
-    if (s === 'caja') {
-      const { data } = await supabase
-        .from('cash_registers').select('*')
-        .eq('restaurant_id', user.restaurant_id)
-        .eq('status', 'open')
-        .order('created_at', { ascending: false })
-      setOpenRegisters(data || [])
-
-      const { data: all } = await supabase
-        .from('cash_registers').select('*')
-        .eq('restaurant_id', user.restaurant_id)
-        .eq('status', 'closed')
-        .order('created_at', { ascending: false })
-        .limit(20)
-      setAllRegisters(all || [])
-    }
-    if (s === 'usuarios') {
-      const { data } = await supabase
-        .from('users').select('id, auth_user_id, name, username, email, roles, active')
-        .eq('restaurant_id', user.restaurant_id)
-        .order('name')
-      setUsers(data || [])
-    }
-    if (s === 'pedidos') {
-      const { data } = await supabase
-        .from('orders')
-        .select('*, table:tables(number, is_delivery)')
-        .eq('restaurant_id', user.restaurant_id)
-        .in('status', ['confirmed', 'draft', 'delivered', 'inDelivery', 'dispatched'])
-        .order('started_at', { ascending: true })
-      setStuckOrders(data || [])
-    }
-    if (s === 'inventario') {
-      const { data } = await supabase
-        .from('inventory_items').select('*')
-        .eq('restaurant_id', user.restaurant_id)
-        .order('name')
-      setInventoryItems(data || [])
-    }
-    setLoading(false)
+    setSection(key)
   }
 
   // ── Acciones mesas ──────────────────────────────────────────────────────────
@@ -103,7 +121,7 @@ export default function DevPanel({ onClose }) {
       .eq('table_id', table.id)
       .in('status', ['confirmed', 'draft', 'delivered', 'inDelivery'])
     showFeedback(`Mesa ${table.number} forzada como libre`)
-    loadSection('mesas')
+    recargar()
   }
 
   // ── Acciones caja ───────────────────────────────────────────────────────────
@@ -112,7 +130,7 @@ export default function DevPanel({ onClose }) {
     await supabase.from('cash_movements').delete().eq('register_id', id)
     await supabase.from('cash_registers').delete().eq('id', id)
     showFeedback('Registro de caja eliminado')
-    loadSection('caja')
+    recargar()
   }
 
   async function forceCloseRegister(id) {
@@ -121,7 +139,7 @@ export default function DevPanel({ onClose }) {
       .update({ status: 'closed', closed_at: new Date().toISOString(), difference_amount: 0 })
       .eq('id', id)
     showFeedback('Caja cerrada forzosamente')
-    loadSection('caja')
+    recargar()
   }
 
   // ── Acciones usuarios ───────────────────────────────────────────────────────
@@ -150,7 +168,7 @@ export default function DevPanel({ onClose }) {
     await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id)
     await supabase.from('tables').update({ status: 'free' }).eq('id', order.table_id)
     showFeedback('Pedido cancelado')
-    loadSection('pedidos')
+    recargar()
   }
 
   async function deleteOrder(order) {
@@ -159,7 +177,7 @@ export default function DevPanel({ onClose }) {
     await supabase.from('orders').delete().eq('id', order.id)
     await supabase.from('tables').update({ status: 'free' }).eq('id', order.table_id)
     showFeedback('Pedido eliminado')
-    loadSection('pedidos')
+    recargar()
   }
 
   // ── Acciones inventario ─────────────────────────────────────────────────────
@@ -175,7 +193,7 @@ export default function DevPanel({ onClose }) {
       reason: 'Reset forzado por dev',
     })
     showFeedback(`Stock de "${item.name}" reseteado`)
-    loadSection('inventario')
+    recargar()
   }
 
   const sections = [
@@ -229,7 +247,7 @@ export default function DevPanel({ onClose }) {
           {sections.map(s => (
             <button
               key={s.key}
-              onClick={() => setSection(s.key)}
+              onClick={() => cambiarSeccion(s.key)}
               className={`
                 px-4 py-2 rounded-xl text-xs font-semibold
                 whitespace-nowrap border transition-all duration-200
@@ -370,7 +388,7 @@ export default function DevPanel({ onClose }) {
                           await supabase.from('cash_movements').delete().eq('register_id', reg.id)
                           await supabase.from('cash_registers').delete().eq('id', reg.id)
                           showFeedback('Registro eliminado')
-                          loadSection('caja')
+                          recargar()
                         }}
                         className="w-full py-2 rounded-xl text-xs font-bold text-red-500 bg-red-50 border border-red-200 hover:bg-red-100 transition-colors"
                       >

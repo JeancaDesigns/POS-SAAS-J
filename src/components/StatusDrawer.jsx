@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import { useAuthStore, signOutAndClear } from '../store/authStore'
 import { db } from '../db/localDB'
@@ -13,27 +13,28 @@ export default function StatusDrawer() {
   const isOnline = useOnlineStatus()
   const { user } = useAuthStore()
   const navigate = useNavigate()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(() => !isOnline) // sin conexión al abrir: se muestra de una vez
   const [pendingCount, setPendingCount] = useState(0)
   const [justSynced, setJustSynced] = useState(false)
-  const prevOnlineRef = useRef(true)
   const [showDevPanel, setShowDevPanel] = useState(false)
   const isDev = user?.roles?.includes('dev')
   const [showDebtPanel, setShowDebtPanel] = useState(false)
   const [showReportsPanel, setShowReportsPanel] = useState(false)
   const isAdminOrCajero = user?.roles?.some(r => ['admin', 'cajero', 'dev'].includes(r))
 
-  // Auto-abrir cuando se va la conexión
+  // Al cambiar la conexión (estado derivado, sin efecto): se abre si se va,
+  // y muestra "conexión restablecida" unos segundos cuando vuelve
+  const [prevOnline, setPrevOnline] = useState(isOnline)
+  if (prevOnline !== isOnline) {
+    setPrevOnline(isOnline)
+    if (!isOnline) setOpen(true)
+    else setJustSynced(true)
+  }
   useEffect(() => {
-    if (!isOnline) {
-      setOpen(true)
-    } else if (prevOnlineRef.current === false && isOnline) {
-      // Acabó de reconectarse
-      setJustSynced(true)
-      setTimeout(() => setJustSynced(false), 4000)
-    }
-    prevOnlineRef.current = isOnline
-  }, [isOnline])
+    if (!justSynced) return
+    const t = setTimeout(() => setJustSynced(false), 4000)
+    return () => clearTimeout(t)
+  }, [justSynced])
 
   // Contar pendientes
   useEffect(() => {

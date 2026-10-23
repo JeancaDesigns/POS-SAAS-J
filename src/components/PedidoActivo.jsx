@@ -11,6 +11,7 @@ import ProductPicker, { VariantSheet } from './ProductPicker'
 import { liberarMesaSiQuedaVacia } from '../utils/mesas'
 import { horaProgramadaISO } from '../utils/hora'
 import { avisar, confirmar } from '../utils/dialogo'
+import { useAhora } from '../hooks/useAhora'
 
 const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
 const lineKey = (productId, variant) => `${productId}::${variant || ''}`
@@ -26,6 +27,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
   const [selectedOrderId, setSelectedOrderId] = useState(orderId)
   const { order, orders, items, loading, refetch } = useActiveOrder(table.id, selectedOrderId)
   const { categories, products } = useProducts()
+  const ahora = useAhora() // para "hace X min"
 
   const [newItems, setNewItems] = useState([])
   const [pickerOpen, setPickerOpen] = useState(false) // celular
@@ -218,7 +220,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
   )
 
   const title = table.is_delivery ? `Domicilio ${table.number}` : `Mesa ${String(table.number).padStart(2, '0')}`
-  const minutes = order?.started_at ? Math.max(0, Math.round((Date.now() - new Date(order.started_at)) / 60000)) : null
+  const minutes = order?.started_at ? Math.max(0, Math.round((ahora - new Date(order.started_at)) / 60000)) : null
   const mesasZona = todasMesas.filter(m => m.zone_id === zonaSeleccionada)
 
   // ── Panel del pedido ────────────────────────────────────────────────────────
