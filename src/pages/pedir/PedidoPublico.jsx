@@ -57,8 +57,10 @@ export default function PedidoPublico() {
   const [cashAmount, setCashAmount] = useState('')
 
   // ── Modal de entrada + búsqueda de estado ────────────────────────────────────
-  const [showEntryModal, setShowEntryModal] = useState(true)
-  const [checkingCart, setCheckingCart] = useState(true)
+  // Si ya había un carrito guardado con productos, se salta el modal de entrada
+  const [showEntryModal, setShowEntryModal] = useState(() => {
+    try { return !(JSON.parse(sessionStorage.getItem(`cart-${slug}`) || '[]').length > 0) } catch { return true }
+  })
   const [showOrderSearch, setShowOrderSearch] = useState(false)
   const [searchOrderNumber, setSearchOrderNumber] = useState('')
   const [searching, setSearching] = useState(false)
@@ -66,20 +68,6 @@ export default function PedidoPublico() {
   const [searchResult, setSearchResult] = useState(null)
 
   useCartPersistence(`cart-${slug}`, items, setItems)
-
-  // Si ya había un carrito guardado con productos, saltamos el modal de entrada
-  useEffect(() => {
-    const saved = sessionStorage.getItem(`cart-${slug}`)
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        if (parsed.length > 0) setShowEntryModal(false)
-      } catch {
-        // ignorar, se limpia solo en useCartPersistence
-      }
-    }
-    setCheckingCart(false)
-  }, [slug])
 
   // ── Horario ──────────────────────────────────────────────────────────────────
   function isOpen(restaurant) {
@@ -113,55 +101,54 @@ export default function PedidoPublico() {
   }, [restaurant])
 
   useEffect(() => {
-    if (slug) fetchData()
-  }, [slug])
+    if (!slug) return
+    let vivo = true
 
-  // Revalida el carrito guardado contra los productos actuales
-  useEffect(() => {
-    if (products.length === 0) return
-    setItems(prev => {
-      const revalidated = prev
-        .filter(i => products.some(p => p.id === i.product.id))
-        .map(i => {
-          const fresh = products.find(p => p.id === i.product.id)
-          return { ...i, product: fresh }
+    async function fetchData() {
+      const { data: restaurantData } = await supabase
+        .from('restaurants').select('*').eq('slug', slug).single()
+      if (!vivo) return
+
+      if (!restaurantData) {
+        setNotFound(true)
+        return
+      }
+
+      setRestaurant(restaurantData)
+
+      const { data: categoriesData } = await supabase
+        .from('categories').select('*')
+        .eq('restaurant_id', restaurantData.id).eq('active', true).order('name')
+      const { data: productsData } = await supabase
+        .from('products').select('*')
+        .eq('restaurant_id', restaurantData.id).eq('active', true).eq('available', true)
+        .order('price', { ascending: true })
+      if (!vivo) return
+      const prods = productsData || []
+      setCategories(categoriesData || [])
+      setProducts(prods)
+      if (categoriesData?.length > 0) setActiveCategory(categoriesData[0].id)
+
+      // Revalida el carrito guardado contra los productos actuales (precio, disponibilidad)
+      if (prods.length > 0) {
+        setItems(prev => {
+          const revalidated = prev
+            .filter(i => prods.some(p => p.id === i.product.id))
+            .map(i => ({ ...i, product: prods.find(p => p.id === i.product.id) }))
+          return revalidated.length !== prev.length || revalidated.some((r, idx) => r.product !== prev[idx].product)
+            ? revalidated
+            : prev
         })
-      return revalidated.length !== prev.length || revalidated.some((r, idx) => r.product !== prev[idx].product)
-        ? revalidated
-        : prev
-    })
-  }, [products])
+      }
 
-  async function fetchData() {
-    const { data: restaurantData } = await supabase
-      .from('restaurants').select('*').eq('slug', slug).single()
-
-    if (!restaurantData) {
-      setNotFound(true)
-      return
+      // Solo el nombre del domiciliario en turno, vía RPC (el rol anónimo ya no lee users)
+      const { data: domiciliario } = await supabase.rpc('domiciliario_activo', { p_slug: slug })
+      if (vivo && domiciliario) setDomiciliarioActivo(domiciliario)
     }
 
-    setRestaurant(restaurantData)
-
-    const { data: categoriesData } = await supabase
-      .from('categories').select('*')
-      .eq('restaurant_id', restaurantData.id).eq('active', true).order('name')
-    const { data: productsData } = await supabase
-      .from('products').select('*')
-      .eq('restaurant_id', restaurantData.id).eq('active', true).eq('available', true)
-      .order('price', { ascending: true })
-    setCategories(categoriesData || [])
-    setProducts(productsData || [])
-    if (categoriesData?.length > 0) setActiveCategory(categoriesData[0].id)
-
-    fetchDomiciliario()
-  }
-
-  // Solo el nombre del domiciliario en turno, vía RPC (el rol anónimo ya no lee users)
-  async function fetchDomiciliario() {
-    const { data } = await supabase.rpc('domiciliario_activo', { p_slug: slug })
-    if (data) setDomiciliarioActivo(data)
-  }
+    fetchData()
+    return () => { vivo = false }
+  }, [slug])
 
   const categoryProducts = useMemo(() =>
     products.filter(p => p.category_id === activeCategory && p.available && !p.local_only),
@@ -338,7 +325,7 @@ export default function PedidoPublico() {
   )
 
   // ── Modal de entrada ─────────────────────────────────────────────────────────
-  if (showEntryModal && !checkingCart) return (
+  if (showEntryModal) return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-canvas">
       <div className="
         w-full max-w-md

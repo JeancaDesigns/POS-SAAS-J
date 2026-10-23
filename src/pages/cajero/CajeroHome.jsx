@@ -15,93 +15,103 @@ import { inicioJornada } from '../../utils/jornada'
 import { useCajaResumen } from '../../hooks/useCajaResumen'
 import { Bell, Search } from 'lucide-react'
 import { avisar, confirmar } from '../../utils/dialogo'
+import { useRecarga } from '../../hooks/useRecarga'
 
 function useCajaOrders(restaurantId) {
   const [orders, setOrders] = useState([])
   const isOnline = useOnlineStatus()
 
-  async function fetchOrders() {
-    if (isOnline) {
-      const { data } = await supabase
-        .from('orders')
-        .select('*, table:tables(number, is_delivery, zone:zones(name)), items:order_items(*, product:products(name, price))')
-        .eq('restaurant_id', restaurantId)
-        .in('status', ['draft', 'confirmed', 'delivered', 'dispatched', 'inDelivery'])
-        .order('started_at', { ascending: true })
-
-      const result = data || []
-      setOrders(result)
-      await cacheOrders(result, restaurantId)
-
-    } else {
-      // Leer del cache + pedidos pendientes locales
-      const cached = await getCachedOrders(restaurantId,
-        ['draft', 'confirmed', 'delivered', 'dispatched', 'inDelivery']
-      )
-
-      // Agregar pedidos pendientes que aún no llegaron a Supabase
-      const pending = await db.pendingOrders
-        .where('restaurant_id').equals(restaurantId).toArray()
-
-      const pendingFormatted = await Promise.all(pending.map(async p => {
-        const items = await db.pendingOrderItems
-          .where('local_order_id').equals(p.id).toArray()
-
-        const tables = await db.cachedTables
-          .where('restaurant_id').equals(restaurantId).toArray()
-        const zones = await db.cachedZones
-          .where('restaurant_id').equals(restaurantId).toArray()
-        const table = tables.find(t => t.id === p.table_id)
-        const zone = table ? zones.find(z => z.id === table.zone_id) : null
-
-        const cachedProds = await db.cachedProducts
-          .where('restaurant_id').equals(restaurantId).toArray()
-
-        return {
-          ...p,
-          id: p.uuid || `local_${p.id}`,
-          items: items.map(i => {
-            const prod = cachedProds.find(pr => pr.id === i.product_id)
-            return {
-              ...i,
-              id: i.uuid || i.id,
-              product: { name: prod?.name || '?', price: prod?.price || 0 }
-            }
-          }),
-          table: table ? {
-            number: table.number,
-            is_delivery: table.is_delivery,
-            zone: zone ? { name: zone.name } : null,
-          } : null,
-        }
-      }))
-
-      // Ocultar los pedidos ya cobrados offline (pago en cola, aún sin sincronizar)
-      const paidOffline = new Set((await db.pendingOperations
-        .filter(op => op.type === 'register_payment').toArray())
-        .map(op => op.payload.order_id))
-
-      setOrders([...cached, ...pendingFormatted]
-        .filter(o => !paidOffline.has(o.id))
-        .sort((a, b) => new Date(a.started_at) - new Date(b.started_at))
-      )
-    }
-  }
+  const { tick, recargar } = useRecarga()
 
   useEffect(() => {
     if (!restaurantId) return
-    fetchOrders()
-    if (!isOnline) return
+    let vivo = true
+    async function fetchOrders() {
+      if (isOnline) {
+        const { data } = await supabase
+          .from('orders')
+          .select('*, table:tables(number, is_delivery, zone:zones(name)), items:order_items(*, product:products(name, price))')
+          .eq('restaurant_id', restaurantId)
+          .in('status', ['draft', 'confirmed', 'delivered', 'dispatched', 'inDelivery'])
+          .order('started_at', { ascending: true })
 
+        if (!vivo) return
+        const result = data || []
+        setOrders(result)
+        await cacheOrders(result, restaurantId)
+
+      } else {
+        // Leer del cache + pedidos pendientes locales
+        const cached = await getCachedOrders(restaurantId,
+          ['draft', 'confirmed', 'delivered', 'dispatched', 'inDelivery']
+        )
+
+        // Agregar pedidos pendientes que aún no llegaron a Supabase
+        const pending = await db.pendingOrders
+          .where('restaurant_id').equals(restaurantId).toArray()
+
+        const pendingFormatted = await Promise.all(pending.map(async p => {
+          const items = await db.pendingOrderItems
+            .where('local_order_id').equals(p.id).toArray()
+
+          const tables = await db.cachedTables
+            .where('restaurant_id').equals(restaurantId).toArray()
+          const zones = await db.cachedZones
+            .where('restaurant_id').equals(restaurantId).toArray()
+          const table = tables.find(t => t.id === p.table_id)
+          const zone = table ? zones.find(z => z.id === table.zone_id) : null
+
+          const cachedProds = await db.cachedProducts
+            .where('restaurant_id').equals(restaurantId).toArray()
+
+          return {
+            ...p,
+            id: p.uuid || `local_${p.id}`,
+            items: items.map(i => {
+              const prod = cachedProds.find(pr => pr.id === i.product_id)
+              return {
+                ...i,
+                id: i.uuid || i.id,
+                product: { name: prod?.name || '?', price: prod?.price || 0 }
+              }
+            }),
+            table: table ? {
+              number: table.number,
+              is_delivery: table.is_delivery,
+              zone: zone ? { name: zone.name } : null,
+            } : null,
+          }
+        }))
+
+        // Ocultar los pedidos ya cobrados offline (pago en cola, aún sin sincronizar)
+        const paidOffline = new Set((await db.pendingOperations
+          .filter(op => op.type === 'register_payment').toArray())
+          .map(op => op.payload.order_id))
+
+        if (!vivo) return
+        setOrders([...cached, ...pendingFormatted]
+          .filter(o => !paidOffline.has(o.id))
+          .sort((a, b) => new Date(a.started_at) - new Date(b.started_at))
+        )
+      }
+    }
+
+    fetchOrders()
+    return () => { vivo = false }
+  }, [restaurantId, isOnline, tick])
+
+  // Tiempo real: cambios en pedidos o líneas piden una recarga
+  useEffect(() => {
+    if (!restaurantId || !isOnline) return
     const channel = supabase
       .channel('caja-orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `restaurant_id=eq.${restaurantId}` }, fetchOrders)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, fetchOrders)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `restaurant_id=eq.${restaurantId}` }, () => recargar())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => recargar())
       .subscribe()
     return () => supabase.removeChannel(channel)
-  }, [restaurantId, isOnline])
+  }, [restaurantId, isOnline, recargar])
 
-  return { orders, refetch: fetchOrders }
+  return { orders, refetch: recargar }
 }
 
 function tableName(order) {
@@ -245,19 +255,23 @@ export default function CajeroHome() {
         setDeliveryFee(data.delivery_fee || 0)
         try { localStorage.setItem(feeKey, String(data.delivery_fee || 0)) } catch { /* sin storage */ }
       })
-  }, [user?.restaurant_id, isOnline])
+  }, [user?.restaurant_id, isOnline, feeKey])
 
-  async function fetchHistorial() {
-    const today = inicioJornada()
-    const { data } = await supabase
+  // Historial de cobros de la jornada (solo con la pestaña abierta); recargarHistorial() tras anular
+  const { tick: tickHistorial, recargar: recargarHistorial } = useRecarga()
+  useEffect(() => {
+    if (view !== 'historial' || !isOnline || !user?.restaurant_id) return
+    let vivo = true
+    supabase
       .from('payments')
       .select('*, table:tables(number, is_delivery, zone:zones(name))')
       .eq('restaurant_id', user.restaurant_id)
       .eq('voided', false)
-      .gte('created_at', today.toISOString())
+      .gte('created_at', inicioJornada().toISOString())
       .order('created_at', { ascending: false })
-    setHistorial(data || [])
-  }
+      .then(({ data }) => { if (vivo) setHistorial(data || []) })
+    return () => { vivo = false }
+  }, [view, isOnline, user?.restaurant_id, tickHistorial])
 
   function dismissToast(orderId) {
     setToastQueue(prev => prev.filter(o => o.id !== orderId))
@@ -265,18 +279,6 @@ export default function CajeroHome() {
   }
 
   const vuelto = (parseInt(recibido) || 0) - (parseInt(efectivo) || 0)
-
-  async function fetchOnlineOrders() {
-    const today = inicioJornada()
-    const { data } = await supabase
-      .from('orders')
-      .select('*, table:tables(number, is_delivery)')
-      .eq('restaurant_id', user.restaurant_id)
-      .eq('source', 'online')
-      .gte('created_at', today.toISOString())
-      .order('created_at', { ascending: false })
-    setOnlineOrders(data || [])
-  }
 
   async function sendManualReport(order) {
     const { count } = await supabase
@@ -296,7 +298,21 @@ export default function CajeroHome() {
   }
 
   useEffect(() => {
-    if (!user?.restaurant_id || !isOnline) return
+    const restaurantId = user?.restaurant_id
+    if (!restaurantId || !isOnline) return
+    let vivo = true
+
+    // Pedidos web de la jornada
+    async function fetchOnlineOrders() {
+      const { data } = await supabase
+        .from('orders')
+        .select('*, table:tables(number, is_delivery)')
+        .eq('restaurant_id', restaurantId)
+        .eq('source', 'online')
+        .gte('created_at', inicioJornada().toISOString())
+        .order('created_at', { ascending: false })
+      if (vivo) setOnlineOrders(data || [])
+    }
     fetchOnlineOrders()
 
     const channel = supabase
@@ -307,7 +323,7 @@ export default function CajeroHome() {
           event: '*',
           schema: 'public',
           table: 'orders',
-          filter: `restaurant_id=eq.${user.restaurant_id}`,
+          filter: `restaurant_id=eq.${restaurantId}`,
         },
         (payload) => {
           if (payload.new?.source === 'online' || payload.old?.source === 'online') {
@@ -321,12 +337,8 @@ export default function CajeroHome() {
       )
       .subscribe()
 
-    return () => supabase.removeChannel(channel)
+    return () => { vivo = false; supabase.removeChannel(channel) }
   }, [user?.restaurant_id, isOnline])
-
-  useEffect(() => {
-    if (view === 'historial' && isOnline) fetchHistorial()
-  }, [view, isOnline])
 
 
   // El pedido con el descuento tal como está escrito en el modal (aún no guardado en la base).
@@ -507,7 +519,7 @@ export default function CajeroHome() {
     // Anulación lógica: queda el registro para auditoría
     const { error } = await supabase.from('payments').update({ voided: true }).eq('id', payment.id)
     if (error) { avisar('No se pudo anular el pago: ' + error.message); return }
-    fetchHistorial()
+    recargarHistorial()
     caja.refresh()
   }
 
