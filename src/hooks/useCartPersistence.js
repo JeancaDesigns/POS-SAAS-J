@@ -15,7 +15,7 @@ export function useCartPersistence(key, items, setItems) {
       }
     }
     hydrated.current = true
-  }, [key])
+  }, [key, setItems]) // setItems es el setter de useState: no cambia entre renders
 
   // Guardar en cada cambio (solo después de hidratar, para no pisar con [] al montar)
   useEffect(() => {
