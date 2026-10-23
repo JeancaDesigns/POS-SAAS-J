@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/authStore'
 import { Package, Plus, Pencil, X, Trash2, ArrowUpDown, Search } from 'lucide-react'
 import { avisar, confirmar } from '../../utils/dialogo'
 import Selector from '../../components/Selector'
+import { useRecarga } from '../../hooks/useRecarga'
 
 const inputClass = 'w-full h-11 rounded-xl px-3.5 bg-surface border border-zinc-300 text-[15px] text-zinc-900 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--brand-soft)] placeholder:text-zinc-400 transition-[border-color,box-shadow]'
 
@@ -31,19 +32,24 @@ export default function InventarioPanel() {
   const [recipeForm, setRecipeForm] = useState({ product_id: '', ingredients: [] })
   const [newIngredient, setNewIngredient] = useState({ inventory_item_id: '', quantity: '' })
 
-  useEffect(() => { fetchItems() }, [])
-  useEffect(() => { if (view === 'recetas') { fetchRecipes(); fetchProducts() } }, [view])
+  const restaurantId = user?.restaurant_id
+  const { tick: tickItems, recargar: recargarItems } = useRecarga()
+  const { tick: tickRecetas, recargar: recargarRecetas } = useRecarga()
 
-  // ── Inventario — fetch ────────────────────────────────────────────────────────
-  async function fetchItems() {
-    setLoadingItems(true)
-    const { data } = await supabase
+  // ── Inventario — carga ────────────────────────────────────────────────────────
+  useEffect(() => {
+    let vivo = true
+    supabase
       .from('inventory_items').select('*')
-      .eq('restaurant_id', user.restaurant_id)
+      .eq('restaurant_id', restaurantId)
       .order('created_at', { ascending: false })
-    setItems(data || [])
-    setLoadingItems(false)
-  }
+      .then(({ data }) => {
+        if (!vivo) return
+        setItems(data || [])
+        setLoadingItems(false)
+      })
+    return () => { vivo = false }
+  }, [restaurantId, tickItems])
 
   function resetItemForm() {
     setItemForm({ name: '', stock: '', min_stock: '', unit: 'und', cost: '' })
@@ -65,7 +71,7 @@ export default function InventarioPanel() {
       ? await supabase.from('inventory_items').update(payload).eq('id', editingItem.id)
       : await supabase.from('inventory_items').insert(payload)
     if (error) { avisar('No se pudo guardar: ' + error.message); return }
-    setShowItemModal(false); resetItemForm(); fetchItems()
+    setShowItemModal(false); resetItemForm(); recargarItems()
   }
 
   async function deleteItem(id) {
@@ -77,7 +83,7 @@ export default function InventarioPanel() {
         : 'No se pudo eliminar: ' + error.message)
       return
     }
-    fetchItems()
+    recargarItems()
   }
 
   function openEditItem(item) {
@@ -114,36 +120,39 @@ export default function InventarioPanel() {
 
     setMovement({ type: 'in', quantity: '', reason: '' })
     setMovementModal(null)
-    fetchItems()
+    recargarItems()
   }
 
-  // ── Recetas — fetch ───────────────────────────────────────────────────────────
-  async function fetchRecipes() {
-    setLoadingRecipes(true)
-    const { data } = await supabase
-      .from('recipes')
-      .select(`
-        *,
-        product:products(name),
-        recipe_items(
-          id, quantity,
-          inventory_item:inventory_items(id, name, unit)
-        )
-      `)
-      .eq('restaurant_id', user.restaurant_id)
-      .order('created_at', { ascending: false })
-    setRecipes(data || [])
-    setLoadingRecipes(false)
-  }
-
-  async function fetchProducts() {
-    const { data } = await supabase
-      .from('products').select('id, name')
-      .eq('restaurant_id', user.restaurant_id)
-      .eq('active', true)
-      .order('name')
-    setProducts(data || [])
-  }
+  // ── Recetas — carga (solo al estar en la pestaña de recetas) ───────────────────
+  useEffect(() => {
+    if (view !== 'recetas') return
+    let vivo = true
+    Promise.all([
+      supabase
+        .from('recipes')
+        .select(`
+          *,
+          product:products(name),
+          recipe_items(
+            id, quantity,
+            inventory_item:inventory_items(id, name, unit)
+          )
+        `)
+        .eq('restaurant_id', restaurantId)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('products').select('id, name')
+        .eq('restaurant_id', restaurantId)
+        .eq('active', true)
+        .order('name'),
+    ]).then(([{ data: recetas }, { data: productos }]) => {
+      if (!vivo) return
+      setRecipes(recetas || [])
+      setProducts(productos || [])
+      setLoadingRecipes(false)
+    })
+    return () => { vivo = false }
+  }, [view, restaurantId, tickRecetas])
 
   function openNewRecipe() {
     setEditingRecipe(null)
@@ -234,14 +243,14 @@ export default function InventarioPanel() {
     }
 
     setShowRecipeModal(false)
-    fetchRecipes()
+    recargarRecetas()
   }
 
   async function deleteRecipe(id) {
     if (!(await confirmar('¿Eliminar esta receta?'))) return
     const { error } = await supabase.from('recipes').delete().eq('id', id)
     if (error) { avisar('No se pudo eliminar la receta: ' + error.message); return }
-    fetchRecipes()
+    recargarRecetas()
   }
 
   // ── Stats ─────────────────────────────────────────────────────────────────────

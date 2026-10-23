@@ -3,6 +3,7 @@ import { supabase } from '../../supabaseClient'
 import { useAuthStore } from '../../store/authStore'
 import { UserPlus, UserX, UserCheck, Pencil, X } from 'lucide-react'
 import { avisar } from '../../utils/dialogo'
+import { useRecarga } from '../../hooks/useRecarga'
 
 // 'dev' da acceso a todos los restaurantes: solo un dev puede asignarlo
 const STAFF_ROLES = ['admin', 'cajero', 'mesero', 'cocina', 'domiciliario']
@@ -19,15 +20,21 @@ export default function UsuariosPanel() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  async function fetchUsuarios() {
-    const { data } = await supabase
-      .from('users').select('*')
-      .eq('restaurant_id', user.restaurant_id).order('name')
-    setUsuarios(data || [])
-    setLoading(false)
-  }
+  const restaurantId = user?.restaurant_id
+  const { tick, recargar } = useRecarga()
 
-  useEffect(() => { fetchUsuarios() }, [])
+  useEffect(() => {
+    let vivo = true
+    supabase
+      .from('users').select('*')
+      .eq('restaurant_id', restaurantId).order('name')
+      .then(({ data }) => {
+        if (!vivo) return
+        setUsuarios(data || [])
+        setLoading(false)
+      })
+    return () => { vivo = false }
+  }, [restaurantId, tick])
 
   function openNew() {
     setEditUser(null)
@@ -84,14 +91,14 @@ export default function UsuariosPanel() {
       }
     }
 
-    setSaving(false); setShowForm(false); fetchUsuarios()
+    setSaving(false); setShowForm(false); recargar()
   }
 
   async function toggleActive(u) {
     if (u.id === user.id) { avisar('No puedes desactivar tu propia cuenta'); return }
     const { error } = await supabase.from('users').update({ active: !u.active }).eq('id', u.id)
     if (error) { avisar('No se pudo cambiar el estado: ' + error.message); return }
-    fetchUsuarios()
+    recargar()
   }
 
   const ROLE_INFO = {

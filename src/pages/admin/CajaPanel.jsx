@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useAuthStore } from '../../store/authStore'
 import { avisar, confirmar } from '../../utils/dialogo'
+import { useRecarga } from '../../hooks/useRecarga'
 
 export default function CajaPanel() {
   const user = useAuthStore((s) => s.user)
@@ -19,66 +20,49 @@ export default function CajaPanel() {
   const [cashSales, setCashSales] = useState(0)
   const [transferSales, setTransferSales] = useState(0)
 
+  const restaurantId = user?.restaurant_id
+  const { tick, recargar, terminado } = useRecarga()
+
+  // Caja abierta (con sus movimientos y ventas) e historial. recargar() lo vuelve a pedir.
   useEffect(() => {
-    if (user) { loadCashRegister(); loadHistory() }
-  }, [user])
+    if (!restaurantId) return
+    let vivo = true
 
-  async function loadCashRegister() {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('cash_registers')
-      .select('*')
-      .eq('restaurant_id', user.restaurant_id)
-      .eq('status', 'open')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (error) { console.error(error); setLoading(false); return }
-    setCashRegister(data)
-    if (data) {
-      await loadMovements(data.id)
-      await loadSales(data.created_at)
+    async function cargar() {
+      const { data: register, error } = await supabase
+        .from('cash_registers')
+        .select('*')
+        .eq('restaurant_id', restaurantId)
+        .eq('status', 'open')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (error) console.error(error)
+
+      // Movimientos y ventas desde la hora real de apertura (no medianoche).
+      // payments.cash / transfer ya traen los descuentos; al cajón solo entra el efectivo.
+      const [movRes, payRes, histRes] = await Promise.all([
+        register
+          ? supabase.from('cash_movements').select('*').eq('register_id', register.id).order('created_at', { ascending: false })
+          : Promise.resolve({ data: [] }),
+        register
+          ? supabase.from('payments').select('cash, transfer').eq('restaurant_id', restaurantId).eq('voided', false).gte('created_at', register.created_at)
+          : Promise.resolve({ data: [] }),
+        supabase.from('cash_registers').select('*').eq('restaurant_id', restaurantId).order('created_at', { ascending: false }).limit(10),
+      ])
+      if (!vivo) return
+      for (const r of [movRes, payRes, histRes]) if (r.error) console.error(r.error)
+
+      if (!error) setCashRegister(register)
+      setMovements(movRes.data || [])
+      setCashSales((payRes.data || []).reduce((sum, p) => sum + Number(p.cash || 0), 0))
+      setTransferSales((payRes.data || []).reduce((sum, p) => sum + Number(p.transfer || 0), 0))
+      if (!histRes.error) setHistory(histRes.data || [])
     }
-    setLoading(false)
-  }
 
-  async function loadMovements(registerId) {
-    const { data, error } = await supabase
-      .from('cash_movements')
-      .select('*')
-      .eq('register_id', registerId)
-      .order('created_at', { ascending: false })
-    if (error) { console.error(error); return }
-    setMovements(data || [])
-  }
-
-  // Cargar ventas desde que se abrió la caja
-  async function loadSales(openedAt) {
-    // payments.cash / payments.transfer ya vienen con descuentos aplicados.
-    // El esperado del cajón usa solo el efectivo: las transferencias no entran a la caja.
-    const { data: payments, error } = await supabase
-      .from('payments')
-      .select('cash, transfer')
-      .eq('restaurant_id', user.restaurant_id)
-      .eq('voided', false)
-      .gte('created_at', openedAt) // ← hora real de apertura, no medianoche
-
-    if (error) { console.error(error); return }
-
-    setCashSales((payments || []).reduce((sum, p) => sum + Number(p.cash || 0), 0))
-    setTransferSales((payments || []).reduce((sum, p) => sum + Number(p.transfer || 0), 0))
-  }
-
-  async function loadHistory() {
-    const { data, error } = await supabase
-      .from('cash_registers')
-      .select('*')
-      .eq('restaurant_id', user.restaurant_id)
-      .order('created_at', { ascending: false })
-      .limit(10)
-    if (error) { console.error(error); return }
-    setHistory(data || [])
-  }
+    cargar().finally(() => { if (vivo) { setLoading(false); terminado() } })
+    return () => { vivo = false }
+  }, [restaurantId, tick, terminado])
 
   async function openCash() {
     const amount = Number(openingAmount)
@@ -92,7 +76,7 @@ export default function CajaPanel() {
     if (already?.length) {
       setOpening(false)
       avisar('Ya hay una caja abierta')
-      await loadCashRegister()
+      await recargar()
       return
     }
     const { data, error } = await supabase
@@ -109,15 +93,14 @@ export default function CajaPanel() {
     if (error) {
       console.error(error)
       avisar(error.code === '23505' ? 'Ya hay una caja abierta' : error.message)
-      if (error.code === '23505') await loadCashRegister()
+      if (error.code === '23505') await recargar()
       return
     }
     setCashRegister(data)
     setCashSales(0)
     setTransferSales(0)
     setOpeningAmount('0')
-    await loadMovements(data.id)
-    await loadHistory()
+    await recargar()
   }
 
   async function closeCash() {
@@ -150,7 +133,7 @@ export default function CajaPanel() {
     setCashSales(0)
     setTransferSales(0)
     setClosingAmount('')
-    await loadHistory()
+    await recargar()
   }
 
   async function addMovement() {
@@ -168,7 +151,7 @@ export default function CajaPanel() {
     if (error) { console.error(error); avisar(error.message); return }
     setMovementAmount('')
     setMovementDescription('')
-    await loadMovements(cashRegister.id)
+    await recargar()
   }
 
   // ── Cálculo del esperado en tiempo real ──────────────────────────────────────
