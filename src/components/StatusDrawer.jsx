@@ -8,6 +8,9 @@ import ReportsPanel from './ReportsPanel'
 import { useNavigate } from 'react-router-dom'
 import { LogOut, Wifi, WifiOff, X, CreditCard, BarChart3, Wrench, ChevronRight } from 'lucide-react'
 import { confirmar } from '../utils/dialogo'
+import Selector from './Selector'
+import { getPreferenciasImpresion, setPreferenciasImpresion, imprimirHTML } from '../utils/imprimir'
+import { comanda } from '../utils/tickets'
 
 export default function StatusDrawer() {
   const isOnline = useOnlineStatus()
@@ -20,6 +23,8 @@ export default function StatusDrawer() {
   const isDev = user?.roles?.includes('dev')
   const [showDebtPanel, setShowDebtPanel] = useState(false)
   const [showReportsPanel, setShowReportsPanel] = useState(false)
+  const [impresion, setImpresion] = useState(getPreferenciasImpresion)
+  const cambiarImpresion = cambios => setImpresion(setPreferenciasImpresion(cambios))
   const isAdminOrCajero = user?.roles?.some(r => ['admin', 'cajero', 'dev'].includes(r))
 
   // Al cambiar la conexión (estado derivado, sin efecto): se abre si se va,
@@ -165,6 +170,53 @@ export default function StatusDrawer() {
                     : 'Los datos están al día'}
               </p>
             </div>
+          </div>
+
+          {/* Impresión: se guarda en este equipo (cada uno puede tener otra impresora) */}
+          <div className="flex flex-col gap-2">
+            <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Impresión en este equipo</p>
+            <div role="radiogroup" aria-label="Ancho del papel" className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-zinc-100 border border-zinc-200">
+              {[80, 58].map(mm => (
+                <button
+                  key={mm}
+                  role="radio"
+                  aria-checked={impresion.papel === mm}
+                  onClick={() => cambiarImpresion({ papel: mm })}
+                  className={`h-10 rounded-lg text-sm font-semibold transition-colors ${impresion.papel === mm ? 'bg-surface text-zinc-900 shadow-card' : 'text-zinc-500 hover:text-zinc-800'}`}
+                >
+                  Papel {mm} mm
+                </button>
+              ))}
+            </div>
+            {[
+              { clave: 'alCobrar', label: 'Comprobante al cobrar' },
+              { clave: 'comandaAlEnviar', label: 'Comanda al enviar a cocina' },
+            ].map(({ clave, label }) => (
+              <label key={clave} className="flex items-center justify-between gap-3">
+                <span className="text-sm text-zinc-700">{label}</span>
+                <Selector
+                  title={label}
+                  value={impresion[clave]}
+                  onChange={v => cambiarImpresion({ [clave]: v })}
+                  className="w-36 h-10 px-3 rounded-xl bg-surface border border-zinc-300 text-sm font-semibold text-zinc-900"
+                  options={[
+                    { value: 'preguntar', label: 'Preguntar' },
+                    { value: 'siempre', label: 'Siempre' },
+                    { value: 'nunca', label: 'Nunca' },
+                  ]}
+                />
+              </label>
+            ))}
+            <button
+              onClick={() => imprimirHTML(comanda({
+                order: { table: { number: 'de prueba' } },
+                items: [{ quantity: 1, product: { name: 'Impresora funcionando' }, note: `Papel de ${impresion.papel} mm`, status: 'pending' }],
+                titulo: 'PRUEBA',
+              }))}
+              className="h-10 rounded-xl border border-zinc-200 text-sm font-bold text-zinc-700 hover:bg-zinc-50"
+            >
+              Imprimir página de prueba
+            </button>
           </div>
 
           {/* Versión del sistema, para saber si se está viendo la última publicación */}

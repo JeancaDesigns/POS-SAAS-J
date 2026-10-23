@@ -9,6 +9,8 @@ import { marcarListoYDescontar } from '../../utils/inventario'
 import { avisar } from '../../utils/dialogo'
 import { useAhora } from '../../hooks/useAhora'
 import { useRecarga } from '../../hooks/useRecarga'
+import { imprimirHTML } from '../../utils/imprimir'
+import { comanda } from '../../utils/tickets'
 
 // Los cancelados se muestran a cocina solo durante 12 h (o hasta que los descarte)
 const CANCELLED_VISIBLE_MS = 12 * 60 * 60 * 1000
@@ -588,12 +590,22 @@ export default function CocinaHome() {
                     )}
                   </div>
                 </div>
-                <button
-                  onClick={() => setActiveOrderId(null)}
-                  className="shrink-0 h-11 px-4 rounded-xl border border-zinc-300 bg-surface text-sm font-bold text-zinc-700 hover:bg-zinc-50 transition-colors"
-                >
-                  ← Todos
-                </button>
+                <div className="shrink-0 flex flex-col sm:flex-row gap-2">
+                  {!isCancelled && (
+                    <button
+                      onClick={() => imprimirHTML(comanda({ order: activeOrder, items: kItems }))}
+                      className="h-11 px-4 rounded-xl border border-zinc-300 bg-surface text-sm font-bold text-zinc-700 hover:bg-zinc-50 transition-colors"
+                    >
+                      Imprimir
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setActiveOrderId(null)}
+                    className="h-11 px-4 rounded-xl border border-zinc-300 bg-surface text-sm font-bold text-zinc-700 hover:bg-zinc-50 transition-colors"
+                  >
+                    ← Todos
+                  </button>
+                </div>
               </div>
 
               {isCancelled ? (

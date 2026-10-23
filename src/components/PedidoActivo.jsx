@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeft, Plus, Minus, X, StickyNote, Clock, ArrowRightLeft, Ban, Bike, Store } from 'lucide-react'
+import { ArrowLeft, Plus, Minus, X, StickyNote, Clock, ArrowRightLeft, Ban, Bike, Store, Printer, ChefHat, Receipt } from 'lucide-react'
 import { useActiveOrder } from '../hooks/useActiveOrder'
 import { useProducts } from '../hooks/useProducts'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
@@ -12,6 +12,8 @@ import { liberarMesaSiQuedaVacia } from '../utils/mesas'
 import { horaProgramadaISO } from '../utils/hora'
 import { avisar, confirmar } from '../utils/dialogo'
 import { useAhora } from '../hooks/useAhora'
+import { imprimirHTML, ofrecerImpresion } from '../utils/imprimir'
+import { comanda, precuenta } from '../utils/tickets'
 
 const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
 const lineKey = (productId, variant) => `${productId}::${variant || ''}`
@@ -38,6 +40,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
   const [cancelling, setCancelling] = useState(false)
   const [scheduledMore, setScheduledMore] = useState('')
   const [showMoverMesa, setShowMoverMesa] = useState(false)
+  const [showImprimir, setShowImprimir] = useState(false)
   const [zonas, setZonas] = useState([])
   const [todasMesas, setTodasMesas] = useState([])
   const [zonaSeleccionada, setZonaSeleccionada] = useState(null)
@@ -206,11 +209,29 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
         scheduled_for: horaProgramadaISO(scheduledMore)
       }).eq('id', order.id)
     }
+    // Comanda solo con lo nuevo, para que cocina no repita lo ya preparado
+    ofrecerImpresion('comandaAlEnviar', comanda({
+      order: { ...order, table },
+      items: newItems.map(i => ({ quantity: i.quantity, product: i.product, variant: i.variant, note: i.note, status: 'pending' })),
+      titulo: 'ADICIÓN',
+    }), { titulo: 'Productos enviados a cocina', mensaje: '¿Imprimir la comanda con lo agregado?' })
     setNewItems([])
     setScheduledMore('')
     setPickerOpen(false)
     setConfirming(false)
     refetch()
+  }
+
+  function imprimir(tipo) {
+    setShowImprimir(false)
+    if (!order) return
+    const restaurante = { nombre: useAuthStore.getState().restaurantName, logoUrl: useAuthStore.getState().logoUrl }
+    const conLineas = { ...order, table, items }
+    if (tipo === 'comanda') { imprimirHTML(comanda({ order: conLineas })); return }
+    // Valor del domicilio guardado por Caja en este equipo (para la pre-cuenta de domicilios)
+    let deliveryFee = 0
+    try { deliveryFee = Number(localStorage.getItem(`delivery-fee-${user?.restaurant_id}`)) || 0 } catch { /* sin storage */ }
+    imprimirHTML(precuenta({ restaurante, order: conLineas, deliveryFee }))
   }
 
   if (loading) return (
@@ -416,6 +437,14 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
               </button>
             )}
             <button
+              onClick={() => setShowImprimir(true)}
+              aria-label="Imprimir"
+              className="h-10 px-3 rounded-xl border border-zinc-200 text-sm font-bold text-zinc-700 hover:bg-zinc-50 flex items-center gap-1.5"
+            >
+              <Printer size={16} aria-hidden="true" />
+              <span className="hidden sm:inline">Imprimir</span>
+            </button>
+            <button
               onClick={cancelFullOrder}
               disabled={cancelling || !editable}
               aria-label="Cancelar pedido completo"
@@ -487,6 +516,23 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
         onPick={v => { addProduct(variantModal, v); setVariantModal(null) }}
         onClose={() => setVariantModal(null)}
       />
+
+      {/* Qué imprimir */}
+      {showImprimir && (
+        <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }} onClick={() => setShowImprimir(false)}>
+          <div role="dialog" aria-modal="true" aria-label="Imprimir" onClick={e => e.stopPropagation()} className="w-full sm:max-w-sm bg-surface rounded-t-3xl sm:rounded-3xl border border-zinc-200 shadow-pop p-4 pb-[calc(env(safe-area-inset-bottom)+16px)] flex flex-col gap-2">
+            <p className="px-2 pb-1 text-base font-extrabold tracking-tight text-zinc-900">Imprimir</p>
+            <button onClick={() => imprimir('precuenta')} className="min-h-14 px-3 rounded-xl flex items-center gap-3 text-left hover:bg-zinc-50">
+              <Receipt size={20} className="text-[var(--brand-text)]" aria-hidden="true" />
+              <span><span className="block text-[15px] font-bold text-zinc-900">Pre-cuenta</span><span className="block text-xs text-zinc-500">La cuenta para llevar a la mesa, con precios</span></span>
+            </button>
+            <button onClick={() => imprimir('comanda')} className="min-h-14 px-3 rounded-xl flex items-center gap-3 text-left hover:bg-zinc-50">
+              <ChefHat size={20} className="text-[var(--brand-text)]" aria-hidden="true" />
+              <span><span className="block text-[15px] font-bold text-zinc-900">Comanda completa</span><span className="block text-xs text-zinc-500">Para cocina, sin precios y en letra grande</span></span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Mover a otra mesa */}
       {showMoverMesa && (

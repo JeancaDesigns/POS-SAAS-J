@@ -108,7 +108,8 @@ export default function Login() {
       slug,
       modules: restaurantData?.modules || [],
       theme,
-      logoUrl: restaurantInfo?.logo_url || null, // ← nuevo
+      logoUrl: restaurantInfo?.logo_url || null,
+      restaurantName: restaurantInfo?.name || '',
     })
 
     if (profile.roles.includes('cocina')) navigate(`/${slug}/cocina`)

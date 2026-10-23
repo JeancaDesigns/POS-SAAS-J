@@ -11,6 +11,8 @@ import { useCartPersistence } from '../hooks/useCartPersistence'
 import { horaProgramadaISO } from '../utils/hora'
 import { ACTIVE_ORDER_STATUSES } from '../utils/mesas'
 import { avisar } from '../utils/dialogo'
+import { ofrecerImpresion } from '../utils/imprimir'
+import { comanda } from '../utils/tickets'
 
 const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
 // Una línea del carrito se identifica por producto + variante (la misma papa en dos tamaños son dos líneas)
@@ -143,6 +145,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
       }
 
       await supabase.from('tables').update({ status: 'occupied' }).eq('id', table.id)
+      ofrecerComanda({ ...order, table })
       sessionStorage.removeItem(`cart-mesa-${table.id}`)
       setItems([])
       onConfirmed(order)
@@ -182,10 +185,19 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
         payload: { tableId: table.id, status: 'occupied' },
         created_at: new Date().toISOString(),
       })
+      ofrecerComanda({ table, scheduled_for: scheduledFor, customer_name: customerName.trim() || null, delivery_type: table.is_delivery ? deliveryType : null })
       sessionStorage.removeItem(`cart-mesa-${table.id}`)
       setItems([])
       onConfirmed(null)
     }
+  }
+
+  // Comanda impresa para cocina, según la preferencia de este equipo (por defecto: no)
+  function ofrecerComanda(orderParaImprimir) {
+    const lineas = items.map(i => ({ quantity: i.quantity, product: i.product, variant: i.variant, note: i.note, status: 'pending' }))
+    ofrecerImpresion('comandaAlEnviar', comanda({ order: orderParaImprimir, items: lineas }), {
+      titulo: 'Pedido enviado a cocina', mensaje: '¿Imprimir la comanda?',
+    })
   }
 
   const title = table.is_delivery ? `Domicilio ${table.number}` : `Mesa ${String(table.number).padStart(2, '0')}`

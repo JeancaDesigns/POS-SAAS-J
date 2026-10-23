@@ -3,6 +3,8 @@ import { supabase } from '../../supabaseClient'
 import { useAuthStore } from '../../store/authStore'
 import { avisar, confirmar } from '../../utils/dialogo'
 import { useRecarga } from '../../hooks/useRecarga'
+import { imprimirHTML } from '../../utils/imprimir'
+import { cierreCaja } from '../../utils/tickets'
 
 export default function CajaPanel() {
   const user = useAuthStore((s) => s.user)
@@ -128,12 +130,31 @@ export default function CajaPanel() {
       })
       .eq('id', cashRegister.id)
     if (error) { console.error(error); avisar(error.message); return }
+
+    // Resumen del turno para imprimir (se arma antes de limpiar el estado)
+    const { restaurantName, logoUrl } = useAuthStore.getState()
+    const resumen = cierreCaja({
+      restaurante: { nombre: restaurantName, logoUrl },
+      cerro: user?.name,
+      r: {
+        abiertaEn: cashRegister.created_at, cerradaEn: new Date(),
+        apertura: Number(cashRegister.opening_amount || 0),
+        efectivo: cashSales, transferencia: transferSales,
+        ingresos: manualIncome, egresos: manualExpense,
+        esperado: expectedFinal, contado: counted, diferencia: difference,
+      },
+    })
+
     setCashRegister(null)
     setMovements([])
     setCashSales(0)
     setTransferSales(0)
     setClosingAmount('')
     await recargar()
+
+    if (await confirmar('¿Imprimir el resumen del cierre?', { titulo: 'Caja cerrada', aceptar: 'Imprimir', cancelar: 'No', peligro: false })) {
+      imprimirHTML(resumen)
+    }
   }
 
   async function addMovement() {
