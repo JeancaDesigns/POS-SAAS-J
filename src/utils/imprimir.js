@@ -6,10 +6,13 @@
 import { confirmar } from './dialogo'
 
 const KEY = 'pos-impresion'
+// Todo apagado por defecto: mientras un equipo no tenga impresora no aparece ninguna pregunta.
+// Los botones manuales (Pre-cuenta, Reimprimir, Imprimir comanda) funcionan siempre.
 const DEFAULTS = {
-  papel: 80,              // 80 | 58 (mm)
-  alCobrar: 'preguntar',  // 'preguntar' | 'siempre' | 'nunca' — comprobante al cobrar
-  comandaAlEnviar: 'nunca', // 'preguntar' | 'siempre' | 'nunca' — comanda al enviar a cocina
+  papel: 80,               // 80 | 58 (mm)
+  alCobrar: 'nunca',       // 'preguntar' | 'siempre' | 'nunca' — comprobante al cobrar
+  comandaAlEnviar: 'nunca', // comanda al enviar a cocina
+  alCerrarCaja: 'nunca',   // resumen al cerrar caja
 }
 
 // Preferencias de ESTE equipo (cada tablet o PC puede tener otra impresora)
@@ -55,7 +58,7 @@ export async function debeImprimir(preferencia, preguntar) {
   return preguntar()
 }
 
-// Imprime, pregunta o no hace nada según la preferencia ('alCobrar' | 'comandaAlEnviar')
+// Imprime, pregunta o no hace nada según la preferencia ('alCobrar' | 'comandaAlEnviar' | 'alCerrarCaja')
 export async function ofrecerImpresion(clave, html, { titulo, mensaje }) {
   const imprimir = await debeImprimir(getPreferenciasImpresion()[clave], () =>
     confirmar(mensaje, { titulo, aceptar: 'Imprimir', cancelar: 'No', peligro: false }))

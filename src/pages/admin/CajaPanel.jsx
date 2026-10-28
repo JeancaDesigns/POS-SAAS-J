@@ -3,7 +3,7 @@ import { supabase } from '../../supabaseClient'
 import { useAuthStore } from '../../store/authStore'
 import { avisar, confirmar } from '../../utils/dialogo'
 import { useRecarga } from '../../hooks/useRecarga'
-import { imprimirHTML } from '../../utils/imprimir'
+import { ofrecerImpresion } from '../../utils/imprimir'
 import { cierreCaja } from '../../utils/tickets'
 
 export default function CajaPanel() {
@@ -152,9 +152,7 @@ export default function CajaPanel() {
     setClosingAmount('')
     await recargar()
 
-    if (await confirmar('¿Imprimir el resumen del cierre?', { titulo: 'Caja cerrada', aceptar: 'Imprimir', cancelar: 'No', peligro: false })) {
-      imprimirHTML(resumen)
-    }
+    ofrecerImpresion('alCerrarCaja', resumen, { titulo: 'Caja cerrada', mensaje: '¿Imprimir el resumen del cierre?' })
   }
 
   async function addMovement() {

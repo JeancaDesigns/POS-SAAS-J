@@ -191,6 +191,7 @@ export default function StatusDrawer() {
             {[
               { clave: 'alCobrar', label: 'Comprobante al cobrar' },
               { clave: 'comandaAlEnviar', label: 'Comanda al enviar a cocina' },
+              { clave: 'alCerrarCaja', label: 'Resumen al cerrar caja' },
             ].map(({ clave, label }) => (
               <label key={clave} className="flex items-center justify-between gap-3">
                 <span className="text-sm text-zinc-700">{label}</span>
