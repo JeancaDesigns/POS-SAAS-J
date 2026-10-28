@@ -35,11 +35,12 @@ export const useAuthStore = create((set) => ({
   slug: null,
   modules: [],
   theme: 'purple',
-  logoUrl: null, // ← nuevo
+  logoUrl: null,
+  restaurantName: '', // encabezado de tickets impresos
   loading: true,
 
   setUser: (user) => set({ user }),
-  clearUser: () => set({ user: null, slug: null, modules: [], theme: 'purple', logoUrl: null }),
+  clearUser: () => set({ user: null, slug: null, modules: [], theme: 'purple', logoUrl: null, restaurantName: '' }),
   setSlug: (slug) => set({ slug }),
 
   init: async () => {
@@ -58,18 +59,20 @@ export const useAuthStore = create((set) => ({
       let modules = []
       let theme = 'purple'
       let logoUrl = null
+      let restaurantName = ''
       let restaurantActive = true
 
       if (userData?.restaurant_id) {
         const { data: restaurant } = await supabase
           .from('restaurants')
-          .select('slug, modules, theme, logo_url, active')
+          .select('slug, name, modules, theme, logo_url, active')
           .eq('id', userData.restaurant_id)
           .single()
         slug = restaurant?.slug || null
         modules = restaurant?.modules || []
         theme = restaurant?.theme || 'purple'
         logoUrl = restaurant?.logo_url || null
+        restaurantName = restaurant?.name || ''
         restaurantActive = restaurant?.active !== false
       }
 
@@ -81,9 +84,9 @@ export const useAuthStore = create((set) => ({
         return
       }
 
-      set({ user: userData, slug, modules, theme, logoUrl, loading: false })
+      set({ user: userData, slug, modules, theme, logoUrl, restaurantName, loading: false })
     } else {
-      set({ user: null, slug: null, modules: [], theme: 'purple', logoUrl: null, loading: false })
+      set({ user: null, slug: null, modules: [], theme: 'purple', logoUrl: null, restaurantName: '', loading: false })
     }
   }
 }))

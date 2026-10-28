@@ -13,9 +13,11 @@ import { newId } from '../../utils/uuid'
 import { liberarMesaSiQuedaVacia } from '../../utils/mesas'
 import { inicioJornada } from '../../utils/jornada'
 import { useCajaResumen } from '../../hooks/useCajaResumen'
-import { Bell, Search } from 'lucide-react'
+import { Bell, Search, Printer } from 'lucide-react'
 import { avisar, confirmar } from '../../utils/dialogo'
 import { useRecarga } from '../../hooks/useRecarga'
+import { imprimirHTML, ofrecerImpresion } from '../../utils/imprimir'
+import { ticketCobro, precuenta } from '../../utils/tickets'
 
 function useCajaOrders(restaurantId) {
   const [orders, setOrders] = useState([])
@@ -202,6 +204,9 @@ function quickBills(total) {
 
 export default function CajeroHome() {
   const { user } = useAuthStore()
+  const restaurantName = useAuthStore(s => s.restaurantName)
+  const logoUrl = useAuthStore(s => s.logoUrl)
+  const restaurante = { nombre: restaurantName, logoUrl }
   const { orders, refetch } = useCajaOrders(user?.restaurant_id)
   const { count: deliveryCount } = useDeliveryCount(user?.restaurant_id)
   const canDiscount = user?.roles?.some(r => ['admin', 'dev'].includes(r))
@@ -402,6 +407,7 @@ export default function CajeroHome() {
       return
     }
     setProcesando(true)
+    let ticket = null // comprobante para imprimir si el cobro sale bien
     const payment = {
       // id fijo por cobro: si algo falla y se reintenta, el pago no se duplica
       id: paymentId || newId(),
@@ -493,6 +499,17 @@ export default function CajeroHome() {
         })
       }
 
+      ticket = ticketCobro({
+        restaurante,
+        order: cobrarOrderConDescuento,
+        deliveryFee,
+        pago: {
+          efectivo, transferencia, recibido,
+          fiado: debtValue, deudor: fiado ? debtorName.trim() : null,
+        },
+        atendio: user?.name,
+      })
+
       setCobrarOrder(null)
       setPaymentId(null)
       setEfectivo('')
@@ -511,6 +528,30 @@ export default function CajeroHome() {
       refetch()
       caja.refresh()
     }
+    // Según la preferencia de este equipo: imprimir siempre, nunca o preguntar
+    if (ticket) ofrecerImpresion('alCobrar', ticket, { titulo: 'Cobro registrado', mensaje: '¿Imprimir el comprobante para el cliente?' })
+  }
+
+
+  function imprimirPrecuenta() {
+    if (!cobrarOrder) return
+    imprimirHTML(precuenta({ restaurante, order: cobrarOrderConDescuento, deliveryFee }))
+  }
+
+  // Reimprimir un cobro del historial (trae el pedido con sus productos)
+  async function reimprimir(payment) {
+    if (!isOnline) { avisar('Para reimprimir se necesita conexión'); return }
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select('*, table:tables(number, is_delivery, zone:zones(name)), items:order_items(*, product:products(name, price))')
+      .eq('id', payment.order_id)
+      .single()
+    if (error || !order) { avisar('No se pudo cargar el pedido: ' + (error?.message || '')); return }
+    imprimirHTML(ticketCobro({
+      restaurante, order, deliveryFee,
+      pago: { efectivo: payment.cash, transferencia: payment.transfer },
+      fecha: payment.created_at,
+    }))
   }
 
   async function handleVoid(payment) {
@@ -742,7 +783,10 @@ export default function CajeroHome() {
                 </div>
                 <div className="shrink-0 flex flex-col items-end gap-1">
                   <span className="font-mono text-sm font-semibold text-zinc-900 tabular">{money(payment.total)}</span>
-                  <button onClick={() => handleVoid(payment)} className="text-xs font-bold text-red-600 hover:underline">Anular</button>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => reimprimir(payment)} className="text-xs font-bold text-zinc-600 hover:underline">Reimprimir</button>
+                    <button onClick={() => handleVoid(payment)} className="text-xs font-bold text-red-600 hover:underline">Anular</button>
+                  </div>
                 </div>
               </div>
             ))
@@ -797,6 +841,15 @@ export default function CajeroHome() {
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className={`h-7 px-2.5 inline-flex items-center rounded-full border text-xs font-bold ${statusInfo(cobrarOrder).cls}`}>{statusInfo(cobrarOrder).text}</span>
+                  <button
+                    onClick={imprimirPrecuenta}
+                    aria-label="Imprimir pre-cuenta"
+                    title="Imprimir pre-cuenta"
+                    className="h-10 px-3 rounded-xl border border-zinc-300 bg-surface text-sm font-bold text-zinc-700 hover:bg-zinc-50 transition-colors inline-flex items-center gap-1.5"
+                  >
+                    <Printer size={16} aria-hidden="true" />
+                    <span className="hidden sm:inline">Pre-cuenta</span>
+                  </button>
                   <button
                     onClick={() => setSelectedOrder(cobrarOrder)}
                     className="h-10 px-3.5 rounded-xl border border-zinc-300 bg-surface text-sm font-bold text-zinc-700 hover:bg-zinc-50 transition-colors"

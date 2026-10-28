@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronDown, Check, X } from 'lucide-react'
 
 // Reemplazo del <select> nativo con el estilo del sistema: el botón usa la misma
@@ -28,7 +29,8 @@ export default function Selector({ value, onChange, options, placeholder = 'Sele
         <ChevronDown size={16} className="shrink-0 text-zinc-400" aria-hidden="true" />
       </button>
 
-      {open && (
+      {/* En un portal: dentro de un panel con transform (menú lateral) la hoja quedaría encerrada */}
+      {open && createPortal(
         <div
           className="fixed inset-0 z-[250] flex items-end sm:items-center justify-center sm:p-4"
           style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}
@@ -67,7 +69,8 @@ export default function Selector({ value, onChange, options, placeholder = 'Sele
               })}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )
