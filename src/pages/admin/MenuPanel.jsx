@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/authStore'
 import { Plus, Pencil, Trash2, Search, X } from 'lucide-react'
 import { avisar, confirmar } from '../../utils/dialogo'
 import Selector from '../../components/Selector'
+import { useRecarga } from '../../hooks/useRecarga'
 
 const ICONS = ['🌭', '🍟', '🥤', '🍨', '🍔', '🌮', '🍕', '🍗', '🎮']
 
@@ -40,18 +41,25 @@ export default function MenuPanel() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  async function fetchData() {
-    const { data: cats } = await supabase
-      .from('categories').select('*')
-      .eq('restaurant_id', user.restaurant_id).eq('active', true).order('name')
-    const { data: prods } = await supabase
-      .from('products').select('*, category:categories(name)')
-      .eq('restaurant_id', user.restaurant_id).eq('active', true).order('price')
-    setCategories(cats || [])
-    setProducts(prods || [])
-  }
+  const restaurantId = user?.restaurant_id
+  const { tick, recargar } = useRecarga()
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => {
+    let vivo = true
+    async function fetchData() {
+      const { data: cats } = await supabase
+        .from('categories').select('*')
+        .eq('restaurant_id', restaurantId).eq('active', true).order('name')
+      const { data: prods } = await supabase
+        .from('products').select('*, category:categories(name)')
+        .eq('restaurant_id', restaurantId).eq('active', true).order('price')
+      if (!vivo) return
+      setCategories(cats || [])
+      setProducts(prods || [])
+    }
+    fetchData()
+    return () => { vivo = false }
+  }, [restaurantId, tick])
 
   function openNewCat() {
     setEditItem(null); setCatForm({ name: '', icon: '🌭' }); setError(''); setShowForm(true)
@@ -82,7 +90,7 @@ export default function MenuPanel() {
       : await supabase.from('categories').insert({ restaurant_id: user.restaurant_id, name: catForm.name, icon: catForm.icon })
     setSaving(false)
     if (error) { setError('No se pudo guardar: ' + error.message); return }
-    setShowForm(false); fetchData()
+    setShowForm(false); recargar()
   }
 
   async function saveProd() {
@@ -100,7 +108,7 @@ export default function MenuPanel() {
       : await supabase.from('products').insert({ ...payload, restaurant_id: user.restaurant_id })
     setSaving(false)
     if (error) { setError('No se pudo guardar: ' + error.message); return }
-    setShowForm(false); fetchData()
+    setShowForm(false); recargar()
   }
 
   async function deleteCat(cat) {
@@ -110,20 +118,20 @@ export default function MenuPanel() {
     }
     const { error } = await supabase.from('categories').update({ active: false }).eq('id', cat.id)
     if (error) { avisar('No se pudo eliminar la categoría: ' + error.message); return }
-    fetchData()
+    recargar()
   }
 
   async function deleteProd(productId) {
     if (!(await confirmar('¿Desactivar este producto?'))) return
     const { error } = await supabase.from('products').update({ active: false }).eq('id', productId)
     if (error) { avisar('Error desactivando producto'); return }
-    fetchData()
+    recargar()
   }
 
   async function toggleAvailable(prod) {
     const { error } = await supabase.from('products').update({ available: !prod.available }).eq('id', prod.id)
     if (error) { avisar('No se pudo cambiar la disponibilidad: ' + error.message); return }
-    fetchData()
+    recargar()
   }
 
   // ── Vista ──────────────────────────────────────────────────────────────────

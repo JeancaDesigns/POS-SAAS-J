@@ -7,6 +7,7 @@ import { useAuthStore } from '../../store/authStore'
 import { precioUnitario } from '../../utils/precio'
 import { liberarMesaSiQuedaVacia } from '../../utils/mesas'
 import { avisar, confirmar } from '../../utils/dialogo'
+import { useRecarga } from '../../hooks/useRecarga'
 
 
 export default function TicketsPanel() {
@@ -21,27 +22,38 @@ export default function TicketsPanel() {
   const [deletingId, setDeletingId] = useState(null)
   const { user } = useAuthStore()
 
-  useEffect(() => {
-    supabase.from('restaurants').select('delivery_fee, name').eq('id', user.restaurant_id).single()
-      .then(({ data }) => { if (data) { setDeliveryFee(data.delivery_fee || 0); setRestaurantName(data.name || '') } })
-  }, [])
+  const restaurantId = user?.restaurant_id
+  const { tick, recargar } = useRecarga()
 
-  useEffect(() => { loadOrders() }, [period])
+  useEffect(() => {
+    supabase.from('restaurants').select('delivery_fee, name').eq('id', restaurantId).single()
+      .then(({ data }) => { if (data) { setDeliveryFee(data.delivery_fee || 0); setRestaurantName(data.name || '') } })
+  }, [restaurantId])
 
   // Periodo: 'today' | '7' | '30' | '90' días. Paginado para no cortarse en 1.000 pedidos.
-  async function loadOrders() {
-    setLoading(true)
+  useEffect(() => {
+    let vivo = true
     let since
     if (period === 'today') since = inicioJornada()
     else { since = new Date(); since.setDate(since.getDate() - Number(period)) }
-    const data = await fetchAll(() => supabase
+    fetchAll(() => supabase
       .from('orders')
       .select(`*, table:tables(number, is_delivery), order_items(*, products(name, price)), payments(total, cash, transfer, voided)`)
-      .eq('restaurant_id', user.restaurant_id)
+      .eq('restaurant_id', restaurantId)
       .gte('created_at', since.toISOString())
       .order('created_at', { ascending: false }))
-    setOrders(data)
-    setLoading(false)
+      .then(data => {
+        if (!vivo) return
+        setOrders(data)
+        setLoading(false)
+      })
+    return () => { vivo = false }
+  }, [period, restaurantId, tick])
+
+  function cambiarPeriodo(k) {
+    if (k === period) return
+    setLoading(true)
+    setPeriod(k)
   }
 
   // Descuento aplicado a una línea de producto
@@ -103,7 +115,7 @@ export default function TicketsPanel() {
       await liberarMesaSiQuedaVacia(order.table_id, order.id)
     }
     setDeletingId(null)
-    loadOrders()
+    recargar()
   }
 
   const STATUS = {
@@ -131,7 +143,7 @@ export default function TicketsPanel() {
         </label>
         <div role="radiogroup" aria-label="Periodo" className="flex p-1 rounded-xl bg-zinc-100 border border-zinc-200 overflow-x-auto">
           {[['today', 'Hoy'], ['7', '7 días'], ['30', '30 días'], ['90', '90 días']].map(([k, l]) => (
-            <button key={k} role="radio" aria-checked={period === k} onClick={() => setPeriod(k)} className={`shrink-0 h-9 px-3 rounded-lg text-sm font-bold transition-colors ${period === k ? 'bg-surface text-zinc-900 shadow-card' : 'text-zinc-500'}`}>{l}</button>
+            <button key={k} role="radio" aria-checked={period === k} onClick={() => cambiarPeriodo(k)} className={`shrink-0 h-9 px-3 rounded-lg text-sm font-bold transition-colors ${period === k ? 'bg-surface text-zinc-900 shadow-card' : 'text-zinc-500'}`}>{l}</button>
           ))}
         </div>
         <div role="radiogroup" aria-label="Estado" className="flex p-1 rounded-xl bg-zinc-100 border border-zinc-200 overflow-x-auto">

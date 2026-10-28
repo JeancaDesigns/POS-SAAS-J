@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient'
 import { db } from '../db/localDB'
 import { useAuthStore } from '../store/authStore'
 import { getCachedOrders } from '../db/cacheHelpers'
+import { useRecarga } from './useRecarga'
 
 const ACTIVE_STATUSES = ['draft', 'confirmed', 'inDelivery', 'delivered', 'dispatched']
 
@@ -39,67 +40,81 @@ export function useActiveOrder(tableId, orderId = null) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
 
-  async function fetchOrder() {
-    if (!navigator.onLine) {
-      const offline = await fetchOfflineOrder(tableId)
-      setOrder(offline)
-      setOrders(offline ? [offline] : [])
-      setItems(offline ? offline.items.filter(i => i.status !== 'cancelled') : [])
-      setLoading(false)
-      return
-    }
-
-    const { data: list } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('table_id', tableId)
-      .in('status', ACTIVE_STATUSES)
-      .order('created_at', { ascending: false })
-
-    const all = list || []
-    const orderData = all.find(o => o.id === orderId) || all[0] || null
-    setOrders(all)
-
-    if (!orderData) {
-      setOrder(null)
-      setItems([])
-      setLoading(false)
-      return
-    }
-
-    const { data: itemsData } = await supabase
-      .from('order_items')
-      .select('*, product:products(*)')
-      .eq('order_id', orderData.id)
-      .neq('status', 'cancelled')
-
-    setOrder(orderData)
-    setItems(itemsData || [])
-    setLoading(false)
-  }
+  const { tick, recargar, terminado } = useRecarga()
 
   useEffect(() => {
     if (!tableId) return
-    fetchOrder()
+    let vivo = true
 
+    async function fetchOrder() {
+      try {
+        if (!navigator.onLine) {
+          const offline = await fetchOfflineOrder(tableId)
+          if (!vivo) return
+          setOrder(offline)
+          setOrders(offline ? [offline] : [])
+          setItems(offline ? offline.items.filter(i => i.status !== 'cancelled') : [])
+          return
+        }
+
+        const { data: list } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('table_id', tableId)
+          .in('status', ACTIVE_STATUSES)
+          .order('created_at', { ascending: false })
+        if (!vivo) return
+
+        const all = list || []
+        const orderData = all.find(o => o.id === orderId) || all[0] || null
+        setOrders(all)
+
+        if (!orderData) {
+          setOrder(null)
+          setItems([])
+          return
+        }
+
+        const { data: itemsData } = await supabase
+          .from('order_items')
+          .select('*, product:products(*)')
+          .eq('order_id', orderData.id)
+          .neq('status', 'cancelled')
+        if (!vivo) return
+
+        setOrder(orderData)
+        setItems(itemsData || [])
+      } finally {
+        // Una respuesta vieja (de una carga ya reemplazada) no toca el estado
+        if (vivo) { setLoading(false); terminado() }
+      }
+    }
+
+    fetchOrder()
+    return () => { vivo = false }
+  }, [tableId, orderId, tick, terminado])
+
+  // Tiempo real: cualquier cambio en la mesa pide una recarga
+  useEffect(() => {
+    if (!tableId) return
     const channel = supabase
       .channel(`order-${tableId}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'order_items',
-      }, () => fetchOrder())
+      }, () => recargar())
       // También cambios del pedido (cobrado, cancelado o movido desde otra pantalla)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'orders',
         filter: `table_id=eq.${tableId}`,
-      }, () => fetchOrder())
+      }, () => recargar())
       .subscribe()
 
     return () => supabase.removeChannel(channel)
-  }, [tableId, orderId])
+  }, [tableId, recargar])
 
-  return { order, orders, items, loading, refetch: fetchOrder }
+  return { order, orders, items, loading, refetch: recargar }
 }

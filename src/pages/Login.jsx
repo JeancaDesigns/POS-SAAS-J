@@ -12,7 +12,6 @@ export default function Login() {
   const [visible, setVisible] = useState(false)
   const [restaurantInfo, setRestaurantInfo] = useState(null)
   const { slug } = useParams()
-  const setSlug = useAuthStore(s => s.setSlug)
   const setUser = useAuthStore((s) => s.setUser)
   const navigate = useNavigate()
 

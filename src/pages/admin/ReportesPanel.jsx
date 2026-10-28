@@ -8,6 +8,123 @@ import { useAuthStore } from '../../store/authStore'
 import { inicioJornada } from '../../utils/jornada'
 import { fetchAll } from '../../utils/fetchAll'
 
+// ── Consultas del panel (devuelven datos; el componente solo los guarda) ─────────
+
+async function obtenerPagosHoy(restaurantId) {
+  const today = inicioJornada()
+
+  const { data } = await supabase
+    .from('payments')
+    .select('*, order:orders(started_at, customer_name, table:tables(number, is_delivery))')
+    .eq('restaurant_id', restaurantId)
+    .eq('voided', false)
+    .gte('created_at', today.toISOString())
+    .order('created_at', { ascending: true })
+
+  return data || []
+}
+
+async function obtenerResumen(restaurantId) {
+  const todayISO = inicioJornada().toISOString()
+
+  const thirtyDaysAgo = new Date()
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  const thirtyDaysAgoISO = thirtyDaysAgo.toISOString()
+
+  const todayOrdersData = await fetchAll(() => supabase
+    .from('orders').select('*')
+    .eq('restaurant_id', restaurantId)
+    .gte('created_at', todayISO)
+    .order('created_at', { ascending: false }))
+
+  const allOrdersData = await fetchAll(() => supabase
+    .from('orders').select('*')
+    .eq('restaurant_id', restaurantId)
+    .gte('created_at', thirtyDaysAgoISO)
+    .order('created_at', { ascending: false }))
+
+  // Ítems filtrados por join con orders (antes: .in() con todos los ids, que se
+  // rompe con muchos pedidos por el largo de la URL y el tope de 1.000 filas)
+  const itemsSince = iso => fetchAll(() => supabase
+    .from('order_items')
+    .select('*, product:products(*), orders!inner(restaurant_id, created_at)')
+    .eq('orders.restaurant_id', restaurantId)
+    .gte('orders.created_at', iso)
+    .neq('status', 'cancelled')
+    .order('id'))
+  const todayItemsData = await itemsSince(todayISO)
+  const allItemsData = await itemsSince(thirtyDaysAgoISO)
+
+  const { data: productsData } = await supabase
+    .from('products').select('*')
+    .eq('restaurant_id', restaurantId)
+
+  // Ventas de hoy: se leen directo de payments.total (ya incluye descuentos y
+  // solo cuenta lo que de verdad se cobró, no pedidos sin pagar)
+  const todayPaymentsData = await fetchAll(() => supabase
+    .from('payments').select('total')
+    .eq('restaurant_id', restaurantId)
+    .eq('voided', false)
+    .gte('created_at', todayISO)
+    .order('created_at'))
+
+  return {
+    orders: allOrdersData || [],
+    orderItems: allItemsData || [],
+    products: productsData || [],
+    stats: calcularStats(todayOrdersData || [], todayItemsData || [], todayPaymentsData || []),
+  }
+}
+
+async function obtenerMeses(restaurantId) {
+  // Todos los pagos, paginados (antes se cortaba en silencio a 1.000 filas)
+  const paymentsData = await fetchAll(() => supabase
+    .from('payments')
+    .select('*, table:tables(number, is_delivery)')
+    .eq('restaurant_id', restaurantId)
+    .eq('voided', false)
+    .order('created_at', { ascending: false }))
+
+  // Agrupar pagos por mes — payment.total ya es el monto real cobrado (con descuentos incluidos),
+  // no hace falta volver a consultar order_items para "recalcular" nada
+  const monthMap = {}
+  paymentsData.forEach(payment => {
+    const date = new Date(payment.created_at)
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+    if (!monthMap[key]) monthMap[key] = {
+      key, year: date.getFullYear(), month: date.getMonth(),
+      payments: [], total: 0, cash: 0, transfer: 0, deliveries: 0,
+    }
+    monthMap[key].payments.push(payment)
+    monthMap[key].total += Number(payment.total)
+    monthMap[key].cash += payment.cash || 0
+    monthMap[key].transfer += payment.transfer || 0
+    if (payment.is_delivery) monthMap[key].deliveries++
+  })
+
+  return Object.values(monthMap).sort((a, b) => b.key.localeCompare(a.key))
+}
+
+function calcularStats(ordersData, itemsData, todayPaymentsData = []) {
+  const validOrders = ordersData.filter(o => o.status !== 'cancelled')
+  const activeOrders = ordersData.filter(o => o.status === 'confirmed').length
+  const cancelledOrders = ordersData.filter(o => o.status === 'cancelled').length
+  const deliveryOrders = validOrders.filter(o => o.delivery_type === 'delivery')
+
+  // Ventas: lo que realmente entró (payments.total ya incluye descuentos y solo cuenta pedidos pagados)
+  const totalSales = todayPaymentsData.reduce((sum, p) => sum + Number(p.total), 0)
+
+  const productsSold = itemsData
+    .filter(item => item.status !== 'cancelled')
+    .reduce((sum, item) => sum + Number(item.quantity), 0)
+
+  return {
+    totalSales, totalOrders: validOrders.length, deliveryOrders: deliveryOrders.length,
+    averageTicket: todayPaymentsData.length > 0 ? totalSales / todayPaymentsData.length : 0,
+    productsSold, activeOrders, cancelledOrders,
+  }
+}
+
 // Ventas por día (últimos 14 días) — una serie, color de la marca, tooltip al pasar
 function DailySalesChart({ days }) {
   const [hover, setHover] = useState(null)
@@ -94,8 +211,6 @@ export default function ReportesPanel() {
   const [selectedMonth, setSelectedMonth] = useState(null)
   const [monthlyDetail, setMonthlyDetail] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [todayOrders, setTodayOrders] = useState([])
-  const [todayItems, setTodayItems] = useState([])
   const [orders, setOrders] = useState([])
   const [todayPaidOrders, setTodayPaidOrders] = useState([])
   const [expandedPayment, setExpandedPayment] = useState(null)
@@ -107,7 +222,21 @@ export default function ReportesPanel() {
     averageTicket: 0, productsSold: 0, activeOrders: 0, cancelledOrders: 0,
   })
 
-  useEffect(() => { fetchData(); fetchMonthlyReports(); fetchTodayPaymentsDetail() }, [])
+  const restaurantId = user?.restaurant_id
+  useEffect(() => {
+    let vivo = true
+    obtenerPagosHoy(restaurantId).then(data => { if (vivo) setTodayPaidOrders(data) })
+    obtenerMeses(restaurantId).then(meses => { if (vivo) setMonthlyReports(meses) })
+    obtenerResumen(restaurantId).then(r => {
+      if (!vivo) return
+      setOrders(r.orders)
+      setOrderItems(r.orderItems)
+      setProducts(r.products)
+      setStats(r.stats)
+      setLoading(false)
+    })
+    return () => { vivo = false }
+  }, [restaurantId])
 
   async function loadMonthDetail(report) {
     setSelectedMonth(report)
@@ -172,123 +301,6 @@ export default function ReportesPanel() {
       .neq('status', 'cancelled')
 
     setPaymentItems(prev => ({ ...prev, [payment.id]: data || [] }))
-  }
-
-  async function fetchTodayPaymentsDetail() {
-    const today = inicioJornada()
-
-    const { data } = await supabase
-      .from('payments')
-      .select('*, order:orders(started_at, customer_name, table:tables(number, is_delivery))')
-      .eq('restaurant_id', user.restaurant_id)
-      .eq('voided', false)
-      .gte('created_at', today.toISOString())
-      .order('created_at', { ascending: true })
-
-    setTodayPaidOrders(data || [])
-  }
-
-  async function fetchData() {
-    setLoading(true)
-    const todayISO = inicioJornada().toISOString()
-
-    const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-    const thirtyDaysAgoISO = thirtyDaysAgo.toISOString()
-
-    const todayOrdersData = await fetchAll(() => supabase
-      .from('orders').select('*')
-      .eq('restaurant_id', user.restaurant_id)
-      .gte('created_at', todayISO)
-      .order('created_at', { ascending: false }))
-
-    const allOrdersData = await fetchAll(() => supabase
-      .from('orders').select('*')
-      .eq('restaurant_id', user.restaurant_id)
-      .gte('created_at', thirtyDaysAgoISO)
-      .order('created_at', { ascending: false }))
-
-    // Ítems filtrados por join con orders (antes: .in() con todos los ids, que se
-    // rompe con muchos pedidos por el largo de la URL y el tope de 1.000 filas)
-    const itemsSince = iso => fetchAll(() => supabase
-      .from('order_items')
-      .select('*, product:products(*), orders!inner(restaurant_id, created_at)')
-      .eq('orders.restaurant_id', user.restaurant_id)
-      .gte('orders.created_at', iso)
-      .neq('status', 'cancelled')
-      .order('id'))
-    const todayItemsData = await itemsSince(todayISO)
-    const allItemsData = await itemsSince(thirtyDaysAgoISO)
-
-    const { data: productsData } = await supabase
-      .from('products').select('*')
-      .eq('restaurant_id', user.restaurant_id)
-
-    // Ventas de hoy: se leen directo de payments.total (ya incluye descuentos y
-    // solo cuenta lo que de verdad se cobró, no pedidos sin pagar)
-    const todayPaymentsData = await fetchAll(() => supabase
-      .from('payments').select('total')
-      .eq('restaurant_id', user.restaurant_id)
-      .eq('voided', false)
-      .gte('created_at', todayISO)
-      .order('created_at'))
-
-    setTodayOrders(todayOrdersData || [])
-    setTodayItems(todayItemsData || [])
-    setOrders(allOrdersData || [])
-    setOrderItems(allItemsData || [])
-    setProducts(productsData || [])
-    calculateStats(todayOrdersData || [], todayItemsData || [], todayPaymentsData || [])
-    setLoading(false)
-  }
-
-  async function fetchMonthlyReports() {
-    // Todos los pagos, paginados (antes se cortaba en silencio a 1.000 filas)
-    const paymentsData = await fetchAll(() => supabase
-      .from('payments')
-      .select('*, table:tables(number, is_delivery)')
-      .eq('restaurant_id', user.restaurant_id)
-      .eq('voided', false)
-      .order('created_at', { ascending: false }))
-
-    // Agrupar pagos por mes — payment.total ya es el monto real cobrado (con descuentos incluidos),
-    // no hace falta volver a consultar order_items para "recalcular" nada
-    const monthMap = {}
-    paymentsData.forEach(payment => {
-      const date = new Date(payment.created_at)
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-      if (!monthMap[key]) monthMap[key] = {
-        key, year: date.getFullYear(), month: date.getMonth(),
-        payments: [], total: 0, cash: 0, transfer: 0, deliveries: 0,
-      }
-      monthMap[key].payments.push(payment)
-      monthMap[key].total += Number(payment.total)
-      monthMap[key].cash += payment.cash || 0
-      monthMap[key].transfer += payment.transfer || 0
-      if (payment.is_delivery) monthMap[key].deliveries++
-    })
-
-    setMonthlyReports(Object.values(monthMap).sort((a, b) => b.key.localeCompare(a.key)))
-  }
-
-  function calculateStats(ordersData, itemsData, todayPaymentsData = []) {
-    const validOrders = ordersData.filter(o => o.status !== 'cancelled')
-    const activeOrders = ordersData.filter(o => o.status === 'confirmed').length
-    const cancelledOrders = ordersData.filter(o => o.status === 'cancelled').length
-    const deliveryOrders = validOrders.filter(o => o.delivery_type === 'delivery')
-
-    // Ventas: lo que realmente entró (payments.total ya incluye descuentos y solo cuenta pedidos pagados)
-    const totalSales = todayPaymentsData.reduce((sum, p) => sum + Number(p.total), 0)
-
-    const productsSold = itemsData
-      .filter(item => item.status !== 'cancelled')
-      .reduce((sum, item) => sum + Number(item.quantity), 0)
-
-    setStats({
-      totalSales, totalOrders: validOrders.length, deliveryOrders: deliveryOrders.length,
-      averageTicket: todayPaymentsData.length > 0 ? totalSales / todayPaymentsData.length : 0,
-      productsSold, activeOrders, cancelledOrders,
-    })
   }
 
   const topProducts = useMemo(() => {

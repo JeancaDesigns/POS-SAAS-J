@@ -12,7 +12,13 @@ export async function cacheOrders(orders, restaurantId) {
   if (orders.length === 0) return
 
   await db.cachedOrders.bulkPut(
-    orders.map(({ items, table, ...order }) => order)
+    // Se guardan sin las relaciones anidadas (items y mesa van en sus propias tablas)
+    orders.map(order => {
+      const plano = { ...order }
+      delete plano.items
+      delete plano.table
+      return plano
+    })
   )
 
   // Guardar items de cada pedido
@@ -86,29 +92,6 @@ export async function getCachedOrders(restaurantId, statuses) {
   }))
 }
 
-export async function addPendingOrderToCache(localOrder, localItems, tables, zones) {
-  // Construir el pedido con la misma estructura que Supabase
-  const table = tables.find(t => t.id === localOrder.table_id)
-  const zone = table ? zones.find(z => z.id === table.zone_id) : null
-
-  const fakeId = `local_${localOrder.id}`
-
-  await db.cachedOrders.put({
-    ...localOrder,
-    id: fakeId,
-  })
-
-  await db.cachedOrderItems.bulkPut(
-    localItems.map(item => ({
-      ...item,
-      id: `local_item_${item.id || Math.random()}`,
-      order_id: fakeId,
-    }))
-  )
-}
-// Al cerrar sesión: borrar datos cacheados (catálogo, pedidos, respuestas de la API)
-// para que el siguiente usuario del dispositivo no los vea. La cola pendiente
-// (pendingOrders / pendingOperations) se conserva para no perder ventas sin sincronizar.
 export async function clearLocalCache() {
   try {
     await Promise.all([

@@ -7,6 +7,8 @@ import { cacheOrders, getCachedOrders } from '../../db/cacheHelpers'
 import { buildWhatsappLink } from '../../utils/whatsapp'
 import { marcarListoYDescontar } from '../../utils/inventario'
 import { avisar } from '../../utils/dialogo'
+import { useAhora } from '../../hooks/useAhora'
+import { useRecarga } from '../../hooks/useRecarga'
 
 // Los cancelados se muestran a cocina solo durante 12 h (o hasta que los descarte)
 const CANCELLED_VISIBLE_MS = 12 * 60 * 60 * 1000
@@ -24,11 +26,11 @@ function playPing() {
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6)
     osc.start(ctx.currentTime)
     osc.stop(ctx.currentTime + 0.6)
-  } catch (e) { }
+  } catch { /* el navegador bloqueó el audio: la comanda igual aparece en pantalla */ }
 }
 
-function timeAgo(dateStr) {
-  const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000 / 60)
+function timeAgo(dateStr, ahora) {
+  const diff = Math.floor((ahora - new Date(dateStr)) / 1000 / 60)
   if (diff < 1) return 'Ahora'
   if (diff === 1) return '1 min'
   return `${diff} min`
@@ -41,8 +43,8 @@ function timeDuration(startStr, endStr) {
   return `${diff} min`
 }
 
-function isDelayed(dateStr) {
-  return (Date.now() - new Date(dateStr)) / 1000 / 60 > 60
+function isDelayed(dateStr, ahora) {
+  return (ahora - new Date(dateStr)) / 1000 / 60 > 60
 }
 
 function useCountdown(targetStr) {
@@ -75,9 +77,10 @@ function kitchenItemsOf(order) {
 // Tarjeta de comanda (vista de tablero)
 function ComandaCard({ order, onClick }) {
   const countdown = useCountdown(order.scheduled_for)
+  const ahora = useAhora()
   const isCancelled = order.status === 'cancelled'
-  const delayed = isDelayed(order.started_at)
-  const isScheduled = !!order.scheduled_for && new Date(order.scheduled_for) > Date.now()
+  const delayed = isDelayed(order.started_at, ahora)
+  const isScheduled = !!order.scheduled_for && new Date(order.scheduled_for) > ahora
   const items = kitchenItemsOf(order)
   const pending = items.filter(i => i.status !== 'done').length
 
@@ -104,7 +107,7 @@ function ComandaCard({ order, onClick }) {
             )}
           </div>
           <span className={`shrink-0 font-mono text-sm font-semibold tabular ${delayed && !isCancelled ? 'text-orange-700' : 'text-zinc-500'}`}>
-            {timeAgo(order.started_at)}
+            {timeAgo(order.started_at, ahora)}
           </span>
         </div>
 
@@ -159,8 +162,8 @@ export default function CocinaHome() {
   const isOnline = useOnlineStatus()
   const [readyToNotify, setReadyToNotify] = useState(null)
   const [busy, setBusy] = useState(false) // evita dobles toques mientras se guarda
-  // La suscripción en tiempo real guarda el fetchOrders del primer render: con un ref
-  // sabe qué comanda está abierta ahora (antes nunca sonaba el aviso de cambios)
+  // La carga (async) lee la comanda abierta desde un ref para comparar sus líneas
+  // con las anteriores y sonar el aviso de cambios
   const activeOrderIdRef = useRef(null)
   useEffect(() => { activeOrderIdRef.current = activeOrderId }, [activeOrderId])
 
@@ -177,104 +180,115 @@ export default function CocinaHome() {
     try { return JSON.parse(localStorage.getItem(dismissedKey) || '[]') } catch { return [] }
   })
 
-  async function fetchOrders() {
-    if (isOnline) {
-      const { data } = await supabase
-        .from('orders')
-        .select('*, table:tables(number, is_delivery, zone:zones(name)), items:order_items(*, product:products(name, category_id, variants, category:categories(name, icon)))')
-        .eq('restaurant_id', user.restaurant_id)
-        // Cancelados solo de las últimas 12 h: ya no se borran, así que sin este
-        // límite la consulta crecería para siempre
-        .or(`status.in.(confirmed,delivered),and(status.eq.cancelled,started_at.gte.${new Date(Date.now() - CANCELLED_VISIBLE_MS).toISOString()})`)
-        .order('started_at', { ascending: true })
-
-      const newOrders = data || []
-      await cacheOrders(newOrders, user.restaurant_id)
-
-      const currentId = activeOrderIdRef.current
-      if (currentId) {
-        const updated = newOrders.find(o => o.id === currentId)
-        if (updated) {
-          const currItems = JSON.stringify(
-            updated.items.map(i => ({ id: i.id, qty: i.quantity, status: i.status, note: i.note }))
-          )
-          const prevItems = prevItemsRef.current[currentId]
-          if (prevItems && prevItems !== currItems) {
-            playPing()
-            setFlashing(true)
-            setTimeout(() => setFlashing(false), 1500)
-          }
-          prevItemsRef.current[currentId] = currItems
-        }
-      }
-
-      setOrders(newOrders)
-
-    } else {
-      // Leer del cache + pedidos pendientes
-      const cached = await getCachedOrders(
-        user.restaurant_id,
-        ['confirmed', 'delivered', 'cancelled']
-      )
-
-      const pending = await db.pendingOrders
-        .where('restaurant_id').equals(user.restaurant_id).toArray()
-
-      const cachedProds = await db.cachedProducts
-        .where('restaurant_id').equals(user.restaurant_id).toArray()
-      const cachedTables = await db.cachedTables
-        .where('restaurant_id').equals(user.restaurant_id).toArray()
-      const cachedZones = await db.cachedZones
-        .where('restaurant_id').equals(user.restaurant_id).toArray()
-
-      const pendingFormatted = await Promise.all(pending.map(async p => {
-        const items = await db.pendingOrderItems
-          .where('local_order_id').equals(p.id).toArray()
-        const table = cachedTables.find(t => t.id === p.table_id)
-        const zone = table ? cachedZones.find(z => z.id === table.zone_id) : null
-
-        return {
-          ...p,
-          id: p.uuid || `local_${p.id}`,
-          items: items.map(i => {
-            const prod = cachedProds.find(pr => pr.id === i.product_id)
-            return {
-              ...i,
-              id: i.uuid || i.id,
-              product: {
-                name: prod?.name || '?',
-                price: prod?.price || 0,
-                category_id: prod?.category_id,
-                variants: prod?.variants || [],
-                category: { name: '', icon: '' }
-              }
-            }
-          }),
-          table: table ? {
-            number: table.number,
-            is_delivery: table.is_delivery,
-            zone: zone ? { name: zone.name } : null,
-          } : null,
-        }
-      }))
-
-      setOrders([...cached, ...pendingFormatted]
-        .sort((a, b) => new Date(a.started_at) - new Date(b.started_at))
-      )
-    }
-  }
+  const restaurantId = user.restaurant_id
+  const { tick, recargar } = useRecarga()
 
   useEffect(() => {
-    fetchOrders()
-    if (!isOnline) return
+    let vivo = true
+    async function fetchOrders() {
+      if (isOnline) {
+        const { data } = await supabase
+          .from('orders')
+          .select('*, table:tables(number, is_delivery, zone:zones(name)), items:order_items(*, product:products(name, category_id, variants, category:categories(name, icon)))')
+          .eq('restaurant_id', restaurantId)
+          // Cancelados solo de las últimas 12 h: ya no se borran, así que sin este
+          // límite la consulta crecería para siempre
+          .or(`status.in.(confirmed,delivered),and(status.eq.cancelled,started_at.gte.${new Date(Date.now() - CANCELLED_VISIBLE_MS).toISOString()})`)
+          .order('started_at', { ascending: true })
 
+        if (!vivo) return
+        const newOrders = data || []
+        await cacheOrders(newOrders, restaurantId)
+        if (!vivo) return
+
+        const currentId = activeOrderIdRef.current
+        if (currentId) {
+          const updated = newOrders.find(o => o.id === currentId)
+          if (updated) {
+            const currItems = JSON.stringify(
+              updated.items.map(i => ({ id: i.id, qty: i.quantity, status: i.status, note: i.note }))
+            )
+            const prevItems = prevItemsRef.current[currentId]
+            if (prevItems && prevItems !== currItems) {
+              playPing()
+              setFlashing(true)
+              setTimeout(() => setFlashing(false), 1500)
+            }
+            prevItemsRef.current[currentId] = currItems
+          }
+        }
+
+        setOrders(newOrders)
+
+      } else {
+        // Leer del cache + pedidos pendientes
+        const cached = await getCachedOrders(
+          restaurantId,
+          ['confirmed', 'delivered', 'cancelled']
+        )
+
+        const pending = await db.pendingOrders
+          .where('restaurant_id').equals(restaurantId).toArray()
+
+        const cachedProds = await db.cachedProducts
+          .where('restaurant_id').equals(restaurantId).toArray()
+        const cachedTables = await db.cachedTables
+          .where('restaurant_id').equals(restaurantId).toArray()
+        const cachedZones = await db.cachedZones
+          .where('restaurant_id').equals(restaurantId).toArray()
+
+        const pendingFormatted = await Promise.all(pending.map(async p => {
+          const items = await db.pendingOrderItems
+            .where('local_order_id').equals(p.id).toArray()
+          const table = cachedTables.find(t => t.id === p.table_id)
+          const zone = table ? cachedZones.find(z => z.id === table.zone_id) : null
+
+          return {
+            ...p,
+            id: p.uuid || `local_${p.id}`,
+            items: items.map(i => {
+              const prod = cachedProds.find(pr => pr.id === i.product_id)
+              return {
+                ...i,
+                id: i.uuid || i.id,
+                product: {
+                  name: prod?.name || '?',
+                  price: prod?.price || 0,
+                  category_id: prod?.category_id,
+                  variants: prod?.variants || [],
+                  category: { name: '', icon: '' }
+                }
+              }
+            }),
+            table: table ? {
+              number: table.number,
+              is_delivery: table.is_delivery,
+              zone: zone ? { name: zone.name } : null,
+            } : null,
+          }
+        }))
+
+        if (!vivo) return
+        setOrders([...cached, ...pendingFormatted]
+          .sort((a, b) => new Date(a.started_at) - new Date(b.started_at))
+        )
+      }
+    }
+
+    fetchOrders()
+    return () => { vivo = false }
+  }, [restaurantId, isOnline, tick])
+
+  // Tiempo real: cualquier cambio en pedidos o líneas pide una recarga
+  useEffect(() => {
+    if (!isOnline) return
     const channel = supabase
       .channel('kitchen-orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `restaurant_id=eq.${user.restaurant_id}` }, fetchOrders)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, fetchOrders)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `restaurant_id=eq.${restaurantId}` }, () => recargar())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => recargar())
       .subscribe()
     return () => supabase.removeChannel(channel)
-  }, [isOnline])
+  }, [restaurantId, isOnline, recargar])
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -311,10 +325,10 @@ export default function CocinaHome() {
           item.id === itemId ? { ...item, status: 'done' } : item
         )
       })))
-      return // No llamar fetchOrders porque no hay internet
+      return // Sin internet no se recarga del servidor
     }
 
-    fetchOrders()
+    recargar()
   }
 
   async function markOrderDone(order) {
@@ -363,7 +377,7 @@ export default function CocinaHome() {
     }
 
     setActiveOrderId(null)
-    fetchOrders()
+    recargar()
 
     if (order.source === 'online' && order.customer_phone) {
       setReadyToNotify(order)
@@ -393,10 +407,11 @@ export default function CocinaHome() {
     return `Mesa ${order.table?.number} — ${order.table?.zone?.name}`
   }
 
+  const ahora = useAhora()
   const activeOrders = orders.filter(o =>
     o.status === 'confirmed' ||
     (o.status === 'cancelled' && !dismissedIds.includes(o.id) &&
-      Date.now() - new Date(o.started_at) < CANCELLED_VISIBLE_MS))
+      ahora - new Date(o.started_at) < CANCELLED_VISIBLE_MS))
   const deliveredOrders = orders.filter(o => o.status === 'delivered')
 
   // ── Filtro por tipo (se recuerda en este dispositivo) ───────────────────────
@@ -547,7 +562,7 @@ export default function CocinaHome() {
       {activeOrderId && activeOrder && (() => {
         const isCancelled = activeOrder.status === 'cancelled'
         const kItems = kitchenItems(activeOrder)
-        const delayed = isDelayed(activeOrder.started_at)
+        const delayed = isDelayed(activeOrder.started_at, ahora)
 
         return (
           <div className={`flex-1 flex flex-col px-4 pb-6 transition-[filter] duration-150 ${flashing ? 'brightness-110' : ''}`}>
@@ -562,7 +577,7 @@ export default function CocinaHome() {
                       : `Mesa ${activeOrder.table?.number}`}
                   </h2>
                   <p className="text-base text-zinc-500 mt-1">
-                    {[activeOrder.table?.is_delivery ? activeOrder.customer_name : null, `hace ${timeAgo(activeOrder.started_at)}`].filter(Boolean).join(' · ')}
+                    {[activeOrder.table?.is_delivery ? activeOrder.customer_name : null, `hace ${timeAgo(activeOrder.started_at, ahora)}`].filter(Boolean).join(' · ')}
                   </p>
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {activeOrder.is_addition && (

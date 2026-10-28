@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import { avisar } from '../../utils/dialogo'
+import { useRecarga } from '../../hooks/useRecarga'
 
 export default function DevConfig() {
   const [checkingSession, setCheckingSession] = useState(true)
@@ -36,26 +37,34 @@ export default function DevConfig() {
   })
   const [logoFile, setLogoFile] = useState(null)
 
+  // Al abrir: si ya hay sesión de un dev, entra directo
   useEffect(() => {
+    let vivo = true
+    async function checkSession() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('*')
+          .eq('auth_user_id', session.user.id)
+          .single()
+        if (vivo && profile?.roles?.includes('dev')) setDevUser(profile)
+      }
+      if (vivo) setCheckingSession(false)
+    }
     checkSession()
+    return () => { vivo = false }
   }, [])
 
-  async function checkSession() {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) { setCheckingSession(false); return }
-
-    const { data: profile } = await supabase
-      .from('users')
-      .select('*')
-      .eq('auth_user_id', session.user.id)
-      .single()
-
-    if (profile?.roles?.includes('dev')) {
-      setDevUser(profile)
-      fetchRestaurants()
-    }
-    setCheckingSession(false)
-  }
+  // Lista de restaurantes (con sesión de dev); recargar() la vuelve a pedir tras cambios
+  const { tick, recargar } = useRecarga()
+  useEffect(() => {
+    if (!devUser) return
+    let vivo = true
+    supabase.from('restaurants').select('*').order('name')
+      .then(({ data }) => { if (vivo) setRestaurants(data || []) })
+    return () => { vivo = false }
+  }, [devUser, tick])
 
   async function handleLogin() {
     setLoggingIn(true)
@@ -82,14 +91,8 @@ export default function DevConfig() {
       return
     }
 
-    setDevUser(profile)
-    fetchRestaurants()
+    setDevUser(profile) // dispara la carga de restaurantes
     setLoggingIn(false)
-  }
-
-  async function fetchRestaurants() {
-    const { data } = await supabase.from('restaurants').select('*').order('name')
-    setRestaurants(data || [])
   }
 
   function updateForm(key, value) {
@@ -188,7 +191,7 @@ export default function DevConfig() {
     } catch (err) {
       setCreateError('Restaurante creado, pero falló crear el admin: ' + err.message)
       setCreating(false)
-      fetchRestaurants()
+      recargar()
       return
     }
 
@@ -201,7 +204,7 @@ export default function DevConfig() {
     setLogoFile(null)
     setShowCreateForm(false)
     setCreating(false)
-    fetchRestaurants()
+    recargar()
   }
 
   function openEdit(restaurant) {
@@ -228,7 +231,7 @@ export default function DevConfig() {
       .from('restaurants')
       .update({ active: !restaurant.active })
       .eq('id', restaurant.id)
-    fetchRestaurants()
+    recargar()
   }
 
   async function confirmDelete() {
@@ -239,7 +242,7 @@ export default function DevConfig() {
     }
     setDeleting(false)
     setDeleteTarget(null)
-    fetchRestaurants()
+    recargar()
   }
 
   async function handleUpdateRestaurant() {
@@ -307,7 +310,7 @@ export default function DevConfig() {
     setEditingId(null)
     setShowCreateForm(false)
     setCreating(false)
-    fetchRestaurants()
+    recargar()
   }
 
   const inputClass = `

@@ -6,37 +6,36 @@ export function useDeliveryCount(restaurantId) {
   const [count, setCount] = useState(0)
   const isOnline = useOnlineStatus()
 
-  async function fetchCount() {
-    if (!isOnline) return // ← guard
-    const now = new Date()
-    const day = now.getDay()
-    const daysFromWednesday = (day + 4) % 7
-    const lastWednesday = new Date(now)
-    lastWednesday.setDate(now.getDate() - daysFromWednesday)
-    lastWednesday.setHours(0, 0, 0, 0)
-
-    const { data } = await supabase
-      .from('payments')
-      .select('id')
-      .eq('restaurant_id', restaurantId)
-      .eq('is_delivery', true)
-      .eq('voided', false)
-      .gte('created_at', lastWednesday.toISOString())
-
-    setCount(data?.length || 0)
-  }
-
   useEffect(() => {
-    if (!restaurantId) return
-    fetchCount()
-    if (!isOnline) return // ← no suscribirse sin internet
+    if (!restaurantId || !isOnline) return // sin internet no se consulta ni se suscribe
+    let vivo = true
 
+    async function fetchCount() {
+      // Domicilios desde el último miércoles
+      const now = new Date()
+      const daysFromWednesday = (now.getDay() + 4) % 7
+      const lastWednesday = new Date(now)
+      lastWednesday.setDate(now.getDate() - daysFromWednesday)
+      lastWednesday.setHours(0, 0, 0, 0)
+
+      const { data } = await supabase
+        .from('payments')
+        .select('id')
+        .eq('restaurant_id', restaurantId)
+        .eq('is_delivery', true)
+        .eq('voided', false)
+        .gte('created_at', lastWednesday.toISOString())
+
+      if (vivo) setCount(data?.length || 0)
+    }
+
+    fetchCount()
     const channel = supabase
       .channel('delivery-count')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, fetchCount)
       .subscribe()
 
-    return () => supabase.removeChannel(channel)
+    return () => { vivo = false; supabase.removeChannel(channel) }
   }, [restaurantId, isOnline])
 
   return { count }

@@ -6,6 +6,7 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import { Phone, MessageCircle, Navigation, Map as MapIcon, Check, Banknote } from 'lucide-react'
 import { orderTotal } from '../../utils/totales'
 import L from 'leaflet'
+import { useRecarga } from '../../hooks/useRecarga'
 
 const deliveryIcon = new L.Icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -35,22 +36,28 @@ export default function DomiciliarioHome() {
   const [activeTab, setActiveTab] = useState(null) // null = automática según si está en ruta
   const [openMap, setOpenMap] = useState(null)
 
-  useEffect(() => { checkTurno() }, [])
-  useEffect(() => { tandaRef.current = tanda }, [tanda])
+  const restaurantId = user.restaurant_id
+  const userId = user.id
 
-  async function checkTurno() {
-    const { data } = await supabase
+  // ¿Ya tiene un turno abierto?
+  useEffect(() => {
+    let vivo = true
+    supabase
       .from('active_shifts')
       .select('*')
-      .eq('restaurant_id', user.restaurant_id)
-      .eq('user_id', user.id)
+      .eq('restaurant_id', restaurantId)
+      .eq('user_id', userId)
       .eq('active', true)
       .limit(1)
-    if (data && data.length > 0) {
-      setTurnoActivo(true)
-      setTurnoId(data[0].id)
-    }
-  }
+      .then(({ data }) => {
+        if (vivo && data && data.length > 0) {
+          setTurnoActivo(true)
+          setTurnoId(data[0].id)
+        }
+      })
+    return () => { vivo = false }
+  }, [restaurantId, userId])
+  useEffect(() => { tandaRef.current = tanda }, [tanda])
 
   async function iniciarTurno() {
     const { data } = await supabase
@@ -67,57 +74,67 @@ export default function DomiciliarioHome() {
     setTurnoId(null)
   }
 
-  async function fetchData() {
-    const { data: restaurant } = await supabase
-      .from('restaurants')
-      .select('delivery_fee')
-      .eq('id', user.restaurant_id)
-      .single()
-    if (restaurant) setDeliveryFee(restaurant.delivery_fee ?? 0)
-
-    const { data } = await supabase
-      .from('orders')
-      .select(`*, table:tables(number, is_delivery), items:order_items(*, product:products(name, price))`)
-      .eq('restaurant_id', user.restaurant_id)
-      .eq('delivery_type', 'delivery')
-      .in('status', ['inDelivery', 'dispatched'])
-      .order('started_at', { ascending: true })
-
-    const now = Date.now()
-    const filtered = (data || []).filter(o => {
-      if (!o.table?.is_delivery) return false
-      if (o.status === 'dispatched') {
-        return (now - new Date(o.delivered_at)) / 1000 / 3600 < 12
-      }
-      return true
-    })
-
-    setOrders(filtered)
-
-    const existingIds = filtered.map(o => o.id)
-    const currentTanda = tandaRef.current
-    const cleanTanda = currentTanda.filter(id => existingIds.includes(id))
-    if (cleanTanda.length !== currentTanda.length) {
-      tandaRef.current = cleanTanda
-      setTanda(cleanTanda)
-      localStorage.setItem(`tanda-${user.restaurant_id}`, JSON.stringify(cleanTanda))
-      if (cleanTanda.length === 0) {
-        setEnRuta(false)
-        localStorage.setItem(`enRuta-${user.restaurant_id}`, 'false')
-      }
-    }
-    setLoading(false)
-  }
+  const { tick, recargar } = useRecarga()
 
   useEffect(() => {
+    let vivo = true
+    async function fetchData() {
+      const { data: restaurant } = await supabase
+        .from('restaurants')
+        .select('delivery_fee')
+        .eq('id', restaurantId)
+        .single()
+      if (!vivo) return
+      if (restaurant) setDeliveryFee(restaurant.delivery_fee ?? 0)
+
+      const { data } = await supabase
+        .from('orders')
+        .select(`*, table:tables(number, is_delivery), items:order_items(*, product:products(name, price))`)
+        .eq('restaurant_id', restaurantId)
+        .eq('delivery_type', 'delivery')
+        .in('status', ['inDelivery', 'dispatched'])
+        .order('started_at', { ascending: true })
+
+      if (!vivo) return
+      const now = Date.now()
+      const filtered = (data || []).filter(o => {
+        if (!o.table?.is_delivery) return false
+        if (o.status === 'dispatched') {
+          return (now - new Date(o.delivered_at)) / 1000 / 3600 < 12
+        }
+        return true
+      })
+
+      setOrders(filtered)
+
+      const existingIds = filtered.map(o => o.id)
+      const currentTanda = tandaRef.current
+      const cleanTanda = currentTanda.filter(id => existingIds.includes(id))
+      if (cleanTanda.length !== currentTanda.length) {
+        tandaRef.current = cleanTanda
+        setTanda(cleanTanda)
+        localStorage.setItem(`tanda-${restaurantId}`, JSON.stringify(cleanTanda))
+        if (cleanTanda.length === 0) {
+          setEnRuta(false)
+          localStorage.setItem(`enRuta-${restaurantId}`, 'false')
+        }
+      }
+      setLoading(false)
+    }
+
     fetchData()
+    return () => { vivo = false }
+  }, [restaurantId, tick])
+
+  // Tiempo real: cambios en pedidos o líneas piden una recarga
+  useEffect(() => {
     const channel = supabase
       .channel('domiciliario-orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `restaurant_id=eq.${user.restaurant_id}` }, fetchData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `restaurant_id=eq.${restaurantId}` }, () => recargar())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => recargar())
       .subscribe()
     return () => supabase.removeChannel(channel)
-  }, [])
+  }, [restaurantId, recargar])
 
   function toggleTanda(orderId) {
     setTanda(prev => {
@@ -149,7 +166,7 @@ export default function DomiciliarioHome() {
       setEnRuta(false)
       localStorage.setItem(`enRuta-${user.restaurant_id}`, 'false')
     }
-    fetchData()
+    recargar()
   }
 
   // Mismo cálculo que Caja: con descuentos y el valor real del domicilio (puede ser $0)

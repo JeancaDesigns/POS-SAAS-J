@@ -132,7 +132,7 @@ export default function App() {
 
   useEffect(() => {
     init()
-  }, [])
+  }, [init]) // init es una acción del store: no cambia
 
   useSyncQueue()
 

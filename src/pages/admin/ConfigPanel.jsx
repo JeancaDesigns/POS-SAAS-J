@@ -29,14 +29,16 @@ export default function ConfigPanel() {
     bre_b_key: '',
   })
 
+  const restaurantId = user?.restaurant_id
   useEffect(() => {
+    let vivo = true
     async function fetch() {
       const { data } = await supabase
         .from('restaurants')
         .select('*')
-        .eq('id', user.restaurant_id)
+        .eq('id', restaurantId)
         .single()
-      if (data) setForm({
+      if (vivo && data) setForm({
         name: data.name || '',
         opening_time: data.opening_time || '',
         closing_time: data.closing_time || '',
@@ -47,7 +49,8 @@ export default function ConfigPanel() {
       })
     }
     fetch()
-  }, [])
+    return () => { vivo = false }
+  }, [restaurantId])
 
   const [saveError, setSaveError] = useState('')
 

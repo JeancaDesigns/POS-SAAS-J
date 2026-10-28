@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/authStore'
 import { Plus, Pencil, Trash2, X, Bike } from 'lucide-react'
 import { avisar } from '../../utils/dialogo'
 import Selector from '../../components/Selector'
+import { useRecarga } from '../../hooks/useRecarga'
 
 
 export default function MesasPanel() {
@@ -20,19 +21,27 @@ export default function MesasPanel() {
   const [error, setError] = useState('')
   const [activeZone, setActiveZone] = useState(null)
 
-  async function fetchData() {
-    const { data: zonesData } = await supabase
-      .from('zones').select('*')
-      .eq('restaurant_id', user.restaurant_id).order('name')
-    const { data: tablesData } = await supabase
-      .from('tables').select('*')
-      .eq('restaurant_id', user.restaurant_id).order('number')
-    setZones(zonesData || [])
-    setTables(tablesData || [])
-    if (!activeZone && zonesData?.length > 0) setActiveZone(zonesData[0].id)
-  }
+  const restaurantId = user?.restaurant_id
+  const { tick, recargar } = useRecarga()
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => {
+    let vivo = true
+    async function fetchData() {
+      const { data: zonesData } = await supabase
+        .from('zones').select('*')
+        .eq('restaurant_id', restaurantId).order('name')
+      const { data: tablesData } = await supabase
+        .from('tables').select('*')
+        .eq('restaurant_id', restaurantId).order('number')
+      if (!vivo) return
+      setZones(zonesData || [])
+      setTables(tablesData || [])
+      // Primera zona por defecto, sin pisar la que el usuario ya eligió
+      setActiveZone(actual => actual ?? zonesData?.[0]?.id ?? null)
+    }
+    fetchData()
+    return () => { vivo = false }
+  }, [restaurantId, tick])
 
   function openNewZone() {
     setEditZone(null); setZoneForm({ name: '' }); setError(''); setShowZoneForm(true)
@@ -62,7 +71,7 @@ export default function MesasPanel() {
       : await supabase.from('zones').insert({ restaurant_id: user.restaurant_id, name: zoneForm.name })
     setSaving(false)
     if (saveError) { setError('No se pudo guardar: ' + saveError.message); return }
-    setShowZoneForm(false); fetchData()
+    setShowZoneForm(false); recargar()
   }
 
   async function saveTable() {
@@ -93,7 +102,7 @@ export default function MesasPanel() {
     }
     setSaving(false)
     if (saveError) { setError('No se pudo guardar: ' + saveError.message); return }
-    setShowTableForm(false); fetchData()
+    setShowTableForm(false); recargar()
   }
 
   async function deleteZone(zone) {
@@ -105,7 +114,7 @@ export default function MesasPanel() {
     if (delError) { avisar('No se pudo eliminar la zona: ' + delError.message); return }
     // Si era la zona seleccionada, pasar a otra (antes la vista quedaba vacía)
     if (activeZone === zone.id) setActiveZone(zones.find(z => z.id !== zone.id)?.id || null)
-    fetchData()
+    recargar()
   }
 
   async function deleteTable(table) {
@@ -120,7 +129,7 @@ export default function MesasPanel() {
         : 'No se pudo eliminar la mesa: ' + delError.message)
       return
     }
-    fetchData()
+    recargar()
   }
 
   const zoneTables = tables.filter(t => t.zone_id === activeZone)

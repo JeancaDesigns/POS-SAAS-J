@@ -17,21 +17,23 @@ export default function DebtPanel({ onClose }) {
   const [procesando, setProcesando] = useState(false)
   const [query, setQuery] = useState('')
 
-  useEffect(() => {
-    fetchDebtors()
-  }, [])
+  const restaurantId = user?.restaurant_id
 
-  async function fetchDebtors() {
-    setLoading(true)
-    const { data } = await supabase
+  useEffect(() => {
+    let vivo = true
+    supabase
       .from('debtors')
       .select('*')
-      .eq('restaurant_id', user.restaurant_id)
+      .eq('restaurant_id', restaurantId)
       .gt('total_debt', 0)
       .order('total_debt', { ascending: false })
-    setDebtors(data || [])
-    setLoading(false)
-  }
+      .then(({ data }) => {
+        if (!vivo) return
+        setDebtors(data || [])
+        setLoading(false)
+      })
+    return () => { vivo = false }
+  }, [restaurantId])
 
   async function fetchMovements(debtor) {
     setSelectedDebtor(debtor)
