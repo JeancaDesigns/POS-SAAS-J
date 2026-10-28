@@ -21,6 +21,15 @@ El 2026-10-16 revisé la base de producción y ajusté estos archivos a lo que e
 - **No** se agregó trigger de inventario: la cocina sigue descontando desde la app, pero ahora solo
   una vez por línea.
 
+**0700 (2026-10-28, rama `tarea/pedido-publico`): APLICADA en producción.**
+- Columnas nuevas: `restaurants.whatsapp`, `restaurants.address`, `orders.tip_amount` (0–2000, no es venta),
+  `orders.transfer_amount` (parte por transferencia del pago mixto), `orders.customer_note`.
+- `_crear_pedido_publico_base`: WhatsApp obligatorio de 10 dígitos, dirección obligatoria en domicilio,
+  total recalculado con precios reales, valida efectivo / transferencia / mixto y propina ≤ $2.000,
+  máximo 3 pedidos activos por teléfono, mesa de domicilio fija (la de número más bajo).
+- `estado_pedido_publico` devuelve también `delivery_type`.
+- Probada antes con rollback: 1 pedido válido en efectivo con propina, 1 mixto, y 6 rechazos esperados.
+
 ## Qué encontré en producción
 - `users` tiene **RLS desactivado** y una política `INSERT with check (true)` para cualquiera.
 - La función `change-password` publicada **no verifica quién llama**: cualquiera con la llave
