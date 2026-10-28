@@ -11,6 +11,7 @@ import { useAhora } from '../../hooks/useAhora'
 import { useRecarga } from '../../hooks/useRecarga'
 import { imprimirHTML } from '../../utils/imprimir'
 import { comanda } from '../../utils/tickets'
+import { esWeb, etiquetaPedido } from '../../utils/pedidoWeb'
 
 // Los cancelados se muestran a cocina solo durante 12 h (o hasta que los descarte)
 const CANCELLED_VISIBLE_MS = 12 * 60 * 60 * 1000
@@ -102,7 +103,7 @@ function ComandaCard({ order, onClick }) {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-lg font-extrabold tracking-tight text-zinc-900 truncate">
-              {order.table?.is_delivery ? `Domicilio ${order.table.number}` : `Mesa ${order.table?.number}`}
+              {etiquetaPedido(order)}
             </p>
             {order.table?.is_delivery && order.customer_name && (
               <p className="text-sm text-zinc-500 truncate">{order.customer_name}</p>
@@ -404,6 +405,7 @@ export default function CocinaHome() {
   }
 
   function tableName(order) {
+    if (esWeb(order)) return `${etiquetaPedido(order)}${order.customer_name ? ` — ${order.customer_name}` : ''}`
     if (order.table?.is_delivery)
       return `Domicilio ${order.table.number}${order.customer_name ? ` — ${order.customer_name}` : ''}`
     return `Mesa ${order.table?.number} — ${order.table?.zone?.name}`
@@ -574,9 +576,7 @@ export default function CocinaHome() {
               <div className="p-5 flex items-start justify-between gap-4 border-b border-zinc-200">
                 <div className="min-w-0">
                   <h2 className="text-3xl font-extrabold tracking-tight text-zinc-900">
-                    {activeOrder.table?.is_delivery
-                      ? `Domicilio ${activeOrder.table.number}`
-                      : `Mesa ${activeOrder.table?.number}`}
+                    {etiquetaPedido(activeOrder)}
                   </h2>
                   <p className="text-base text-zinc-500 mt-1">
                     {[activeOrder.table?.is_delivery ? activeOrder.customer_name : null, `hace ${timeAgo(activeOrder.started_at, ahora)}`].filter(Boolean).join(' · ')}
@@ -588,7 +588,13 @@ export default function CocinaHome() {
                     {delayed && !isCancelled && (
                       <span className="h-7 px-2.5 inline-flex items-center rounded-full text-xs font-bold bg-orange-50 text-orange-700 border border-orange-200">Más de 1 hora esperando</span>
                     )}
+                    {esWeb(activeOrder) && activeOrder.delivery_type === 'pickup' && (
+                      <span className="h-7 px-2.5 inline-flex items-center rounded-full text-xs font-bold bg-zinc-100 text-zinc-700 border border-zinc-200">Para recoger</span>
+                    )}
                   </div>
+                  {activeOrder.customer_note && (
+                    <p className="mt-2 text-base font-semibold text-orange-700">Indicaciones: {activeOrder.customer_note}</p>
+                  )}
                 </div>
                 <div className="shrink-0 flex flex-col sm:flex-row gap-2">
                   {!isCancelled && (

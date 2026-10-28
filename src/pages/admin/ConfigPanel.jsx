@@ -27,6 +27,8 @@ export default function ConfigPanel() {
     theme: 'purple',
     nequi_number: '',
     bre_b_key: '',
+    whatsapp: '',
+    address: '',
   })
 
   const restaurantId = user?.restaurant_id
@@ -42,10 +44,12 @@ export default function ConfigPanel() {
         name: data.name || '',
         opening_time: data.opening_time || '',
         closing_time: data.closing_time || '',
-        delivery_fee: String(data.delivery_fee || 1000),
+        delivery_fee: String(data.delivery_fee ?? 1000),
         theme: data.theme || 'purple',
         nequi_number: data.nequi_number || '',
         bre_b_key: data.bre_b_key || '',
+        whatsapp: data.whatsapp || '',
+        address: data.address || '',
       })
     }
     fetch()
@@ -63,10 +67,13 @@ export default function ConfigPanel() {
         name: form.name,
         opening_time: form.opening_time || null,
         closing_time: form.closing_time || null,
-        delivery_fee: parseInt(form.delivery_fee) || 1000,
+        // 0 es válido (domicilio gratis): solo se usa 1000 si el campo está vacío
+        delivery_fee: Number.isFinite(parseInt(form.delivery_fee)) ? Math.max(0, parseInt(form.delivery_fee)) : 1000,
         theme: form.theme,
         nequi_number: form.nequi_number.trim() || null,
         bre_b_key: form.bre_b_key.trim() || null,
+        whatsapp: form.whatsapp.replace(/\D/g, '') || null,
+        address: form.address.trim() || null,
       })
       .eq('id', user.restaurant_id)
       .select('id')
@@ -103,7 +110,18 @@ export default function ConfigPanel() {
         </div>
       </Section>
 
-      <Section title="Domicilios" desc="Se suma al total de cada pedido a domicilio.">
+      <Section title="Contacto en la página de pedidos" desc="El cliente ve la dirección si elige recoger, y el WhatsApp para enviar el comprobante de transferencia o escribir.">
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-bold text-zinc-700">WhatsApp del restaurante</span>
+          <input type="tel" inputMode="tel" value={form.whatsapp} onChange={set('whatsapp')} placeholder="Ej: 3001234567" className={`${field} font-mono`} />
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-bold text-zinc-700">Dirección del local</span>
+          <input value={form.address} onChange={set('address')} placeholder="Ej: Calle 10 # 5-23, barrio Centro" className={field} />
+        </label>
+      </Section>
+
+      <Section title="Domicilios" desc="Se suma al total de cada pedido a domicilio. Pon 0 si es gratis.">
         <label className="flex flex-col gap-1.5 max-w-xs">
           <span className="text-sm font-bold text-zinc-700">Costo del domicilio (COP)</span>
           <input type="number" inputMode="numeric" value={form.delivery_fee} onChange={set('delivery_fee')} className={`${field} font-mono`} />
