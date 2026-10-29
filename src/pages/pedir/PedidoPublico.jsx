@@ -64,6 +64,10 @@ const markerIcon = new L.Icon({
   iconAnchor: [12, 41],
 })
 
+// Centro del mapa si el cliente no comparte ubicación: Río de Oro, Cesar
+const CENTRO_PUEBLO = [8.2917, -73.3867]
+const DIRECCION_MAPA = 'Ubicación marcada en el mapa'
+
 function LocationPicker({ selectedLocation, setSelectedLocation }) {
   useMapEvents({ click(e) { setSelectedLocation({ lat: e.latlng.lat, lng: e.latlng.lng }) } })
   if (!selectedLocation) return null
@@ -356,7 +360,7 @@ export default function PedidoPublico() {
   const errores = {}
   if (!customerName.trim()) errores.name = 'Escribe tu nombre'
   if (telefonoNormalizado(customerPhone).length !== 10) errores.phone = 'Escribe un WhatsApp de 10 dígitos'
-  if (esDomicilio && !deliveryAddress.trim()) errores.address = 'Escribe la dirección de entrega'
+  if (esDomicilio && !deliveryAddress.trim()) errores.address = 'Escribe la dirección o usa tu ubicación actual'
   if (esDomicilio && paymentMethod === 'mixed' && (parteTransfer <= 0 || parteTransfer >= aPagar)) {
     errores.transfer = `La transferencia debe ser entre $1 y ${money(aPagar - 1)}`
   }
@@ -365,10 +369,17 @@ export default function PedidoPublico() {
   }
   const hayErrores = Object.keys(errores).length > 0
 
+  // En el pueblo casi nadie sabe su dirección: si marca el punto en el mapa, la dirección
+  // se llena sola y el domiciliario se guía por el mapa y la referencia.
+  function marcarUbicacion(location) {
+    setSelectedLocation(location)
+    setDeliveryAddress(actual => (actual.trim() === '' ? DIRECCION_MAPA : actual))
+  }
+
   function getCurrentLocation() {
     if (!navigator.geolocation) { avisar('Tu celular no permite compartir la ubicación'); return }
     navigator.geolocation.getCurrentPosition(
-      pos => setSelectedLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      pos => marcarUbicacion({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
       () => avisar('No pudimos obtener tu ubicación. Revisa que el permiso de ubicación esté activo.'),
       { enableHighAccuracy: true, timeout: 10000 }
     )
@@ -643,7 +654,7 @@ export default function PedidoPublico() {
               <>
                 <label className="flex flex-col gap-1.5">
                   <span className="text-sm font-bold text-zinc-700">Dirección</span>
-                  <input value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} autoComplete="street-address" placeholder="Ej: Calle 10 # 5-23, barrio Centro" maxLength={200} className={inputClass} />
+                  <input value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} autoComplete="street-address" placeholder="Ej: Calle 10 # 5-23, o usa tu ubicación actual" maxLength={200} className={inputClass} />
                   {errorDe('address')}
                 </label>
                 <label className="flex flex-col gap-1.5">
@@ -662,13 +673,13 @@ export default function PedidoPublico() {
                       {selectedLocation ? 'Toca el mapa para corregir el punto' : 'O toca el mapa en tu casa'}
                     </div>
                     <MapContainer
-                      center={selectedLocation ? [selectedLocation.lat, selectedLocation.lng] : [4.6097, -74.0817]}
-                      zoom={selectedLocation ? 16 : 12}
+                      center={selectedLocation ? [selectedLocation.lat, selectedLocation.lng] : CENTRO_PUEBLO}
+                      zoom={selectedLocation ? 16 : 15}
                       scrollWheelZoom={false}
                       style={{ height: '240px', width: '100%' }}
                     >
                       <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                      <LocationPicker selectedLocation={selectedLocation} setSelectedLocation={setSelectedLocation} />
+                      <LocationPicker selectedLocation={selectedLocation} setSelectedLocation={marcarUbicacion} />
                       <CentrarMapa location={selectedLocation} />
                     </MapContainer>
                   </div>
