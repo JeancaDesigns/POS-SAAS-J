@@ -82,7 +82,7 @@ export async function imprimirHTML(html) {
 }
 
 // Preguntar o no según la preferencia del equipo ('siempre' | 'nunca' | 'preguntar')
-export async function debeImprimir(preferencia, preguntar) {
+async function debeImprimir(preferencia, preguntar) {
   if (preferencia === 'siempre') return true
   if (preferencia === 'nunca') return false
   return preguntar()
