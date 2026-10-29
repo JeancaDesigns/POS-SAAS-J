@@ -17,6 +17,7 @@ import StatusDrawer from './components/StatusDrawer'
 import DialogoHost from './components/Dialogo'
 import 'leaflet/dist/leaflet.css'
 import { useSyncQueue } from './hooks/useSyncQueue'
+import { useEstacionImpresion } from './hooks/useEstacionImpresion'
 import DevConfig from './pages/dev/DevConfig'
 
 // ── SlugGuard ────────────────────────────────────────────────────────────────
@@ -123,11 +124,14 @@ export default function App() {
     navigate('/')
   }, [navigate])
 
-  // La pantalla de cocina suele estar fija y sin tocar: si se cierra la sesión dejan
-  // de llegar las comandas. Por eso no aplica el cierre por inactividad allí.
+  // Comandas impresas solas en el equipo que sea estación de impresión (Caja)
+  const esEstacionImpresion = useEstacionImpresion(user && !isPublicRoute ? user.restaurant_id : null)
+
+  // La pantalla de cocina y la estación de impresión suelen estar fijas y sin tocar: si se
+  // cierra la sesión dejan de llegar (o de imprimirse) las comandas. Allí no aplica el cierre por inactividad.
   const isKitchenScreen = location.pathname.endsWith('/cocina')
   const { showWarning, countdown, cancelLogout } = useInactivityTimer(
-    user && !isPublicRoute && !isKitchenScreen ? handleInactivityLogout : null
+    user && !isPublicRoute && !isKitchenScreen && !esEstacionImpresion ? handleInactivityLogout : null
   )
 
   useEffect(() => {
