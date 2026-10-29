@@ -29,6 +29,8 @@ export default function ConfigPanel() {
     bre_b_key: '',
     whatsapp: '',
     address: '',
+    instagram: '',
+    ticket_message: '',
   })
 
   const restaurantId = user?.restaurant_id
@@ -50,6 +52,8 @@ export default function ConfigPanel() {
         bre_b_key: data.bre_b_key || '',
         whatsapp: data.whatsapp || '',
         address: data.address || '',
+        instagram: data.instagram || '',
+        ticket_message: data.ticket_message || '',
       })
     }
     fetch()
@@ -74,6 +78,8 @@ export default function ConfigPanel() {
         bre_b_key: form.bre_b_key.trim() || null,
         whatsapp: form.whatsapp.replace(/\D/g, '') || null,
         address: form.address.trim() || null,
+        instagram: form.instagram.trim().replace(/^@/, '') || null,
+        ticket_message: form.ticket_message.trim() || null,
       })
       .eq('id', user.restaurant_id)
       .select('id')
@@ -118,6 +124,17 @@ export default function ConfigPanel() {
         <label className="flex flex-col gap-1.5">
           <span className="text-sm font-bold text-zinc-700">Dirección del local</span>
           <input value={form.address} onChange={set('address')} placeholder="Ej: Calle 10 # 5-23, barrio Centro" className={field} />
+        </label>
+      </Section>
+
+      <Section title="Ticket impreso" desc="Arriba del comprobante y la pre-cuenta salen el WhatsApp y la red social; abajo, el mensaje. Los cambios se ven al volver a iniciar sesión.">
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-bold text-zinc-700">Instagram <span className="font-normal text-zinc-500">(opcional)</span></span>
+          <input value={form.instagram} onChange={set('instagram')} placeholder="Ej: benditaspapas" maxLength={40} className={field} />
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-bold text-zinc-700">Mensaje al pie <span className="font-normal text-zinc-500">(opcional)</span></span>
+          <input value={form.ticket_message} onChange={set('ticket_message')} placeholder="¡Gracias por su compra!" maxLength={80} className={field} />
         </label>
       </Section>
 

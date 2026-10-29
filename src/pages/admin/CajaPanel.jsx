@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabaseClient'
-import { useAuthStore } from '../../store/authStore'
+import { useAuthStore, restauranteTicket } from '../../store/authStore'
 import { avisar, confirmar } from '../../utils/dialogo'
 import { useRecarga } from '../../hooks/useRecarga'
 import { ofrecerImpresion } from '../../utils/imprimir'
@@ -132,9 +132,8 @@ export default function CajaPanel() {
     if (error) { console.error(error); avisar(error.message); return }
 
     // Resumen del turno para imprimir (se arma antes de limpiar el estado)
-    const { restaurantName } = useAuthStore.getState()
     const resumen = cierreCaja({
-      restaurante: { nombre: restaurantName },
+      restaurante: restauranteTicket(),
       cerro: user?.name,
       r: {
         abiertaEn: cashRegister.created_at, cerradaEn: new Date(),

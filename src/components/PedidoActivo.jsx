@@ -4,7 +4,7 @@ import { useActiveOrder } from '../hooks/useActiveOrder'
 import { useProducts } from '../hooks/useProducts'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import { supabase } from '../supabaseClient'
-import { useAuthStore } from '../store/authStore'
+import { useAuthStore, restauranteTicket } from '../store/authStore'
 import { useCartPersistence } from '../hooks/useCartPersistence'
 import { precioUnitario } from '../utils/precio'
 import ProductPicker, { VariantSheet } from './ProductPicker'
@@ -226,7 +226,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
   function imprimir(tipo) {
     setShowImprimir(false)
     if (!order) return
-    const restaurante = { nombre: useAuthStore.getState().restaurantName }
+    const restaurante = restauranteTicket()
     const conLineas = { ...order, table, items }
     if (tipo === 'comanda') { imprimirHTML(comanda({ order: conLineas })); return }
     // Valor del domicilio guardado por Caja en este equipo (para la pre-cuenta de domicilios)

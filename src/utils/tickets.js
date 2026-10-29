@@ -37,9 +37,33 @@ function numeroPedido(order) {
   return order.order_number ? `Pedido #${String(order.order_number).padStart(3, '0')}` : ''
 }
 
-// Sin logo: los logos con fondo transparente y colores claros salen en blanco en la térmica
-function encabezado({ nombre }) {
-  return `<div class="t-centro"><div class="t-titulo">${esc(nombre || 'Restaurante')}</div></div>`
+// Logo de quien hizo el sistema (public/logotipo.png)
+const LOGO_JEANCA = '/logotipo.png'
+
+// Los logos van con data-termico: antes de imprimir se pasan a negro puro y se les
+// recortan los bordes vacíos (src/utils/logoTermico.js).
+// data-respaldo: texto que se imprime si el logo no se puede cargar
+const logo = (url, clase, respaldo = '') => `<img class="${clase}" data-termico data-respaldo="${esc(respaldo)}" src="${esc(url)}" alt="">`
+
+// Encabezado: [logo del restaurante] × [logo Jeanca Designs], y debajo el contacto.
+// Sin logo del restaurante se escribe el nombre.
+function encabezado({ nombre, logoUrl, whatsapp, instagram }) {
+  const telefono = whatsapp ? String(whatsapp).replace(/^(\d{3})(\d{3})(\d{4})$/, '$1 $2 $3') : ''
+  const red = instagram ? `@${String(instagram).replace(/^@/, '')}` : ''
+  const contacto = [telefono && `WhatsApp ${esc(telefono)}`, red && esc(red)].filter(Boolean).join(' · ')
+  return `<div class="t-centro">
+    ${logoUrl
+      ? `<div class="t-logos">${logo(logoUrl, 't-logo', nombre || 'Restaurante')}<span class="t-por">×</span>${logo(LOGO_JEANCA, 't-logo-sistema')}</div>`
+      : `<div class="t-titulo">${esc(nombre || 'Restaurante')}</div>`}
+    ${contacto ? `<div class="t-pequeno">${contacto}</div>` : ''}
+  </div>`
+}
+
+// Pie del comprobante y la pre-cuenta
+function pie(restaurante, aviso) {
+  return `<div class="t-centro t-pequeno">${aviso}</div>
+    <div class="t-centro t-mensaje">${esc(restaurante.mensaje || '¡Gracias por su compra!')}</div>
+    <div class="t-centro t-firma-sistema">Sistema POS por Jeanca Designs</div>`
 }
 
 const itemsDe = order => (order.items || order.order_items || []).filter(i => i.status !== 'cancelled')
@@ -98,8 +122,7 @@ export function ticketCobro({ restaurante, order, deliveryFee, pago = {}, fecha 
     ${cuenta}
     ${pagos ? SEP + pagos : ''}
     ${SEP}
-    <div class="t-centro t-pequeno">Comprobante de pago — no es factura electrónica</div>
-    <div class="t-centro">¡Gracias por su compra!</div>`
+    ${pie(restaurante, 'Comprobante de pago — no es factura electrónica')}`
 }
 
 // ── Pre-cuenta (la cuenta para llevar a la mesa antes de cobrar) ───────────────
@@ -113,7 +136,7 @@ export function precuenta({ restaurante, order, deliveryFee, fecha = new Date() 
     ${SEP}
     ${cuenta}
     ${SEP}
-    <div class="t-centro t-pequeno">Pendiente de pago — no es factura</div>`
+    ${pie(restaurante, 'Pendiente de pago — no es factura')}`
 }
 
 // ── Comanda de cocina: letra grande, sin precios ───────────────────────────────
@@ -125,11 +148,13 @@ export function comanda({ order, items, titulo = 'COMANDA', fecha = new Date() }
       <span>${nombreItem(i)}${i.variant ? `<br><span class="t-variante">${esc(i.variant)}</span>` : ''}${i.status === 'done' ? ' <span class="t-pequeno">(listo)</span>' : ''}</span>
     </div>${i.note ? `<div class="t-nota">» ${esc(i.note)}</div>` : ''}`).join('')
 
+  // En pedidos web el número ya va en "Web #058"
+  const numero = order.source === 'online' ? '' : numeroPedido(order)
   return `<div class="t-centro t-grande">${esc(titulo)}</div>
     <div class="t-centro t-titulo">${lugar(order)}</div>
-    <div class="t-centro">${esc(numeroPedido(order))}${numeroPedido(order) ? ' · ' : ''}${hora(fecha)}</div>
+    <div class="t-centro">${esc(numero)}${numero ? ' · ' : ''}${hora(fecha)}</div>
     ${order.scheduled_for ? `<div class="t-centro t-negrita">Programado: ${hora(order.scheduled_for)}</div>` : ''}
-    ${order.customer_note ? `<div class="t-nota">Indicaciones: ${esc(order.customer_note)}</div>` : ''}
+    ${order.customer_note ? `<div class="t-indicaciones">Indicaciones: ${esc(order.customer_note)}</div>` : ''}
     ${SEP}
     ${cuerpo || '<div class="t-centro">Sin productos</div>'}
     ${SEP}`
@@ -139,7 +164,7 @@ export function comanda({ order, items, titulo = 'COMANDA', fecha = new Date() }
 // r: { apertura, efectivo, transferencia, ingresos, egresos, esperado, contado, diferencia, abiertaEn, cerradaEn, ventas }
 export function cierreCaja({ restaurante, r, cerro }) {
   const signo = n => (n > 0 ? '+' : n < 0 ? '−' : '') + money(Math.abs(n))
-  return `${encabezado(restaurante)}
+  return `<div class="t-centro t-titulo">${esc(restaurante.nombre || 'Restaurante')}</div>
     <div class="t-centro t-grande">CIERRE DE CAJA</div>
     ${SEP}
     ${linea('Apertura', fechaHora(r.abiertaEn), 't-pequeno')}

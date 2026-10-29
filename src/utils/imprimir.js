@@ -4,6 +4,7 @@
 // impresión o RawBT), PC (driver de la impresora) y POS todo en uno.
 
 import { confirmar } from './dialogo'
+import { logoTermico } from './logoTermico'
 
 const KEY = 'pos-impresion'
 // Todo apagado por defecto: mientras un equipo no tenga impresora no aparece ninguna pregunta.
@@ -53,7 +54,23 @@ export async function imprimirHTML(html) {
   // El blanco que sobra abajo lo recorta el driver de la térmica.
   zona.innerHTML = `<style>@page { margin: 0; }</style>${html}`
 
-  // Esperar el logo (máx. 2 s) para que no salga en blanco
+  // Logos en negro puro y sin bordes vacíos (máx. 3 s); el que no se pueda preparar no se imprime
+  await Promise.all([...zona.querySelectorAll('img[data-termico]')].map(async img => {
+    const listo = await Promise.race([logoTermico(img.getAttribute('src')), espera(3000).then(() => null)])
+    if (listo) { img.src = listo; return }
+    const respaldo = img.dataset.respaldo
+    if (respaldo) {
+      const nombre = document.createElement('span')
+      nombre.className = 't-titulo'
+      nombre.textContent = respaldo
+      img.replaceWith(nombre)
+    } else img.remove()
+  }))
+  for (const grupo of zona.querySelectorAll('.t-logos')) {
+    if (grupo.children.length < 3) grupo.querySelector('.t-por')?.remove()
+  }
+
+  // Esperar las imágenes (máx. 2 s) para que no salgan en blanco
   const imgs = [...zona.querySelectorAll('img')].filter(img => !img.complete)
   await Promise.race([
     Promise.all(imgs.map(img => new Promise(r => { img.onload = r; img.onerror = r }))),
