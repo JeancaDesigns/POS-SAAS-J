@@ -208,6 +208,29 @@ export default function StatusDrawer() {
                 />
               </label>
             ))}
+            {/* Estación de impresión: este equipo imprime solo las comandas de todos */}
+            <div className="flex flex-col gap-2 rounded-xl border border-zinc-200 p-3">
+              {[
+                { clave: 'estacionComandas', label: 'Imprimir aquí las comandas de todos los pedidos', ayuda: 'Las que envían los meseros desde el celular, y las adiciones' },
+                { clave: 'estacionWeb', label: 'Imprimir aquí los pedidos de la página web', ayuda: 'Para no perder ningún pedido en línea' },
+              ].map(({ clave, label, ayuda }) => (
+                <label key={clave} className="flex items-start justify-between gap-3 cursor-pointer">
+                  <span className="flex flex-col">
+                    <span className="text-sm text-zinc-700">{label}</span>
+                    <span className="text-xs text-zinc-500">{ayuda}</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={impresion[clave]}
+                    onChange={e => cambiarImpresion({ [clave]: e.target.checked })}
+                    className="mt-0.5 w-5 h-5 shrink-0 accent-[var(--brand)]"
+                  />
+                </label>
+              ))}
+              {(impresion.estacionComandas || impresion.estacionWeb) && (
+                <p className="text-xs text-orange-700">Actívalo en un solo equipo y deja el POS abierto aquí. Esta pantalla no cierra sesión por inactividad.</p>
+              )}
+            </div>
             <button
               onClick={() => imprimirHTML(comanda({
                 order: { table: { number: 'de prueba' } },

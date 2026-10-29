@@ -13,7 +13,15 @@ const DEFAULTS = {
   alCobrar: 'nunca',       // 'preguntar' | 'siempre' | 'nunca' — comprobante al cobrar
   comandaAlEnviar: 'nunca', // comanda al enviar a cocina
   alCerrarCaja: 'nunca',   // resumen al cerrar caja
+  // Estación de impresión: este equipo imprime solo las comandas de TODOS los pedidos
+  // (meseros desde el celular, y aparte los de la página web). Activar en un solo equipo.
+  estacionComandas: false,
+  estacionWeb: false,
 }
+
+export const EVENTO_PREFERENCIAS = 'pos-impresion-cambio'
+
+export const esEstacion = (p = getPreferenciasImpresion()) => p.estacionComandas || p.estacionWeb
 
 // Preferencias de ESTE equipo (cada tablet o PC puede tener otra impresora)
 export function getPreferenciasImpresion() {
@@ -23,6 +31,7 @@ export function getPreferenciasImpresion() {
 export function setPreferenciasImpresion(cambios) {
   const next = { ...getPreferenciasImpresion(), ...cambios }
   try { localStorage.setItem(KEY, JSON.stringify(next)) } catch { /* sin storage: solo esta sesión */ }
+  window.dispatchEvent(new Event(EVENTO_PREFERENCIAS))
   return next
 }
 
@@ -60,6 +69,8 @@ export async function debeImprimir(preferencia, preguntar) {
 
 // Imprime, pregunta o no hace nada según la preferencia ('alCobrar' | 'comandaAlEnviar' | 'alCerrarCaja')
 export async function ofrecerImpresion(clave, html, { titulo, mensaje }) {
+  // En la estación la comanda ya sale sola: no imprimirla dos veces
+  if (clave === 'comandaAlEnviar' && getPreferenciasImpresion().estacionComandas) return
   const imprimir = await debeImprimir(getPreferenciasImpresion()[clave], () =>
     confirmar(mensaje, { titulo, aceptar: 'Imprimir', cancelar: 'No', peligro: false }))
   if (imprimir) imprimirHTML(html)
