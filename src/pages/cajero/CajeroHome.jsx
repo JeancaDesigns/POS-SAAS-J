@@ -19,6 +19,7 @@ import { useRecarga } from '../../hooks/useRecarga'
 import { imprimirHTML, ofrecerImpresion } from '../../utils/imprimir'
 import { ticketCobro, precuenta } from '../../utils/tickets'
 import { esWeb, etiquetaPedido, pagoDeclarado } from '../../utils/pedidoWeb'
+import EtiquetaPrioridad from '../../components/EtiquetaPrioridad'
 
 function useCajaOrders(restaurantId) {
   const [orders, setOrders] = useState([])
@@ -176,6 +177,7 @@ function OrderRow({ order, deliveryFee, selected, onClick }) {
     >
       <div className="min-w-0">
         <p className="text-[15px] font-bold text-zinc-900 truncate">{orderTitle(order)}</p>
+        <EtiquetaPrioridad order={order} className="mt-1" />
         <p className="text-xs text-zinc-500 mt-0.5 truncate">{sub}</p>
       </div>
       <div className="shrink-0 flex flex-col items-end gap-1.5">
