@@ -38,6 +38,15 @@ El 2026-10-16 revisé la base de producción y ajusté estos archivos a lo que e
 - `orders.tip_amount` ya no tiene tope de $2.000 (el tope de la página web lo sigue validando `_crear_pedido_publico_base`).
 - Probada con rollback: cobro con propina se guarda; propina negativa se rechaza.
 
+**1000 (2026-10-29, rama `tarea/correcciones-revision`): APLICADA en producción.**
+- `tables.is_web` + una mesa web oculta por restaurante (número 0): los pedidos de la página ya no ocupan "Domicilio 1".
+  `_crear_pedido_publico_base` usa esa mesa (la crea si falta).
+- Política `restaurants_admin_update`: el admin edita los datos de SU restaurante. El trigger
+  `proteger_campos_restaurante` deja enlace (slug), módulos y activación solo al dev (no aplica desde el SQL Editor).
+- `delete_restaurant_cascade` borra también los pagos sin pedido.
+- Probado: el admin de Benditas Papas cambia su restaurante (1 fila) y no otro (0 filas), con rollback.
+- Ese mismo día se borraron los restaurantes de prueba Entre Horas y Origen (sin pedidos ni pagos) y sus cuentas.
+
 ## Qué encontré en producción
 - `users` tiene **RLS desactivado** y una política `INSERT with check (true)` para cualquiera.
 - La función `change-password` publicada **no verifica quién llama**: cualquiera con la llave
