@@ -37,10 +37,11 @@ export const useAuthStore = create((set) => ({
   theme: 'purple',
   logoUrl: null,
   restaurantName: '', // encabezado de tickets impresos
+  contactoTicket: null, // { whatsapp, instagram, mensaje } para el ticket impreso
   loading: true,
 
   setUser: (user) => set({ user }),
-  clearUser: () => set({ user: null, slug: null, modules: [], theme: 'purple', logoUrl: null, restaurantName: '' }),
+  clearUser: () => set({ user: null, slug: null, modules: [], theme: 'purple', logoUrl: null, restaurantName: '', contactoTicket: null }),
   setSlug: (slug) => set({ slug }),
 
   init: async () => {
@@ -60,12 +61,13 @@ export const useAuthStore = create((set) => ({
       let theme = 'purple'
       let logoUrl = null
       let restaurantName = ''
+      let contactoTicket = null
       let restaurantActive = true
 
       if (userData?.restaurant_id) {
         const { data: restaurant } = await supabase
           .from('restaurants')
-          .select('slug, name, modules, theme, logo_url, active')
+          .select('slug, name, modules, theme, logo_url, active, whatsapp, instagram, ticket_message')
           .eq('id', userData.restaurant_id)
           .single()
         slug = restaurant?.slug || null
@@ -73,6 +75,11 @@ export const useAuthStore = create((set) => ({
         theme = restaurant?.theme || 'purple'
         logoUrl = restaurant?.logo_url || null
         restaurantName = restaurant?.name || ''
+        contactoTicket = {
+          whatsapp: restaurant?.whatsapp || null,
+          instagram: restaurant?.instagram || null,
+          mensaje: restaurant?.ticket_message || null,
+        }
         restaurantActive = restaurant?.active !== false
       }
 
@@ -84,9 +91,15 @@ export const useAuthStore = create((set) => ({
         return
       }
 
-      set({ user: userData, slug, modules, theme, logoUrl, restaurantName, loading: false })
+      set({ user: userData, slug, modules, theme, logoUrl, restaurantName, contactoTicket, loading: false })
     } else {
-      set({ user: null, slug: null, modules: [], theme: 'purple', logoUrl: null, restaurantName: '', loading: false })
+      set({ user: null, slug: null, modules: [], theme: 'purple', logoUrl: null, restaurantName: '', contactoTicket: null, loading: false })
     }
   }
 }))
+
+// Datos del restaurante para el encabezado y el pie de los tickets impresos
+export function restauranteTicket() {
+  const { restaurantName, logoUrl, contactoTicket } = useAuthStore.getState()
+  return { nombre: restaurantName, logoUrl, ...contactoTicket }
+}

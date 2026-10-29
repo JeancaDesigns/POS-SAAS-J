@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabaseClient'
-import { useAuthStore } from '../../store/authStore'
+import { useAuthStore, restauranteTicket } from '../../store/authStore'
 import PedidoActivo from '../../components/PedidoActivo'
 import { useDeliveryCount } from '../../hooks/useDeliveryCount'
 import { useOnlineStatus } from '../../hooks/useOnlineStatus'
@@ -207,8 +207,7 @@ function quickBills(total) {
 
 export default function CajeroHome() {
   const { user } = useAuthStore()
-  const restaurantName = useAuthStore(s => s.restaurantName)
-  const restaurante = { nombre: restaurantName }
+  const restaurante = restauranteTicket()
   const { orders, refetch } = useCajaOrders(user?.restaurant_id)
   const { count: deliveryCount } = useDeliveryCount(user?.restaurant_id)
   const canDiscount = user?.roles?.some(r => ['admin', 'dev'].includes(r))

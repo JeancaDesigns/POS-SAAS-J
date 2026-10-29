@@ -30,6 +30,9 @@ El 2026-10-16 revisé la base de producción y ajusté estos archivos a lo que e
 - `estado_pedido_publico` devuelve también `delivery_type`.
 - Probada antes con rollback: 1 pedido válido en efectivo con propina, 1 mixto, y 6 rechazos esperados.
 
+**0800 (2026-10-29, rama `tarea/diseno-tickets`): APLICADA en producción.**
+- Columnas opcionales `restaurants.instagram` y `restaurants.ticket_message` (encabezado y pie del ticket).
+
 ## Qué encontré en producción
 - `users` tiene **RLS desactivado** y una política `INSERT with check (true)` para cualquiera.
 - La función `change-password` publicada **no verifica quién llama**: cualquiera con la llave
