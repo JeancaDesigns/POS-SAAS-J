@@ -13,7 +13,7 @@ export default function Login() {
   const [visible, setVisible] = useState(false)
   const [restaurantInfo, setRestaurantInfo] = useState(null)
   const { slug } = useParams()
-  const setUser = useAuthStore((s) => s.setUser)
+  const init = useAuthStore((s) => s.init)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -50,7 +50,15 @@ export default function Login() {
       return
     }
 
-    const profile = await fetchProfile(authData.user)
+    let profile
+    try {
+      profile = await fetchProfile(authData.user)
+    } catch {
+      setError('Sin conexión: no se pudo verificar tu usuario. Intenta de nuevo.')
+      await supabase.auth.signOut()
+      setLoading(false)
+      return
+    }
 
     if (!profile) {
       setError('Perfil no encontrado')
@@ -86,32 +94,16 @@ export default function Login() {
       return
     }
 
-    const effectiveProfile = profile.roles.includes('dev') && profile.restaurant_id !== restaurant.id
-      ? { ...profile, restaurant_id: restaurant.id }
-      : profile
-
-    const { data: restaurantData } = await supabase
-      .from('restaurants')
-      .select('slug, modules, theme')
-      .eq('slug', slug)
-      .single()
-
-    const theme = restaurantData?.theme || 'purple'
-
     // El dev entra a cualquier restaurante: se recuerda cuál eligió para que al recargar
     // la app no lo devuelva a su restaurante propio
     try {
       if (profile.roles.includes('dev')) sessionStorage.setItem('dev-restaurant-id', restaurant.id)
     } catch { /* sin storage */ }
 
-    setUser(effectiveProfile)
-    useAuthStore.setState({
-      slug,
-      modules: restaurantData?.modules || [],
-      theme,
-      logoUrl: restaurantInfo?.logo_url || null,
-      restaurantName: restaurantInfo?.name || '',
-    })
+    // Carga completa de la sesión (perfil, restaurante, datos del ticket) y la deja guardada
+    // en el equipo para poder recargar sin internet. Antes se cargaba a medias aquí y el
+    // ticket salía sin WhatsApp ni Instagram hasta recargar la página.
+    await init()
 
     if (profile.roles.includes('cocina')) navigate(`/${slug}/cocina`)
     else if (profile.roles.includes('cajero')) navigate(`/${slug}/caja`)
