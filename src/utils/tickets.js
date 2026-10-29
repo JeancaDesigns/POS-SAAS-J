@@ -147,7 +147,7 @@ export function precuenta({ restaurante, order, deliveryFee, fecha = new Date() 
     ${SEP}
     ${cuenta}
     ${SEP}
-    ${pie(restaurante, 'La propina es voluntaria · Pendiente de pago — no es factura')}`
+    ${pie(restaurante, 'La propina es voluntaria<br>Pendiente de pago — no es factura')}`
 }
 
 // ── Comanda de cocina: letra grande, sin precios ───────────────────────────────
