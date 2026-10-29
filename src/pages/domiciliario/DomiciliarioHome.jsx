@@ -8,6 +8,7 @@ import { orderTotal } from '../../utils/totales'
 import L from 'leaflet'
 import { useRecarga } from '../../hooks/useRecarga'
 import { esWeb, numeroWeb, pagoDeclarado } from '../../utils/pedidoWeb'
+import EtiquetaPrioridad from '../../components/EtiquetaPrioridad'
 
 const deliveryIcon = new L.Icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -243,6 +244,7 @@ export default function DomiciliarioHome() {
               <h3 className="text-lg font-extrabold tracking-tight text-zinc-900 truncate">
                 {order.customer_name}{esWeb(order) && <span className="ml-2 text-sm font-semibold text-[var(--brand-text)]">Web {numeroWeb(order)}</span>}
               </h3>
+              <EtiquetaPrioridad order={order} />
               <span className="font-mono text-lg font-semibold text-zinc-900 tabular shrink-0">{money(totalOf(order))}</span>
             </div>
             {order.delivery_address && <p className="text-base font-semibold text-zinc-800 leading-snug mt-1">{order.delivery_address}</p>}

@@ -12,6 +12,7 @@ import { useRecarga } from '../../hooks/useRecarga'
 import { imprimirHTML } from '../../utils/imprimir'
 import { comanda } from '../../utils/tickets'
 import { esWeb, etiquetaPedido } from '../../utils/pedidoWeb'
+import EtiquetaPrioridad from '../../components/EtiquetaPrioridad'
 
 // Los cancelados se muestran a cocina solo durante 12 h (o hasta que los descarte)
 const CANCELLED_VISIBLE_MS = 12 * 60 * 60 * 1000
@@ -108,6 +109,7 @@ function ComandaCard({ order, onClick }) {
             {order.table?.is_delivery && order.customer_name && (
               <p className="text-sm text-zinc-500 truncate">{order.customer_name}</p>
             )}
+            <EtiquetaPrioridad order={order} className="mt-1" />
           </div>
           <span className={`shrink-0 font-mono text-sm font-semibold tabular ${delayed && !isCancelled ? 'text-orange-700' : 'text-zinc-500'}`}>
             {timeAgo(order.started_at, ahora)}
@@ -588,6 +590,7 @@ export default function CocinaHome() {
                     {delayed && !isCancelled && (
                       <span className="h-7 px-2.5 inline-flex items-center rounded-full text-xs font-bold bg-orange-50 text-orange-700 border border-orange-200">Más de 1 hora esperando</span>
                     )}
+                    <EtiquetaPrioridad order={activeOrder} className="h-7 px-2.5" />
                     {esWeb(activeOrder) && activeOrder.delivery_type === 'pickup' && (
                       <span className="h-7 px-2.5 inline-flex items-center rounded-full text-xs font-bold bg-zinc-100 text-zinc-700 border border-zinc-200">Para recoger</span>
                     )}

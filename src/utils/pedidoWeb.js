@@ -44,3 +44,11 @@ export function pagoDeclarado(order, total) {
     ventaEfectivo: total - Math.min(transfer, total),
   }
 }
+
+// Domicilios a nombre de Jeanca (quien hizo el sistema): se marcan como prioridad.
+// Solo es una etiqueta; el orden de los pedidos no cambia.
+export function esPrioridad(order) {
+  if (order?.delivery_type !== 'delivery') return false
+  const nombre = (order.customer_name || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  return /\bjeanca\b/.test(nombre)
+}
