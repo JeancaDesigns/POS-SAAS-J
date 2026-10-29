@@ -106,7 +106,6 @@ html, body {
 }
 #zona-impresion * { color: #000 !important; background: transparent !important; }
 #zona-impresion .t-centro { text-align: center; }
-#zona-impresion .t-logo { display: block; max-width: 60%; max-height: 22mm; margin: 0 auto 2mm; filter: grayscale(1) contrast(1.4); }
 #zona-impresion .t-titulo { font-size: 15px; font-weight: 800; }
 #zona-impresion .t-grande { font-size: 18px; font-weight: 800; letter-spacing: 0.04em; }
 #zona-impresion .t-pequeno { font-size: 10.5px; font-weight: 500; }

@@ -37,11 +37,9 @@ function numeroPedido(order) {
   return order.order_number ? `Pedido #${String(order.order_number).padStart(3, '0')}` : ''
 }
 
-function encabezado({ nombre, logoUrl }) {
-  return `<div class="t-centro">
-    ${logoUrl ? `<img class="t-logo" src="${esc(logoUrl)}" alt="">` : ''}
-    <div class="t-titulo">${esc(nombre || 'Restaurante')}</div>
-  </div>`
+// Sin logo: los logos con fondo transparente y colores claros salen en blanco en la térmica
+function encabezado({ nombre }) {
+  return `<div class="t-centro"><div class="t-titulo">${esc(nombre || 'Restaurante')}</div></div>`
 }
 
 const itemsDe = order => (order.items || order.order_items || []).filter(i => i.status !== 'cancelled')

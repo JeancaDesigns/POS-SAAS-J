@@ -132,9 +132,9 @@ export default function CajaPanel() {
     if (error) { console.error(error); avisar(error.message); return }
 
     // Resumen del turno para imprimir (se arma antes de limpiar el estado)
-    const { restaurantName, logoUrl } = useAuthStore.getState()
+    const { restaurantName } = useAuthStore.getState()
     const resumen = cierreCaja({
-      restaurante: { nombre: restaurantName, logoUrl },
+      restaurante: { nombre: restaurantName },
       cerro: user?.name,
       r: {
         abiertaEn: cashRegister.created_at, cerradaEn: new Date(),
