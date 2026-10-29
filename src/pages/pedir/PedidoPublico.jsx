@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
@@ -215,6 +215,9 @@ export default function PedidoPublico() {
   const [deliveryAddress, setDeliveryAddress] = useState(clienteGuardado.address || '')
   const [deliveryReference, setDeliveryReference] = useState(clienteGuardado.reference || '')
   const [selectedLocation, setSelectedLocation] = useState(clienteGuardado.location || null)
+  const [buscandoGPS, setBuscandoGPS] = useState(false)
+  const [precisionGPS, setPrecisionGPS] = useState(null)
+  const gpsRef = useRef(null)
   const [customerNote, setCustomerNote] = useState('')
   const [notaAbierta, setNotaAbierta] = useState(null) // índice de la línea con nota abierta
 
@@ -376,14 +379,63 @@ export default function PedidoPublico() {
     setDeliveryAddress(actual => (actual.trim() === '' ? DIRECCION_MAPA : actual))
   }
 
+  function detenerGPS() {
+    const g = gpsRef.current
+    if (g) {
+      navigator.geolocation.clearWatch(g.watch)
+      clearTimeout(g.limite)
+      clearTimeout(g.afinar)
+      gpsRef.current = null
+    }
+    setBuscandoGPS(false)
+  }
+
+  // watchPosition en vez de getCurrentPosition: sigue esperando mientras el cliente acepta
+  // el permiso (no hay que tocar el botón otra vez), muestra el primer punto apenas llega y
+  // lo va afinando unos segundos. Solo avisa error si no llegó ningún punto.
   function getCurrentLocation() {
     if (!navigator.geolocation) { avisar('Tu celular no permite compartir la ubicación'); return }
-    navigator.geolocation.getCurrentPosition(
-      pos => marcarUbicacion({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => avisar('No pudimos obtener tu ubicación. Revisa que el permiso de ubicación esté activo.'),
-      { enableHighAccuracy: true, timeout: 10000 }
+    detenerGPS()
+    setBuscandoGPS(true)
+    let mejor = null
+    const terminar = () => {
+      detenerGPS()
+      if (!mejor) avisar('No pudimos obtener tu ubicación. Revisa que el GPS esté encendido, o toca tu casa en el mapa.')
+    }
+    const watch = navigator.geolocation.watchPosition(
+      pos => {
+        const { latitude: lat, longitude: lng, accuracy } = pos.coords
+        if (mejor && accuracy >= mejor.accuracy) return
+        mejor = { lat, lng, accuracy }
+        marcarUbicacion({ lat, lng })
+        setPrecisionGPS(Math.round(accuracy))
+        if (accuracy <= 20) { terminar(); return }
+        const g = gpsRef.current
+        if (g && !g.afinar) g.afinar = setTimeout(terminar, 8000)
+      },
+      err => {
+        if (err.code === err.PERMISSION_DENIED) {
+          detenerGPS()
+          avisar('Para usar tu ubicación, permite el acceso a la ubicación en tu navegador. También puedes tocar tu casa en el mapa.')
+        }
+        // Otros errores (señal débil): se sigue esperando hasta el tiempo límite
+      },
+      { enableHighAccuracy: true, maximumAge: 0 }
     )
+    gpsRef.current = { watch, limite: setTimeout(terminar, 45000), afinar: null }
   }
+
+  // Lo que el cliente toca en el mapa manda sobre el GPS
+  function tocarMapa(location) {
+    detenerGPS()
+    setPrecisionGPS(null)
+    marcarUbicacion(location)
+  }
+
+  useEffect(() => () => {
+    const g = gpsRef.current
+    if (g) { navigator.geolocation.clearWatch(g.watch); clearTimeout(g.limite); clearTimeout(g.afinar) }
+  }, [])
 
   async function handleConfirm() {
     if (items.length === 0 || confirming) return
@@ -665,9 +717,17 @@ export default function PedidoPublico() {
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-bold text-zinc-700">Ubicación en el mapa <span className="font-normal text-zinc-500">(ayuda al domiciliario)</span></span>
                   </div>
-                  <button onClick={getCurrentLocation} className="h-11 rounded-xl border border-zinc-300 bg-surface text-sm font-bold text-zinc-700 hover:bg-zinc-50 inline-flex items-center justify-center gap-2">
-                    <MapPin size={16} aria-hidden="true" /> {selectedLocation ? 'Volver a usar mi ubicación' : 'Usar mi ubicación actual'}
+                  <button onClick={getCurrentLocation} disabled={buscandoGPS} className="h-11 rounded-xl border border-zinc-300 bg-surface text-sm font-bold text-zinc-700 hover:bg-zinc-50 disabled:opacity-70 inline-flex items-center justify-center gap-2">
+                    <MapPin size={16} aria-hidden="true" className={buscandoGPS ? 'animate-pulse' : ''} />
+                    {buscandoGPS ? 'Buscando tu ubicación…' : selectedLocation ? 'Volver a usar mi ubicación' : 'Usar mi ubicación actual'}
                   </button>
+                  {precisionGPS != null && (
+                    <p className="text-xs text-zinc-500">
+                      {precisionGPS > 100
+                        ? <>La ubicación es aproximada (unos {precisionGPS} m). <span className="font-semibold text-zinc-700">Toca tu casa en el mapa</span> para dejar el punto exacto.</>
+                        : <>Precisión: unos {precisionGPS} m. Si el punto no está en tu casa, toca el mapa para corregirlo.</>}
+                    </p>
+                  )}
                   <div className="relative overflow-hidden rounded-2xl border border-zinc-200">
                     <div className="absolute top-2 left-2 z-[1000] bg-surface/90 px-2.5 py-1 rounded-full border border-zinc-200 text-[11px] font-semibold text-zinc-600">
                       {selectedLocation ? 'Toca el mapa para corregir el punto' : 'O toca el mapa en tu casa'}
@@ -679,7 +739,7 @@ export default function PedidoPublico() {
                       style={{ height: '240px', width: '100%' }}
                     >
                       <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                      <LocationPicker selectedLocation={selectedLocation} setSelectedLocation={marcarUbicacion} />
+                      <LocationPicker selectedLocation={selectedLocation} setSelectedLocation={tocarMapa} />
                       <CentrarMapa location={selectedLocation} />
                     </MapContainer>
                   </div>
