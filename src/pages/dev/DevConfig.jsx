@@ -1,43 +1,18 @@
 import { useEffect, useState } from 'react'
+import { Routes, Route, Link } from 'react-router-dom'
+import { LogOut } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import { avisar } from '../../utils/dialogo'
-import { useRecarga } from '../../hooks/useRecarga'
-import DevPanel from '../../components/DevPanel'
+import { signOutAndClear } from '../../store/authStore'
+import { LogoJeanca } from '../../components/MarcaJeanca'
+import ListaRestaurantes from './ListaRestaurantes'
+import DetalleRestaurante from './DetalleRestaurante'
+import NuevoRestaurante from './NuevoRestaurante'
 
+// Panel dev (/dev): restaurantes del sistema y herramientas de cada uno.
+// Se abre también desde la app de gestión personal (enlace a /dev).
 export default function DevConfig() {
   const [checkingSession, setCheckingSession] = useState(true)
   const [devUser, setDevUser] = useState(null)
-
-  // ── Login ──────────────────────────────────────────────────────────────────
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loginError, setLoginError] = useState('')
-  const [loggingIn, setLoggingIn] = useState(false)
-
-  // ── Restaurantes ───────────────────────────────────────────────────────────
-  const [restaurants, setRestaurants] = useState([])
-  const [showCreateForm, setShowCreateForm] = useState(false)
-  const [editingId, setEditingId] = useState(null)
-  const [creating, setCreating] = useState(false)
-  const [createError, setCreateError] = useState('')
-  const [deleteTarget, setDeleteTarget] = useState(null)
-  const [herramientas, setHerramientas] = useState(null) // restaurante con el panel de herramientas abierto
-  const [deleting, setDeleting] = useState(false)
-
-  const [form, setForm] = useState({
-    name: '',
-    slug: '',
-    opening_time: '',
-    closing_time: '',
-    delivery_fee: '1000',
-    theme: 'purple',
-    nequi_number: '',
-    bre_b_key: '',
-    admin_name: '',
-    admin_email: '',
-    admin_password: '',
-  })
-  const [logoFile, setLogoFile] = useState(null)
 
   // Al abrir: si ya hay sesión de un dev, entra directo
   useEffect(() => {
@@ -46,10 +21,9 @@ export default function DevConfig() {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
         const { data: profile } = await supabase
-          .from('users')
-          .select('*')
+          .from('users').select('*')
           .eq('auth_user_id', session.user.id)
-          .single()
+          .maybeSingle()
         if (vivo && profile?.roles?.includes('dev')) setDevUser(profile)
       }
       if (vivo) setCheckingSession(false)
@@ -58,475 +32,79 @@ export default function DevConfig() {
     return () => { vivo = false }
   }, [])
 
-  // Lista de restaurantes (con sesión de dev); recargar() la vuelve a pedir tras cambios
-  const { tick, recargar } = useRecarga()
-  useEffect(() => {
-    if (!devUser) return
-    let vivo = true
-    supabase.from('restaurants').select('*').order('name')
-      .then(({ data }) => { if (vivo) setRestaurants(data || []) })
-    return () => { vivo = false }
-  }, [devUser, tick])
-
-  async function handleLogin() {
-    setLoggingIn(true)
-    setLoginError('')
-
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password })
-
-    if (authError || !authData.user) {
-      setLoginError('Credenciales incorrectas')
-      setLoggingIn(false)
-      return
-    }
-
-    const { data: profile } = await supabase
-      .from('users')
-      .select('*')
-      .eq('auth_user_id', authData.user.id)
-      .single()
-
-    if (!profile?.roles?.includes('dev')) {
-      setLoginError('Este perfil no tiene acceso al panel dev')
-      await supabase.auth.signOut()
-      setLoggingIn(false)
-      return
-    }
-
-    setDevUser(profile) // dispara la carga de restaurantes
-    setLoggingIn(false)
+  async function salir() {
+    await signOutAndClear()
+    setDevUser(null)
   }
 
-  function updateForm(key, value) {
-    setForm(prev => ({ ...prev, [key]: value }))
-  }
-
-  async function handleCreateRestaurant() {
-    setCreateError('')
-
-    if (!form.name.trim() || !form.slug.trim()) {
-      setCreateError('Nombre y slug son obligatorios')
-      return
-    }
-    if (!form.admin_email.trim() || !form.admin_password.trim() || !form.admin_name.trim()) {
-      setCreateError('Los datos del admin son obligatorios')
-      return
-    }
-
-    setCreating(true)
-
-    // 1. Crear el restaurante
-    const { data: restaurant, error: restaurantError } = await supabase
-      .from('restaurants')
-      .insert({
-        name: form.name.trim(),
-        slug: form.slug.trim().toLowerCase(),
-        opening_time: form.opening_time || null,
-        closing_time: form.closing_time || null,
-        delivery_fee: Number.isFinite(parseInt(form.delivery_fee)) ? Math.max(0, parseInt(form.delivery_fee)) : 1000,
-        theme: form.theme,
-        nequi_number: form.nequi_number.trim() || null,
-        bre_b_key: form.bre_b_key.trim() || null,
-      })
-      .select()
-      .single()
-
-    if (restaurantError) {
-      setCreateError('Error creando el restaurante: ' + restaurantError.message)
-      setCreating(false)
-      return
-    }
-
-    // 2. Subir el logo si se seleccionó uno
-    if (logoFile) {
-      const ext = logoFile.name.split('.').pop()
-      const path = `${restaurant.slug}/logo.${ext}`
-
-      const { error: uploadError } = await supabase
-        .storage
-        .from('restaurant-logos')
-        .upload(path, logoFile)
-
-
-      if (uploadError) {
-        setCreateError('El restaurante se creó, pero el logo falló: ' + uploadError.message)
-      } else {
-        const { data: publicUrlData } = supabase
-          .storage
-          .from('restaurant-logos')
-          .getPublicUrl(path)
-
-
-        const { error: logoUpdateError } = await supabase
-          .from('restaurants')
-          .update({ logo_url: publicUrlData.publicUrl })
-          .eq('id', restaurant.id)
-          .select()
-        if (logoUpdateError) setCreateError('El logo se subió, pero no se guardó: ' + logoUpdateError.message)
-      }
-    }
-
-    // 3. Crear el usuario admin vía Edge Function
-    const { data: { session } } = await supabase.auth.getSession()
-
-    let result
-    try {
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-restaurant-admin`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            email: form.admin_email.trim(),
-            password: form.admin_password,
-            name: form.admin_name.trim(),
-            restaurant_id: restaurant.id,
-            roles: ['admin'],
-          }),
-        }
-      )
-      result = await res.json()
-      if (!res.ok) throw new Error(result.error)
-    } catch (err) {
-      setCreateError('Restaurante creado, pero falló crear el admin: ' + err.message)
-      setCreating(false)
-      recargar()
-      return
-    }
-
-    // Reset
-    setForm({
-      name: '', slug: '', opening_time: '', closing_time: '',
-      delivery_fee: '1000', theme: 'purple', nequi_number: '', bre_b_key: '',
-      admin_name: '', admin_email: '', admin_password: '',
-    })
-    setLogoFile(null)
-    setShowCreateForm(false)
-    setCreating(false)
-    recargar()
-  }
-
-  function openEdit(restaurant) {
-    setEditingId(restaurant.id)
-    setForm({
-      name: restaurant.name || '',
-      slug: restaurant.slug || '',
-      opening_time: restaurant.opening_time || '',
-      closing_time: restaurant.closing_time || '',
-      delivery_fee: String(restaurant.delivery_fee ?? 1000),
-      theme: restaurant.theme || 'purple',
-      nequi_number: restaurant.nequi_number || '',
-      bre_b_key: restaurant.bre_b_key || '',
-      admin_name: '',
-      admin_email: '',
-      admin_password: '',
-    })
-    setLogoFile(null)
-    setShowCreateForm(true)
-  }
-
-  async function toggleActive(restaurant) {
-    await supabase
-      .from('restaurants')
-      .update({ active: !restaurant.active })
-      .eq('id', restaurant.id)
-    recargar()
-  }
-
-  async function confirmDelete() {
-    setDeleting(true)
-    const { error } = await supabase.rpc('delete_restaurant_cascade', { target_id: deleteTarget.id })
-    if (error) {
-      avisar('Error eliminando: ' + error.message)
-    }
-    setDeleting(false)
-    setDeleteTarget(null)
-    recargar()
-  }
-
-  async function handleUpdateRestaurant() {
-    setCreateError('')
-    if (!form.name.trim() || !form.slug.trim()) {
-      setCreateError('Nombre y slug son obligatorios')
-      return
-    }
-
-    setCreating(true)
-
-    const { error: updateError } = await supabase
-      .from('restaurants')
-      .update({
-        name: form.name.trim(),
-        slug: form.slug.trim().toLowerCase(),
-        opening_time: form.opening_time || null,
-        closing_time: form.closing_time || null,
-        delivery_fee: Number.isFinite(parseInt(form.delivery_fee)) ? Math.max(0, parseInt(form.delivery_fee)) : 1000,
-        theme: form.theme,
-        nequi_number: form.nequi_number.trim() || null,
-        bre_b_key: form.bre_b_key.trim() || null,
-      })
-      .eq('id', editingId)
-
-    if (updateError) {
-      setCreateError('Error actualizando: ' + updateError.message)
-      setCreating(false)
-      return
-    }
-
-    if (logoFile) {
-      const ext = logoFile.name.split('.').pop()
-      const path = `${form.slug.trim().toLowerCase()}/logo.${ext}`
-
-      const { error: uploadError } = await supabase
-        .storage
-        .from('restaurant_logos')
-        .upload(path, logoFile, { upsert: true })
-
-      if (uploadError) {
-        console.error('Error subiendo logo:', uploadError)
-        setCreateError('El restaurante se creó, pero el logo falló: ' + uploadError.message)
-      }
-
-      if (!uploadError) {
-        const { data: publicUrlData } = supabase
-          .storage
-          .from('restaurant_logos')
-          .getPublicUrl(path)
-
-        await supabase
-          .from('restaurants')
-          .update({ logo_url: publicUrlData.publicUrl })
-          .eq('id', editingId)
-      }
-    }
-
-    setForm({
-      name: '', slug: '', opening_time: '', closing_time: '',
-      delivery_fee: '1000', theme: 'purple', nequi_number: '', bre_b_key: '',
-      admin_name: '', admin_email: '', admin_password: '',
-    })
-    setLogoFile(null)
-    setEditingId(null)
-    setShowCreateForm(false)
-    setCreating(false)
-    recargar()
-  }
-
-  const inputClass = `
-    w-full rounded-xl px-4 py-3
-    text-zinc-800 outline-none
-    bg-zinc-50 border border-zinc-200
-    focus:border-[var(--brand-border)] transition-colors
-    placeholder:text-zinc-400 text-sm
-  `
-
-  // ── Cargando sesión ────────────────────────────────────────────────────────
   if (checkingSession) return <div className="min-h-screen bg-canvas" />
+  if (!devUser) return <IngresoDev onEntrar={setDevUser} />
 
-  // ── Login ──────────────────────────────────────────────────────────────────
-  if (!devUser) return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-canvas">
-      <div className="
-        w-full max-w-sm
-        rounded-2xl p-6
-        bg-surface border border-zinc-200 shadow-card
-      ">
-        <h1 className="text-zinc-900 text-2xl font-extrabold tracking-tight mb-1">Panel Dev</h1>
-        <p className="text-zinc-500 text-sm mb-6">Acceso restringido</p>
-
-        <div className="flex flex-col gap-4">
-          <input
-            type="email"
-            placeholder="correo@dev.com"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            className="w-full h-12 rounded-xl px-4 text-zinc-900 outline-none bg-surface border border-zinc-300 focus:border-[var(--brand)] placeholder:text-zinc-400"
-          />
-          <input
-            type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleLogin()}
-            className="w-full h-12 rounded-xl px-4 text-zinc-900 outline-none bg-surface border border-zinc-300 focus:border-[var(--brand)] placeholder:text-zinc-400"
-          />
-
-          {loginError && (
-            <div className="bg-red-50 border border-red-200 rounded-xl py-2.5 px-3">
-              <p className="text-red-600 text-sm font-semibold">{loginError}</p>
-            </div>
-          )}
-
-          <button
-            onClick={handleLogin}
-            disabled={loggingIn}
-            className="w-full h-12 rounded-xl font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] transition-colors disabled:opacity-60"
-          >
-            {loggingIn ? 'Verificando...' : 'Entrar'}
+  return (
+    <div className="min-h-screen bg-canvas">
+      <header className="sticky top-0 z-20 bg-canvas/90 backdrop-blur border-b border-zinc-200">
+        <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
+          <Link to="/dev" className="flex items-center gap-2.5" aria-label="Panel dev, inicio">
+            <LogoJeanca className="h-9 w-auto" />
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold text-[var(--brand-text)] bg-[var(--brand-light)] border border-[var(--brand-border)]">DEV</span>
+          </Link>
+          <button onClick={salir} className="h-10 px-3 rounded-xl border border-zinc-200 bg-surface text-sm font-bold text-zinc-600 hover:text-zinc-900 inline-flex items-center gap-2">
+            <LogOut size={16} aria-hidden="true" /> <span className="hidden sm:inline">Cerrar sesión</span>
           </button>
         </div>
-      </div>
+      </header>
+      <main className="max-w-3xl mx-auto px-4 py-5">
+        <Routes>
+          <Route index element={<ListaRestaurantes />} />
+          <Route path="nuevo" element={<NuevoRestaurante />} />
+          <Route path=":id" element={<DetalleRestaurante />} />
+        </Routes>
+      </main>
     </div>
   )
+}
 
-  // ── Panel ──────────────────────────────────────────────────────────────────
+function IngresoDev({ onEntrar }) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [entrando, setEntrando] = useState(false)
+
+  async function entrar(e) {
+    e.preventDefault()
+    setEntrando(true)
+    setError('')
+    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+    if (authError || !data.user) {
+      setError('Correo o contraseña incorrectos')
+      setEntrando(false)
+      return
+    }
+    const { data: profile } = await supabase.from('users').select('*').eq('auth_user_id', data.user.id).maybeSingle()
+    if (!profile?.roles?.includes('dev')) {
+      setError('Este usuario no tiene acceso al panel dev')
+      await supabase.auth.signOut()
+      setEntrando(false)
+      return
+    }
+    onEntrar(profile)
+  }
+
+  const campo = 'w-full h-12 rounded-xl px-4 text-zinc-900 outline-none bg-surface border border-zinc-300 focus:border-[var(--brand)] placeholder:text-zinc-400'
   return (
-    <div className="min-h-screen bg-canvas p-4 md:p-8">
-      <div className="max-w-4xl mx-auto">
-
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-zinc-900">Panel Dev</h1>
-            <p className="text-zinc-400 text-sm">Gestión de restaurantes</p>
-          </div>
-          <button
-            onClick={() => {
-              if (showCreateForm) {
-                setEditingId(null)
-                setForm({
-                  name: '', slug: '', opening_time: '', closing_time: '',
-                  delivery_fee: '1000', theme: 'purple', nequi_number: '', bre_b_key: '',
-                  admin_name: '', admin_email: '', admin_password: '',
-                })
-              }
-              setShowCreateForm(!showCreateForm)
-            }}
-            className="px-5 py-3 rounded-2xl font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand)] transition-all active:scale-95"
-          >
-            {showCreateForm ? 'Cancelar' : '+ Nuevo restaurante'}
-          </button>
+    <div className="min-h-screen flex items-center justify-center px-4 bg-canvas">
+      <form onSubmit={entrar} className="w-full max-w-sm flex flex-col gap-4">
+        <div className="flex flex-col items-center gap-3 mb-2">
+          <LogoJeanca className="w-[200px]" />
+          <p className="text-sm text-zinc-500">Panel de desarrollo · acceso restringido</p>
         </div>
-
-        {/* ── Formulario de creación ── */}
-        {showCreateForm && (
-          <div className="rounded-2xl bg-surface border border-zinc-200 p-6 mb-6 shadow-sm">
-            <p className="text-xs font-bold text-zinc-500 tracking-wider mb-4">
-              {editingId ? 'EDITAR RESTAURANTE' : 'DATOS DEL RESTAURANTE'}
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-              <input placeholder="Nombre" value={form.name} onChange={e => updateForm('name', e.target.value)} className={inputClass} />
-              <input placeholder="Slug (ej: benditas-papas)" value={form.slug} onChange={e => updateForm('slug', e.target.value)} className={inputClass} />
-              <input type="time" placeholder="Apertura" value={form.opening_time} onChange={e => updateForm('opening_time', e.target.value)} className={inputClass} />
-              <input type="time" placeholder="Cierre" value={form.closing_time} onChange={e => updateForm('closing_time', e.target.value)} className={inputClass} />
-              <input type="number" placeholder="Costo domicilio" value={form.delivery_fee} onChange={e => updateForm('delivery_fee', e.target.value)} className={inputClass} />
-              <input placeholder="Número de Nequi" value={form.nequi_number} onChange={e => updateForm('nequi_number', e.target.value)} className={inputClass} />
-              <input placeholder="Llave Bre-B" value={form.bre_b_key} onChange={e => updateForm('bre_b_key', e.target.value)} className={inputClass} />
-            </div>
-
-            <div className="mb-6">
-              <p className="text-sm text-zinc-500 mb-1.5">Logo</p>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={e => setLogoFile(e.target.files?.[0] || null)}
-                className="text-sm text-zinc-600"
-              />
-            </div>
-            {!editingId && (
-              <>
-                <p className="text-xs font-bold text-zinc-500 tracking-wider mb-4">USUARIO ADMIN</p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-                  <input placeholder="Nombre" value={form.admin_name} onChange={e => updateForm('admin_name', e.target.value)} className={inputClass} />
-                  <input type="email" placeholder="Correo" value={form.admin_email} onChange={e => updateForm('admin_email', e.target.value)} className={inputClass} />
-                  <input type="password" placeholder="Contraseña" value={form.admin_password} onChange={e => updateForm('admin_password', e.target.value)} className={inputClass} />
-                </div>
-              </>
-            )}
-
-            {createError && (
-              <div className="bg-red-50 border border-red-200 rounded-xl py-3 px-4 mb-4">
-                <p className="text-red-600 text-xs font-medium">{createError}</p>
-              </div>
-            )}
-
-            {deleteTarget && (
-              <div className="fixed inset-0 z-[90] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
-                <div className="w-full max-w-sm bg-surface rounded-3xl p-6 text-center shadow-pop">
-                  <p className="text-3xl mb-3">⚠️</p>
-                  <p className="font-bold text-zinc-900 mb-1">
-                    ¿Eliminar {deleteTarget.name}?
-                  </p>
-                  <p className="text-zinc-400 text-sm mb-6">
-                    Esto borra TODOS sus datos (pedidos, productos, usuarios) de forma permanente. No se puede deshacer.
-                  </p>
-                  <div className="flex flex-col gap-2">
-                    <button
-                      onClick={confirmDelete}
-                      disabled={deleting}
-                      className="w-full py-3 rounded-2xl font-bold text-white bg-[#DC2626] hover:bg-[#B91C1C] disabled:opacity-50"
-                    >
-                      {deleting ? 'Eliminando...' : 'Sí, eliminar todo'}
-                    </button>
-                    <button
-                      onClick={() => setDeleteTarget(null)}
-                      className="w-full py-3 rounded-2xl font-semibold text-zinc-400 hover:text-zinc-600"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <button
-              onClick={editingId ? handleUpdateRestaurant : handleCreateRestaurant}
-              disabled={creating}
-              className="w-full h-12 rounded-xl font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] transition-colors disabled:opacity-60"
-            >
-              {creating ? 'Guardando...' : editingId ? 'Guardar cambios' : 'Crear restaurante'}
-            </button>
-          </div>
-        )}
-
-        {/* ── Lista ── */}
-        <div className="space-y-3">
-          {restaurants.map(r => (
-            <div
-              key={r.id}
-              onClick={() => openEdit(r)}
-              className="rounded-2xl bg-surface border border-zinc-200 p-4 flex items-center gap-4 shadow-sm">
-              <div className="w-12 h-12 rounded-xl overflow-hidden bg-zinc-100 flex items-center justify-center shrink-0">
-                {r.logo_url
-                  ? <img src={r.logo_url} alt={r.name} className="w-full h-full object-contain" />
-                  : <span className="text-xl">🍽️</span>
-                }
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-bold text-zinc-900">{r.name}</p>
-                <p className="text-xs text-zinc-400">/{r.slug}</p>
-              </div>
-              <button
-                onClick={e => { e.stopPropagation(); toggleActive(r) }}
-                className={`text-xs font-bold px-3 py-1.5 rounded-full ${r.active === false
-                  ? 'bg-red-50 text-red-500 border border-red-200'
-                  : 'bg-green-50 text-green-600 border border-green-200'
-                  }`}
-              >
-                {r.active === false ? 'Inactivo' : 'Activo'}
-              </button>
-              <button
-                onClick={e => { e.stopPropagation(); setHerramientas(r) }}
-                className="text-xs font-bold px-3 py-1.5 rounded-full bg-zinc-100 text-zinc-700 hover:bg-zinc-200 transition-colors"
-              >
-                Herramientas
-              </button>
-              <button
-                onClick={e => { e.stopPropagation(); setDeleteTarget(r) }}
-                className="text-xs font-bold px-3 py-1.5 rounded-full bg-zinc-100 text-zinc-500 hover:bg-red-50 hover:text-red-500 transition-colors"
-              >
-                🗑️
-              </button>
-            </div>
-          ))}
-        </div>
-
-      </div>
-      {herramientas && (
-        <DevPanel restaurantId={herramientas.id} restaurantName={herramientas.name} onClose={() => setHerramientas(null)} />
-      )}
+        <input type="email" autoComplete="username" placeholder="Correo" value={email} onChange={e => setEmail(e.target.value)} className={campo} />
+        <input type="password" autoComplete="current-password" placeholder="Contraseña" value={password} onChange={e => setPassword(e.target.value)} className={campo} />
+        {error && <p className="rounded-xl px-3.5 py-2.5 text-sm font-semibold bg-red-50 border border-red-200 text-red-600">{error}</p>}
+        <button type="submit" disabled={entrando} className="h-12 rounded-xl font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] disabled:opacity-60">
+          {entrando ? 'Verificando…' : 'Entrar'}
+        </button>
+      </form>
     </div>
   )
 }

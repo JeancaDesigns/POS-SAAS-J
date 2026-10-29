@@ -122,7 +122,7 @@ export default function App() {
     location.pathname === '/' ||
     location.pathname.endsWith('/login') ||
     location.pathname.includes('/pedir') ||
-    location.pathname === '/dev'
+    location.pathname.startsWith('/dev')
 
   const handleInactivityLogout = useCallback(async () => {
     await signOutAndClear()
@@ -156,7 +156,7 @@ export default function App() {
       }>
         <Routes>
 
-          <Route path="/dev" element={<DevConfig />} />
+          <Route path="/dev/*" element={<DevConfig />} />
 
           <Route path="/" element={<RestaurantSelector />} />
 
