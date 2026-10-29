@@ -354,7 +354,9 @@ export default function CocinaHome() {
           delivered_at,
         }).eq('id', order.id)
         if (e2) throw e2
-        await supabase.from('tables').update({ status: newTableStatus }).eq('id', order.table_id)
+        // El pedido ya quedó listo; si falla solo el color de la mesa, se avisa sin deshacer nada
+        const { error: e3 } = await supabase.from('tables').update({ status: newTableStatus }).eq('id', order.table_id)
+        if (e3) avisar('El pedido quedó listo, pero no se pudo actualizar el estado de la mesa')
       } catch (err) {
         avisar('No se pudo marcar el pedido como listo: ' + (err.message || err))
         return

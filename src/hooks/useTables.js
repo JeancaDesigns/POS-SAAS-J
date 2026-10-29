@@ -26,8 +26,8 @@ export function useTables() {
           .eq('restaurant_id', restaurantId).order('name')
 
         const { data: tablesData } = await supabase
-          .from('tables').select('*')
-          .eq('restaurant_id', restaurantId).order('number')
+          .from('tables').select('*') // sin la mesa web: es interna, solo para pedidos de la página
+          .eq('restaurant_id', restaurantId).eq('is_web', false).order('number')
 
         const zns = zonesData || []
         const tbs = tablesData || []

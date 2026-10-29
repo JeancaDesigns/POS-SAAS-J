@@ -26,15 +26,20 @@ function SlugGuard({ children }) {
   const [valid, setValid] = useState(null)
 
   useEffect(() => {
+    let vivo = true
     async function validate() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('restaurants')
         .select('slug')
         .eq('slug', slug)
-        .single()
-      setValid(!!data)
+        .maybeSingle()
+      if (!vivo) return
+      // Sin conexión no se puede saber: se deja pasar (antes mostraba "no encontrado" y
+      // bloqueaba el POS sin internet). Solo un enlace que de verdad no existe se rechaza.
+      setValid(error ? true : !!data)
     }
     validate()
+    return () => { vivo = false }
   }, [slug])
 
   if (valid === null) return <div className="min-h-screen bg-canvas" />
