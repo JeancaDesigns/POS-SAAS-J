@@ -92,10 +92,8 @@ html, body {
 
 /* ── Impresión de tickets (src/utils/imprimir.js) ───────────────────────────
    En pantalla la zona no se ve. Al imprimir se oculta toda la app y sale solo
-   el ticket, en blanco y negro (las térmicas no imprimen grises suaves).
-   La zona se arma fuera de la pantalla (no display:none) para poder medir su
-   alto y pedir una página del largo justo: así la térmica no saca papel de más. */
-#zona-impresion { position: fixed; left: -10000px; top: 0; visibility: hidden; pointer-events: none; }
+   el ticket, en blanco y negro (las térmicas no imprimen grises suaves).     */
+#zona-impresion { display: none; }
 #zona-impresion {
   width: var(--ancho-papel, 72mm);
   margin: 0 auto;
