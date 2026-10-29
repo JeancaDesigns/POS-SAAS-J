@@ -226,7 +226,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
   function imprimir(tipo) {
     setShowImprimir(false)
     if (!order) return
-    const restaurante = { nombre: useAuthStore.getState().restaurantName, logoUrl: useAuthStore.getState().logoUrl }
+    const restaurante = { nombre: useAuthStore.getState().restaurantName }
     const conLineas = { ...order, table, items }
     if (tipo === 'comanda') { imprimirHTML(comanda({ order: conLineas })); return }
     // Valor del domicilio guardado por Caja en este equipo (para la pre-cuenta de domicilios)

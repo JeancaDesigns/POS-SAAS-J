@@ -208,8 +208,7 @@ function quickBills(total) {
 export default function CajeroHome() {
   const { user } = useAuthStore()
   const restaurantName = useAuthStore(s => s.restaurantName)
-  const logoUrl = useAuthStore(s => s.logoUrl)
-  const restaurante = { nombre: restaurantName, logoUrl }
+  const restaurante = { nombre: restaurantName }
   const { orders, refetch } = useCajaOrders(user?.restaurant_id)
   const { count: deliveryCount } = useDeliveryCount(user?.restaurant_id)
   const canDiscount = user?.roles?.some(r => ['admin', 'dev'].includes(r))
