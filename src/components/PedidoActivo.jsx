@@ -116,7 +116,8 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
   }
 
   async function saveNote(itemId, note) {
-    await supabase.from('order_items').update({ note: note || null }).eq('id', itemId)
+    const { error } = await supabase.from('order_items').update({ note: note || null }).eq('id', itemId)
+    if (error) { avisar('No se pudo guardar la nota: ' + error.message); return }
     setEditingNote(null)
     refetch()
   }
@@ -182,7 +183,8 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
   async function toggleDeliveryType() {
     if (!order) return
     const newType = order.delivery_type === 'delivery' ? 'pickup' : 'delivery'
-    await supabase.from('orders').update({ delivery_type: newType }).eq('id', order.id)
+    const { error } = await supabase.from('orders').update({ delivery_type: newType }).eq('id', order.id)
+    if (error) avisar('No se pudo cambiar el tipo de entrega: ' + error.message)
     refetch()
   }
 
