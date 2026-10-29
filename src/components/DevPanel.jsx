@@ -5,7 +5,8 @@ import { confirmar } from '../utils/dialogo'
 import Selector from './Selector'
 import { useRecarga } from '../hooks/useRecarga'
 
-export default function DevPanel({ onClose }) {
+// Herramientas de desarrollo de UN restaurante. Se abre desde /dev (botón "Herramientas").
+export default function DevPanel({ onClose, restaurantId: idRestaurante, restaurantName }) {
   const { user } = useAuthStore()
   const [section, setSection] = useState('mesas')
 
@@ -37,7 +38,7 @@ export default function DevPanel({ onClose }) {
     setTimeout(() => setFeedback(''), 3000)
   }
 
-  const restaurantId = user?.restaurant_id
+  const restaurantId = idRestaurante ?? user?.restaurant_id
   const { tick, recargar } = useRecarga()
 
   // Carga la sección visible; recargar() la vuelve a pedir después de un cambio
@@ -231,7 +232,7 @@ export default function DevPanel({ onClose }) {
             </div>
             <div>
               <h2 className="text-white font-bold tracking-tight">Panel de desarrollo</h2>
-              <p className="text-zinc-400 text-xs">Acceso restringido — usar con cuidado</p>
+              <p className="text-zinc-400 text-xs">{restaurantName ? `${restaurantName} · ` : ''}Acceso restringido — usar con cuidado</p>
             </div>
           </div>
           <button

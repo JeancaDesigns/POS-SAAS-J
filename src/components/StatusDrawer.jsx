@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import { useAuthStore, signOutAndClear } from '../store/authStore'
 import { db } from '../db/localDB'
-import DevPanel from './DevPanel'
 import DebtPanel from './DebtPanel'
 import ReportsPanel from './ReportsPanel'
 import { useNavigate } from 'react-router-dom'
@@ -20,7 +19,6 @@ export default function StatusDrawer() {
   const [open, setOpen] = useState(() => !isOnline) // sin conexión al abrir: se muestra de una vez
   const [pendingCount, setPendingCount] = useState(0)
   const [justSynced, setJustSynced] = useState(false)
-  const [showDevPanel, setShowDevPanel] = useState(false)
   const isDev = user?.roles?.includes('dev')
   const [showDebtPanel, setShowDebtPanel] = useState(false)
   const [showReportsPanel, setShowReportsPanel] = useState(false)
@@ -271,7 +269,7 @@ export default function StatusDrawer() {
                 </button>
               )}
               {isDev && (
-                <button onClick={() => { setOpen(false); setShowDevPanel(true) }} className={menuItem}>
+                <button onClick={() => { setOpen(false); navigate('/dev') }} className={menuItem}>
                   <Wrench size={18} className="text-[var(--brand-text)]" />
                   <span className="flex-1 text-left">Panel de desarrollo</span>
                   <ChevronRight size={16} className="text-zinc-400" />
@@ -297,7 +295,6 @@ export default function StatusDrawer() {
           </button>
         </div>
       </aside>
-      {showDevPanel && <DevPanel onClose={() => setShowDevPanel(false)} />}
       {showDebtPanel && <DebtPanel onClose={() => setShowDebtPanel(false)} />}
       {showReportsPanel && <ReportsPanel onClose={() => setShowReportsPanel(false)} />}
     </>
