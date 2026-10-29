@@ -110,6 +110,7 @@ html, body {
 #zona-impresion .t-por { font-size: 13px; font-weight: 500; }
 #zona-impresion .t-mensaje { font-size: 13px; font-weight: 800; margin-top: 1.5mm; }
 #zona-impresion .t-firma-sistema { font-size: 9.5px; font-weight: 500; margin-top: 2.5mm; }
+#zona-impresion .t-firma-logo { display: block; height: 7mm; margin: 1mm auto 0; }
 #zona-impresion .t-titulo { font-size: 15px; font-weight: 800; }
 #zona-impresion .t-grande { font-size: 18px; font-weight: 800; letter-spacing: 0.04em; }
 #zona-impresion .t-pequeno { font-size: 10.5px; font-weight: 500; }

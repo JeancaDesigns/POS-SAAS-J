@@ -37,15 +37,16 @@ function numeroPedido(order) {
   return order.order_number ? `Pedido #${String(order.order_number).padStart(3, '0')}` : ''
 }
 
-// Logo de quien hizo el sistema (public/logotipo.png)
-const LOGO_JEANCA = '/logotipo.png'
+// Marca de quien hizo el sistema (marca/): ya vienen en negro sobre blanco, no se convierten
+const ICONO_JEANCA = '/marca/jeanca-icono-negro-192.png'
+const LOGO_JEANCA = '/marca/jeanca-logo-negro.png'
 
-// Los logos van con data-termico: antes de imprimir se pasan a negro puro y se les
-// recortan los bordes vacíos (src/utils/logoTermico.js).
+// El logo del restaurante va con data-termico: antes de imprimir se pasa a negro puro y se
+// le recortan los bordes vacíos (src/utils/logoTermico.js).
 // data-respaldo: texto que se imprime si el logo no se puede cargar
 const logo = (url, clase, respaldo = '') => `<img class="${clase}" data-termico data-respaldo="${esc(respaldo)}" src="${esc(url)}" alt="">`
 
-// Encabezado: [logo del restaurante] × [logo Jeanca Designs], y debajo el contacto.
+// Encabezado: [logo del restaurante] × [ícono JC], y debajo el contacto.
 // Sin logo del restaurante se escribe el nombre.
 function encabezado({ nombre, logoUrl, whatsapp, instagram }) {
   const telefono = whatsapp ? String(whatsapp).replace(/^(\d{3})(\d{3})(\d{4})$/, '$1 $2 $3') : ''
@@ -53,7 +54,7 @@ function encabezado({ nombre, logoUrl, whatsapp, instagram }) {
   const contacto = [telefono && `WhatsApp ${esc(telefono)}`, red && esc(red)].filter(Boolean).join(' · ')
   return `<div class="t-centro">
     ${logoUrl
-      ? `<div class="t-logos">${logo(logoUrl, 't-logo', nombre || 'Restaurante')}<span class="t-por">×</span>${logo(LOGO_JEANCA, 't-logo-sistema')}</div>`
+      ? `<div class="t-logos">${logo(logoUrl, 't-logo', nombre || 'Restaurante')}<span class="t-por">×</span><img class="t-logo-sistema" src="${ICONO_JEANCA}" alt=""></div>`
       : `<div class="t-titulo">${esc(nombre || 'Restaurante')}</div>`}
     ${contacto ? `<div class="t-pequeno">${contacto}</div>` : ''}
   </div>`
@@ -63,7 +64,7 @@ function encabezado({ nombre, logoUrl, whatsapp, instagram }) {
 function pie(restaurante, aviso) {
   return `<div class="t-centro t-pequeno">${aviso}</div>
     <div class="t-centro t-mensaje">${esc(restaurante.mensaje || '¡Gracias por su compra!')}</div>
-    <div class="t-centro t-firma-sistema">Sistema POS por Jeanca Designs</div>`
+    <div class="t-centro t-firma-sistema">Sistema POS por<img class="t-firma-logo" src="${LOGO_JEANCA}" alt="Jeanca"></div>`
 }
 
 const itemsDe = order => (order.items || order.order_items || []).filter(i => i.status !== 'cancelled')
