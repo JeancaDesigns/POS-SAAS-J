@@ -22,6 +22,9 @@ const linea = (izq, der, clase = '') => `<div class="t-linea ${clase}"><span>${i
 const SEP = '<div class="t-sep"></div>'
 
 function lugar(order) {
+  if (order.source === 'online') {
+    return `Web #${String(order.order_number ?? '').padStart(3, '0')}${order.customer_name ? ` — ${esc(order.customer_name)}` : ''}`
+  }
   const t = order.table
   if (t?.is_delivery) {
     const tipo = order.delivery_type === 'delivery' ? 'Domicilio' : 'Para llevar'
@@ -128,7 +131,7 @@ export function comanda({ order, items, titulo = 'COMANDA', fecha = new Date() }
     <div class="t-centro t-titulo">${lugar(order)}</div>
     <div class="t-centro">${esc(numeroPedido(order))}${numeroPedido(order) ? ' · ' : ''}${hora(fecha)}</div>
     ${order.scheduled_for ? `<div class="t-centro t-negrita">Programado: ${hora(order.scheduled_for)}</div>` : ''}
-    ${order.note ? `<div class="t-nota">Nota del pedido: ${esc(order.note)}</div>` : ''}
+    ${order.customer_note ? `<div class="t-nota">Indicaciones: ${esc(order.customer_note)}</div>` : ''}
     ${SEP}
     ${cuerpo || '<div class="t-centro">Sin productos</div>'}
     ${SEP}`

@@ -8,6 +8,7 @@ import { precioUnitario } from '../../utils/precio'
 import { liberarMesaSiQuedaVacia } from '../../utils/mesas'
 import { avisar, confirmar } from '../../utils/dialogo'
 import { useRecarga } from '../../hooks/useRecarga'
+import { etiquetaPedido } from '../../utils/pedidoWeb'
 
 
 export default function TicketsPanel() {
@@ -124,7 +125,7 @@ export default function TicketsPanel() {
     open: { label: 'Abierto', cls: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
   }
   const statusOf = o => o.status === 'paid' ? 'paid' : o.status === 'cancelled' ? 'cancelled' : 'open'
-  const titleOf = o => o.table?.is_delivery ? `Domicilio ${o.table.number}` : `Mesa ${o.table?.number ?? '—'}`
+  const titleOf = o => etiquetaPedido(o)
   const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
   const q = query.trim().toLowerCase()
   const visible = orders

@@ -14,6 +14,7 @@ import { avisar, confirmar } from '../utils/dialogo'
 import { useAhora } from '../hooks/useAhora'
 import { imprimirHTML, ofrecerImpresion } from '../utils/imprimir'
 import { comanda, precuenta } from '../utils/tickets'
+import { esWeb, etiquetaPedido } from '../utils/pedidoWeb'
 
 const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
 const lineKey = (productId, variant) => `${productId}::${variant || ''}`
@@ -240,7 +241,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
     </div>
   )
 
-  const title = table.is_delivery ? `Domicilio ${table.number}` : `Mesa ${String(table.number).padStart(2, '0')}`
+  const title = esWeb(order) ? etiquetaPedido(order) : table.is_delivery ? `Domicilio ${table.number}` : `Mesa ${String(table.number).padStart(2, '0')}`
   const minutes = order?.started_at ? Math.max(0, Math.round((ahora - new Date(order.started_at)) / 60000)) : null
   const mesasZona = todasMesas.filter(m => m.zone_id === zonaSeleccionada)
 

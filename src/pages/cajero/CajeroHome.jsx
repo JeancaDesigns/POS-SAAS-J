@@ -18,6 +18,7 @@ import { avisar, confirmar } from '../../utils/dialogo'
 import { useRecarga } from '../../hooks/useRecarga'
 import { imprimirHTML, ofrecerImpresion } from '../../utils/imprimir'
 import { ticketCobro, precuenta } from '../../utils/tickets'
+import { esWeb, etiquetaPedido, pagoDeclarado } from '../../utils/pedidoWeb'
 
 function useCajaOrders(restaurantId) {
   const [orders, setOrders] = useState([])
@@ -117,6 +118,7 @@ function useCajaOrders(restaurantId) {
 }
 
 function tableName(order) {
+  if (esWeb(order)) return `${etiquetaPedido(order)}${order.customer_name ? ` · ${order.customer_name}` : ''}`
   if (order.table?.is_delivery)
     return `Domicilio ${order.table.number}${order.customer_name ? ` · ${order.customer_name}` : ''}`
   return `Mesa ${order.table?.number} · ${order.table?.zone?.name}`
@@ -132,6 +134,7 @@ function puedeCobrar(order) {
 const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
 
 function orderTitle(order) {
+  if (esWeb(order)) return etiquetaPedido(order)
   return order.table?.is_delivery
     ? `Domicilio ${String(order.table.number).padStart(2, '0')}`
     : `Mesa ${String(order.table?.number ?? '').padStart(2, '0')}`
@@ -269,7 +272,7 @@ export default function CajeroHome() {
     let vivo = true
     supabase
       .from('payments')
-      .select('*, table:tables(number, is_delivery, zone:zones(name))')
+      .select('*, table:tables(number, is_delivery, zone:zones(name)), order:orders(source, order_number)')
       .eq('restaurant_id', user.restaurant_id)
       .eq('voided', false)
       .gte('created_at', inicioJornada().toISOString())
@@ -582,9 +585,11 @@ export default function CajeroHome() {
   function selectOrder(o) {
     setCobrarOrder(o)
     setPaymentId(newId())
-    setPayMethod('cash')
-    setEfectivo(String(orderTotal(o, deliveryFee)))
-    setTransferencia('0')
+    // Pedido web: se llena con lo que el cliente dijo que pagaría (sin la propina, que no es venta)
+    const web = pagoDeclarado(o, orderTotal(o, deliveryFee))
+    setPayMethod(!web || web.ventaTransfer === 0 ? 'cash' : web.ventaEfectivo === 0 ? 'transfer' : 'mixed')
+    setEfectivo(String(web ? web.ventaEfectivo : orderTotal(o, deliveryFee)))
+    setTransferencia(String(web ? web.ventaTransfer : 0))
     setRecibido('')
     setFiado(false)
     setDebtorName('')
@@ -773,7 +778,7 @@ export default function CajeroHome() {
               <div key={payment.id} className="px-3.5 py-3 rounded-xl bg-surface border border-zinc-200 flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-zinc-900 truncate">
-                    {payment.table?.is_delivery ? `Domicilio ${payment.table.number}` : `Mesa ${payment.table?.number} · ${payment.table?.zone?.name || ''}`}
+                    {esWeb(payment.order) ? etiquetaPedido(payment.order) : payment.table?.is_delivery ? `Domicilio ${payment.table.number}` : `Mesa ${payment.table?.number} · ${payment.table?.zone?.name || ''}`}
                   </p>
                   <p className="text-xs text-zinc-500 mt-0.5">
                     {new Date(payment.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
@@ -858,6 +863,19 @@ export default function CajeroHome() {
                   </button>
                 </div>
               </div>
+
+              {/* Pedido web: cómo dijo el cliente que pagaría, propina e indicaciones */}
+              {esWeb(cobrarOrder) && (() => {
+                const web = pagoDeclarado(cobrarOrder, orderTotal(cobrarOrder, deliveryFee))
+                if (!web && !cobrarOrder.customer_note) return null
+                return (
+                  <div className="rounded-2xl bg-[var(--brand-light)] border border-[var(--brand-border)] p-4 flex flex-col gap-1 text-sm text-zinc-800">
+                    {web && <p><span className="font-bold">Pedido web:</span> {web.texto}{web.cambio > 0 ? ` · cambio ${money(web.cambio)}` : ''}</p>}
+                    {web?.propina > 0 && <p><span className="font-bold">Propina {money(web.propina)}</span> para el domiciliario: no se registra como venta.</p>}
+                    {cobrarOrder.customer_note && <p><span className="font-bold">Indicaciones:</span> {cobrarOrder.customer_note}</p>}
+                  </div>
+                )
+              })()}
 
               {/* Cuenta */}
               <div className="bg-surface border border-zinc-200 rounded-2xl shadow-card overflow-hidden">

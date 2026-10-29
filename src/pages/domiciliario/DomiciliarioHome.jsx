@@ -7,6 +7,7 @@ import { Phone, MessageCircle, Navigation, Map as MapIcon, Check, Banknote } fro
 import { orderTotal } from '../../utils/totales'
 import L from 'leaflet'
 import { useRecarga } from '../../hooks/useRecarga'
+import { esWeb, numeroWeb, pagoDeclarado } from '../../utils/pedidoWeb'
 
 const deliveryIcon = new L.Icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -208,6 +209,16 @@ export default function DomiciliarioHome() {
 
   function payInfo(order) {
     const total = totalOf(order)
+    // Pedidos web: lo que el cliente declaró (transferencia, efectivo, mixto y propina)
+    const web = pagoDeclarado(order, total)
+    if (web) {
+      const conCambio = web.cambio > 0 ? ` · llevar ${money(web.cambio)} de cambio` : ''
+      return {
+        text: `${web.texto}${conCambio}`,
+        tone: web.efectivo > 0 ? 'text-orange-700 bg-orange-50 border-orange-200' : 'text-blue-700 bg-blue-50 border-blue-200',
+        propina: web.propina,
+      }
+    }
     if (order.payment_method === 'transfer') return { text: 'Paga por transferencia', tone: 'text-blue-700 bg-blue-50 border-blue-200' }
     if (order.cash_amount && Number(order.cash_amount) > total) {
       return { text: `Paga con ${money(order.cash_amount)} · llevar ${money(Number(order.cash_amount) - total)} de cambio`, tone: 'text-orange-700 bg-orange-50 border-orange-200' }
@@ -229,14 +240,22 @@ export default function DomiciliarioHome() {
           <span className="shrink-0 w-9 h-9 rounded-full bg-[var(--brand)] text-white font-mono text-base font-semibold flex items-center justify-center">{index + 1}</span>
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-3">
-              <h3 className="text-lg font-extrabold tracking-tight text-zinc-900 truncate">{order.customer_name}</h3>
+              <h3 className="text-lg font-extrabold tracking-tight text-zinc-900 truncate">
+                {order.customer_name}{esWeb(order) && <span className="ml-2 text-sm font-semibold text-[var(--brand-text)]">Web {numeroWeb(order)}</span>}
+              </h3>
               <span className="font-mono text-lg font-semibold text-zinc-900 tabular shrink-0">{money(totalOf(order))}</span>
             </div>
             {order.delivery_address && <p className="text-base font-semibold text-zinc-800 leading-snug mt-1">{order.delivery_address}</p>}
             {order.delivery_reference && <p className="text-sm text-zinc-500 mt-0.5">{order.delivery_reference}</p>}
-            <p className={`mt-2 inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full border text-xs font-bold ${pay.tone}`}>
-              <Banknote size={14} aria-hidden="true" /> {pay.text}
+            <p className={`mt-2 inline-flex items-center gap-1.5 min-h-7 py-1 px-2.5 rounded-full border text-xs font-bold ${pay.tone}`}>
+              <Banknote size={14} aria-hidden="true" className="shrink-0" /> {pay.text}
             </p>
+            {pay.propina > 0 && (
+              <p className="mt-1.5 text-xs font-bold text-green-700">Incluye {money(pay.propina)} de propina para ti</p>
+            )}
+            {order.customer_note && (
+              <p className="mt-1.5 text-sm text-zinc-700"><span className="font-bold">Indicaciones:</span> {order.customer_note}</p>
+            )}
           </div>
         </div>
 
