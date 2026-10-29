@@ -1,5 +1,5 @@
 import { precioUnitario } from './precio'
-import { calcDiscount, orderTotal } from './totales'
+import { calcDiscount, orderTotal, propinaSugerida, PORCENTAJE_PROPINA } from './totales'
 
 // Plantillas de lo que se imprime (HTML para #zona-impresion, estilos en index.css).
 // Los totales salen de las mismas funciones que usa Caja, para que el papel diga lo mismo.
@@ -46,7 +46,8 @@ const LOGO_JEANCA = '/marca/jeanca-logo-negro.png'
 // data-respaldo: texto que se imprime si el logo no se puede cargar
 const logo = (url, clase, respaldo = '') => `<img class="${clase}" data-termico data-respaldo="${esc(respaldo)}" src="${esc(url)}" alt="">`
 
-// Encabezado: [logo del restaurante] × [ícono JC], y debajo el contacto.
+// Encabezado: [logo del restaurante] × [logo JEANCA], del mismo ancho y con la × al centro;
+// debajo el contacto.
 // Sin logo del restaurante se escribe el nombre.
 function encabezado({ nombre, logoUrl, whatsapp, instagram }) {
   const telefono = whatsapp ? String(whatsapp).replace(/^(\d{3})(\d{3})(\d{4})$/, '$1 $2 $3') : ''
@@ -54,7 +55,7 @@ function encabezado({ nombre, logoUrl, whatsapp, instagram }) {
   const contacto = [telefono && `WhatsApp ${esc(telefono)}`, red && esc(red)].filter(Boolean).join(' · ')
   return `<div class="t-centro">
     ${logoUrl
-      ? `<div class="t-logos">${logo(logoUrl, 't-logo', nombre || 'Restaurante')}<span class="t-por">×</span><img class="t-logo-sistema" src="${ICONO_JEANCA}" alt=""></div>`
+      ? `<div class="t-logos"><div class="t-lado">${logo(logoUrl, 't-logo', nombre || 'Restaurante')}</div><span class="t-por">×</span><div class="t-lado"><img class="t-logo" src="${LOGO_JEANCA}" alt="Jeanca"></div></div>`
       : `<div class="t-titulo">${esc(nombre || 'Restaurante')}</div>`}
     ${contacto ? `<div class="t-pequeno">${contacto}</div>` : ''}
   </div>`
@@ -64,14 +65,15 @@ function encabezado({ nombre, logoUrl, whatsapp, instagram }) {
 function pie(restaurante, aviso) {
   return `<div class="t-centro t-pequeno">${aviso}</div>
     <div class="t-centro t-mensaje">${esc(restaurante.mensaje || '¡Gracias por su compra!')}</div>
-    <div class="t-centro t-firma-sistema">Sistema POS por<img class="t-firma-logo" src="${LOGO_JEANCA}" alt="Jeanca"></div>`
+    <div class="t-firma-sistema">Sistema POS por<img src="${ICONO_JEANCA}" alt="JC"></div>`
 }
 
 const itemsDe = order => (order.items || order.order_items || []).filter(i => i.status !== 'cancelled')
 const nombreItem = i => esc((i.product ?? i.products)?.name ?? 'Producto')
 
-// Productos con precio, descuentos y totales (ticket de cobro y pre-cuenta)
-function detalleCuenta(order, deliveryFee) {
+// Productos con precio, descuentos y totales (ticket de cobro y pre-cuenta).
+// conPropinaSugerida (pre-cuenta): Subtotal + Propina sugerida + TOTAL con propina.
+function detalleCuenta(order, deliveryFee, { conPropinaSugerida = false } = {}) {
   let html = ''
   let subtotal = 0
   for (const i of itemsDe(order)) {
@@ -87,10 +89,12 @@ function detalleCuenta(order, deliveryFee) {
   const descGeneral = subtotal + domicilio - total
 
   html += SEP
-  if (domicilio > 0 || descGeneral > 0) html += linea('Subtotal', money(subtotal))
+  const propina = conPropinaSugerida ? propinaSugerida(order, deliveryFee) : 0
+  if (domicilio > 0 || descGeneral > 0 || propina > 0) html += linea('Subtotal', money(subtotal))
   if (domicilio > 0) html += linea('Domicilio', money(domicilio))
   if (descGeneral > 0) html += linea('Descuento', `−${money(descGeneral)}`)
-  html += linea('TOTAL', money(total), 't-total')
+  if (propina > 0) html += linea(`Propina sugerida (${PORCENTAJE_PROPINA}%)`, money(propina))
+  html += linea('TOTAL', money(total + propina), 't-total')
   return { html, total }
 }
 
@@ -102,8 +106,14 @@ export function ticketCobro({ restaurante, order, deliveryFee, pago = {}, fecha 
   const transferencia = Number(pago.transferencia) || 0
   const recibido = Number(pago.recibido) || 0
   const fiado = Number(pago.fiado) || 0
+  const propina = Number(pago.propina) || 0
 
   let pagos = ''
+  if (propina > 0) {
+    pagos += linea('Propina (voluntaria)', money(propina))
+    pagos += linea('Total pagado', money(efectivo + transferencia), 't-negrita')
+    pagos += SEP
+  }
   if (efectivo > 0) {
     pagos += linea('Efectivo', money(efectivo))
     if (recibido > efectivo) {
@@ -128,7 +138,7 @@ export function ticketCobro({ restaurante, order, deliveryFee, pago = {}, fecha 
 
 // ── Pre-cuenta (la cuenta para llevar a la mesa antes de cobrar) ───────────────
 export function precuenta({ restaurante, order, deliveryFee, fecha = new Date() }) {
-  const { html: cuenta } = detalleCuenta(order, deliveryFee)
+  const { html: cuenta } = detalleCuenta(order, deliveryFee, { conPropinaSugerida: true })
   return `${encabezado(restaurante)}
     <div class="t-centro t-grande">PRE-CUENTA</div>
     <div class="t-centro t-pequeno">${fechaHora(fecha)}</div>
@@ -137,7 +147,7 @@ export function precuenta({ restaurante, order, deliveryFee, fecha = new Date() 
     ${SEP}
     ${cuenta}
     ${SEP}
-    ${pie(restaurante, 'Pendiente de pago — no es factura')}`
+    ${pie(restaurante, 'La propina es voluntaria · Pendiente de pago — no es factura')}`
 }
 
 // ── Comanda de cocina: letra grande, sin precios ───────────────────────────────
@@ -162,7 +172,7 @@ export function comanda({ order, items, titulo = 'COMANDA', fecha = new Date() }
 }
 
 // ── Cierre de caja ─────────────────────────────────────────────────────────────
-// r: { apertura, efectivo, transferencia, ingresos, egresos, esperado, contado, diferencia, abiertaEn, cerradaEn, ventas }
+// r: { apertura, efectivo, transferencia, propinasEfectivo, propinasTransferencia, ingresos, egresos, esperado, contado, diferencia, abiertaEn, cerradaEn, ventas }
 export function cierreCaja({ restaurante, r, cerro }) {
   const signo = n => (n > 0 ? '+' : n < 0 ? '−' : '') + money(Math.abs(n))
   return `<div class="t-centro t-titulo">${esc(restaurante.nombre || 'Restaurante')}</div>
@@ -174,6 +184,7 @@ export function cierreCaja({ restaurante, r, cerro }) {
     ${SEP}
     ${linea('Base de apertura', money(r.apertura))}
     ${linea('Ventas en efectivo', money(r.efectivo))}
+    ${r.propinasEfectivo ? linea('Propinas en efectivo', money(r.propinasEfectivo)) : ''}
     ${linea('Ingresos manuales', money(r.ingresos))}
     ${linea('Egresos', `−${money(r.egresos)}`)}
     ${SEP}
@@ -182,6 +193,7 @@ export function cierreCaja({ restaurante, r, cerro }) {
     ${linea('Diferencia', signo(r.diferencia), 't-total')}
     ${SEP}
     ${linea('Transferencias (no entran al cajón)', money(r.transferencia), 't-pequeno')}
+    ${(r.propinasEfectivo || r.propinasTransferencia) ? linea('Propinas para repartir', money((r.propinasEfectivo || 0) + (r.propinasTransferencia || 0)), 't-negrita') : ''}
     ${r.ventas != null ? linea('Cobros registrados', esc(r.ventas), 't-pequeno') : ''}
     ${SEP}
     <div class="t-firma">Firma</div>`
