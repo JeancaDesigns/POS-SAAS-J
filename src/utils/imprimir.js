@@ -57,6 +57,11 @@ export async function imprimirHTML(html) {
     espera(2000),
   ])
 
+  // Página del largo exacto del ticket (+5 mm). Con una página larga fija, el navegador
+  // puede poner el pie de página al final y la térmica avanza metros de papel en blanco.
+  const altoMm = Math.ceil(zona.getBoundingClientRect().height * 25.4 / 96) + 5
+  zona.querySelector('style').textContent = `@page { size: ${papel}mm ${altoMm}mm; margin: 0; }`
+
   window.print()
 }
 

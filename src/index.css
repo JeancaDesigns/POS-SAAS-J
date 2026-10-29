@@ -92,35 +92,37 @@ html, body {
 
 /* ── Impresión de tickets (src/utils/imprimir.js) ───────────────────────────
    En pantalla la zona no se ve. Al imprimir se oculta toda la app y sale solo
-   el ticket, en blanco y negro (las térmicas no imprimen grises suaves).     */
-#zona-impresion { display: none; }
+   el ticket, en blanco y negro (las térmicas no imprimen grises suaves).
+   La zona se arma fuera de la pantalla (no display:none) para poder medir su
+   alto y pedir una página del largo justo: así la térmica no saca papel de más. */
+#zona-impresion { position: fixed; left: -10000px; top: 0; visibility: hidden; pointer-events: none; }
+#zona-impresion {
+  width: var(--ancho-papel, 72mm);
+  margin: 0 auto;
+  padding: 3mm 0 8mm;
+  color: #000;
+  font: 600 12px/1.35 'Manrope', Arial, sans-serif;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+#zona-impresion * { color: #000 !important; background: transparent !important; }
+#zona-impresion .t-centro { text-align: center; }
+#zona-impresion .t-logo { display: block; max-width: 60%; max-height: 22mm; margin: 0 auto 2mm; filter: grayscale(1) contrast(1.4); }
+#zona-impresion .t-titulo { font-size: 15px; font-weight: 800; }
+#zona-impresion .t-grande { font-size: 18px; font-weight: 800; letter-spacing: 0.04em; }
+#zona-impresion .t-pequeno { font-size: 10.5px; font-weight: 500; }
+#zona-impresion .t-negrita { font-weight: 800; }
+#zona-impresion .t-sep { border-top: 1px dashed #000; margin: 2mm 0; }
+#zona-impresion .t-linea { display: flex; justify-content: space-between; gap: 2mm; }
+#zona-impresion .t-linea > span:last-child { white-space: nowrap; font-variant-numeric: tabular-nums; }
+#zona-impresion .t-total { font-size: 16px; font-weight: 800; margin-top: 1mm; }
+#zona-impresion .t-comanda-item { display: flex; gap: 3mm; font-size: 16px; font-weight: 800; line-height: 1.25; margin: 1.5mm 0; }
+#zona-impresion .t-cant { min-width: 7mm; }
+#zona-impresion .t-variante { font-size: 13px; font-weight: 600; }
+#zona-impresion .t-nota { font-size: 13px; font-weight: 700; margin: 0 0 1.5mm 10mm; }
+#zona-impresion .t-firma { margin-top: 12mm; border-top: 1px solid #000; text-align: center; font-size: 10.5px; }
 
 @media print {
   html, body { background: #fff !important; color: #000 !important; }
   body > *:not(#zona-impresion) { display: none !important; }
-  #zona-impresion {
-    display: block;
-    width: var(--ancho-papel, 72mm);
-    margin: 0 auto;
-    padding: 3mm 0 8mm;
-    color: #000;
-    font: 600 12px/1.35 'Manrope', Arial, sans-serif;
-    -webkit-print-color-adjust: exact; print-color-adjust: exact;
-  }
-  #zona-impresion * { color: #000 !important; background: transparent !important; }
-  #zona-impresion .t-centro { text-align: center; }
-  #zona-impresion .t-logo { display: block; max-width: 60%; max-height: 22mm; margin: 0 auto 2mm; filter: grayscale(1) contrast(1.4); }
-  #zona-impresion .t-titulo { font-size: 15px; font-weight: 800; }
-  #zona-impresion .t-grande { font-size: 18px; font-weight: 800; letter-spacing: 0.04em; }
-  #zona-impresion .t-pequeno { font-size: 10.5px; font-weight: 500; }
-  #zona-impresion .t-negrita { font-weight: 800; }
-  #zona-impresion .t-sep { border-top: 1px dashed #000; margin: 2mm 0; }
-  #zona-impresion .t-linea { display: flex; justify-content: space-between; gap: 2mm; }
-  #zona-impresion .t-linea > span:last-child { white-space: nowrap; font-variant-numeric: tabular-nums; }
-  #zona-impresion .t-total { font-size: 16px; font-weight: 800; margin-top: 1mm; }
-  #zona-impresion .t-comanda-item { display: flex; gap: 3mm; font-size: 16px; font-weight: 800; line-height: 1.25; margin: 1.5mm 0; }
-  #zona-impresion .t-cant { min-width: 7mm; }
-  #zona-impresion .t-variante { font-size: 13px; font-weight: 600; }
-  #zona-impresion .t-nota { font-size: 13px; font-weight: 700; margin: 0 0 1.5mm 10mm; }
-  #zona-impresion .t-firma { margin-top: 12mm; border-top: 1px solid #000; text-align: center; font-size: 10.5px; }
+  #zona-impresion { position: static; visibility: visible; display: block; }
 }
