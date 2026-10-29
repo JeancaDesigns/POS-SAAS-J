@@ -48,7 +48,10 @@ export async function imprimirHTML(html) {
   }
   // Ancho imprimible: el rollo de 80 mm deja ~72 mm útiles y el de 58 mm ~48 mm
   zona.style.setProperty('--ancho-papel', papel === 58 ? '48mm' : '72mm')
-  zona.innerHTML = `<style>@page { size: ${papel}mm auto; margin: 0; }</style>${html}`
+  // Sin tamaño de página: se usa el papel de la impresora y el ticket queda pegado arriba.
+  // (Si se pide una página distinta a la del papel, Chrome la centra y deja blanco arriba.)
+  // El blanco que sobra abajo lo recorta el driver de la térmica.
+  zona.innerHTML = `<style>@page { margin: 0; }</style>${html}`
 
   // Esperar el logo (máx. 2 s) para que no salga en blanco
   const imgs = [...zona.querySelectorAll('img')].filter(img => !img.complete)
@@ -56,11 +59,6 @@ export async function imprimirHTML(html) {
     Promise.all(imgs.map(img => new Promise(r => { img.onload = r; img.onerror = r }))),
     espera(2000),
   ])
-
-  // Página del largo exacto del ticket (+5 mm). Con una página larga fija, el navegador
-  // puede poner el pie de página al final y la térmica avanza metros de papel en blanco.
-  const altoMm = Math.ceil(zona.getBoundingClientRect().height * 25.4 / 96) + 5
-  zona.querySelector('style').textContent = `@page { size: ${papel}mm ${altoMm}mm; margin: 0; }`
 
   window.print()
 }
