@@ -64,6 +64,9 @@ const markerIcon = new L.Icon({
   iconAnchor: [12, 41],
 })
 
+// Centro del mapa si el cliente no comparte ubicación: Río de Oro, Cesar
+const CENTRO_PUEBLO = [8.2917, -73.3867]
+
 function LocationPicker({ selectedLocation, setSelectedLocation }) {
   useMapEvents({ click(e) { setSelectedLocation({ lat: e.latlng.lat, lng: e.latlng.lng }) } })
   if (!selectedLocation) return null
@@ -662,8 +665,8 @@ export default function PedidoPublico() {
                       {selectedLocation ? 'Toca el mapa para corregir el punto' : 'O toca el mapa en tu casa'}
                     </div>
                     <MapContainer
-                      center={selectedLocation ? [selectedLocation.lat, selectedLocation.lng] : [4.6097, -74.0817]}
-                      zoom={selectedLocation ? 16 : 12}
+                      center={selectedLocation ? [selectedLocation.lat, selectedLocation.lng] : CENTRO_PUEBLO}
+                      zoom={selectedLocation ? 16 : 15}
                       scrollWheelZoom={false}
                       style={{ height: '240px', width: '100%' }}
                     >
