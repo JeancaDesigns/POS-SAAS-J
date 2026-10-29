@@ -608,13 +608,14 @@ export default function CajeroHome() {
   function selectOrder(o) {
     setCobrarOrder(o)
     setPaymentId(newId())
-    // Pedido web: se llena con lo que el cliente dijo que pagaría, propina incluida
+    // Pedido web: se llena con lo que el cliente dijo que pagaría, SIN la propina: esa se
+    // la queda el domiciliario, así que no entra al cajón (si entrara, el cierre saldría faltando)
     const web = pagoDeclarado(o, orderTotal(o, deliveryFee))
-    setPayMethod(!web || web.transfer === 0 ? 'cash' : web.efectivo === 0 ? 'transfer' : 'mixed')
-    setEfectivo(String(web ? web.efectivo : orderTotal(o, deliveryFee)))
-    setTransferencia(String(web ? web.transfer : 0))
-    setConPropina(!!web?.propina)
-    setPropina(web?.propina ? String(web.propina) : '')
+    setPayMethod(!web || web.ventaTransfer === 0 ? 'cash' : web.ventaEfectivo === 0 ? 'transfer' : 'mixed')
+    setEfectivo(String(web ? web.ventaEfectivo : orderTotal(o, deliveryFee)))
+    setTransferencia(String(web ? web.ventaTransfer : 0))
+    setConPropina(false)
+    setPropina('')
     setRecibido('')
     setFiado(false)
     setDebtorName('')
@@ -902,7 +903,7 @@ export default function CajeroHome() {
                 return (
                   <div className="rounded-2xl bg-[var(--brand-light)] border border-[var(--brand-border)] p-4 flex flex-col gap-1 text-sm text-zinc-800">
                     {web && <p><span className="font-bold">Pedido web:</span> {web.texto}{web.cambio > 0 ? ` · cambio ${money(web.cambio)}` : ''}</p>}
-                    {web?.propina > 0 && <p><span className="font-bold">Propina {money(web.propina)}</span> para el domiciliario: va como propina, no como venta.</p>}
+                    {web?.propina > 0 && <p><span className="font-bold">Propina {money(web.propina)}</span> para el domiciliario: se la queda él, no se registra en caja.</p>}
                     {cobrarOrder.customer_note && <p><span className="font-bold">Indicaciones:</span> {cobrarOrder.customer_note}</p>}
                   </div>
                 )
