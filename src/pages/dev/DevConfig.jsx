@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import { avisar } from '../../utils/dialogo'
 import { useRecarga } from '../../hooks/useRecarga'
+import DevPanel from '../../components/DevPanel'
 
 export default function DevConfig() {
   const [checkingSession, setCheckingSession] = useState(true)
@@ -20,6 +21,7 @@ export default function DevConfig() {
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [herramientas, setHerramientas] = useState(null) // restaurante con el panel de herramientas abierto
   const [deleting, setDeleting] = useState(false)
 
   const [form, setForm] = useState({
@@ -492,7 +494,7 @@ export default function DevConfig() {
                   : <span className="text-xl">🍽️</span>
                 }
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="font-bold text-zinc-900">{r.name}</p>
                 <p className="text-xs text-zinc-400">/{r.slug}</p>
               </div>
@@ -506,6 +508,12 @@ export default function DevConfig() {
                 {r.active === false ? 'Inactivo' : 'Activo'}
               </button>
               <button
+                onClick={e => { e.stopPropagation(); setHerramientas(r) }}
+                className="text-xs font-bold px-3 py-1.5 rounded-full bg-zinc-100 text-zinc-700 hover:bg-zinc-200 transition-colors"
+              >
+                Herramientas
+              </button>
+              <button
                 onClick={e => { e.stopPropagation(); setDeleteTarget(r) }}
                 className="text-xs font-bold px-3 py-1.5 rounded-full bg-zinc-100 text-zinc-500 hover:bg-red-50 hover:text-red-500 transition-colors"
               >
@@ -516,6 +524,9 @@ export default function DevConfig() {
         </div>
 
       </div>
+      {herramientas && (
+        <DevPanel restaurantId={herramientas.id} restaurantName={herramientas.name} onClose={() => setHerramientas(null)} />
+      )}
     </div>
   )
 }
