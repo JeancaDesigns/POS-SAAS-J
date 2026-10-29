@@ -4,7 +4,7 @@ import { supabase } from '../supabaseClient'
 // Quien llama debe pasar SOLO las líneas que cambiaron de estado en ese mismo update
 // (update ... neq('status','done') ... select()): así un doble toque o dos cocinas
 // marcando a la vez no descuentan dos veces.
-export async function descontarInventario(lineas) {
+async function descontarInventario(lineas) {
   for (const linea of lineas || []) {
     const { data: recipes } = await supabase
       .from('recipes').select('id')
