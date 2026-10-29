@@ -21,3 +21,21 @@ export function orderTotal(order, deliveryFee) {
   const subtotal = itemsTotal + (isDelivery ? Number(deliveryFee) || 0 : 0)
   return subtotal - calcDiscount(subtotal, order.discount_type, order.discount_value)
 }
+
+// ── Propina (voluntaria; NO es venta) ─────────────────────────────────────────
+export const PORCENTAJE_PROPINA = 10
+
+// Propina sugerida: 10% de lo consumido (sin el domicilio), redondeada a $100
+export function propinaSugerida(order, deliveryFee) {
+  const isDelivery = order.delivery_type === 'delivery' && order.table?.is_delivery
+  const consumo = orderTotal(order, deliveryFee) - (isDelivery ? Number(deliveryFee) || 0 : 0)
+  return Math.max(0, Math.round(consumo * PORCENTAJE_PROPINA / 100 / 100) * 100)
+}
+
+// Separa la propina de lo que entregó el cliente: sale primero del efectivo
+// (así queda en el cajón) y lo que falte, de la transferencia.
+export function separarPropina(efectivo, transferencia, propina) {
+  const tipCash = Math.min(propina, efectivo)
+  const tipTransfer = Math.min(propina - tipCash, transferencia)
+  return { tipCash, tipTransfer, ventaEfectivo: efectivo - tipCash, ventaTransfer: transferencia - tipTransfer }
+}

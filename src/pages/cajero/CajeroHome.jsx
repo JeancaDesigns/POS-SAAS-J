@@ -7,7 +7,7 @@ import { useOnlineStatus } from '../../hooks/useOnlineStatus'
 import { db } from '../../db/localDB'
 import { cacheOrders, getCachedOrders } from '../../db/cacheHelpers'
 import { buildWhatsappLink, getEstimatedTime } from '../../utils/whatsapp'
-import { orderTotal } from '../../utils/totales'
+import { orderTotal, propinaSugerida, separarPropina, PORCENTAJE_PROPINA } from '../../utils/totales'
 import { precioUnitario } from '../../utils/precio'
 import { newId } from '../../utils/uuid'
 import { liberarMesaSiQuedaVacia } from '../../utils/mesas'
@@ -236,6 +236,8 @@ export default function CajeroHome() {
   const [toastQueue, setToastQueue] = useState([])
   const isOnline = useOnlineStatus()
   const [recibido, setRecibido] = useState('')
+  const [conPropina, setConPropina] = useState(false)
+  const [propina, setPropina] = useState('')
   const [fiado, setFiado] = useState(false)
   const [debtorName, setDebtorName] = useState('')
   const [debtAmount, setDebtAmount] = useState('')
@@ -352,12 +354,13 @@ export default function CajeroHome() {
   const cobrarOrderConDescuento = cobrarOrder && canDiscount
     ? { ...cobrarOrder, discount_type: discountType, discount_value: Number(discountValue) || 0 }
     : cobrarOrder
+  const propinaNum = conPropina && !fiado ? Math.max(0, parseInt(propina) || 0) : 0
 
   function handleDiscountChange(type, value) {
     setDiscountType(type)
     setDiscountValue(value)
     if (fiado || !cobrarOrder) return
-    const t = orderTotal({ ...cobrarOrder, discount_type: type, discount_value: Number(value) || 0 }, deliveryFee)
+    const t = orderTotal({ ...cobrarOrder, discount_type: type, discount_value: Number(value) || 0 }, deliveryFee) + propinaNum
     if (payMethod === 'transfer') { setTransferencia(String(t)); return }
     const tr = parseInt(transferencia) || 0
     setEfectivo(String(Math.max(0, t - tr)))
@@ -366,7 +369,7 @@ export default function CajeroHome() {
   function handleEfectivoChange(val) {
     setEfectivo(val)
     if (fiado) return // ← si hay fiado, no auto-completar
-    const t = orderTotal(cobrarOrderConDescuento, deliveryFee)
+    const t = orderTotal(cobrarOrderConDescuento, deliveryFee) + propinaNum
     const ef = parseInt(val) || 0
     setTransferencia(Math.max(0, t - ef) > 0 ? String(Math.max(0, t - ef)) : '0')
   }
@@ -374,7 +377,7 @@ export default function CajeroHome() {
   function handleTransferenciaChange(val) {
     setTransferencia(val)
     if (fiado) return // ← si hay fiado, no auto-completar
-    const t = orderTotal(cobrarOrderConDescuento, deliveryFee)
+    const t = orderTotal(cobrarOrderConDescuento, deliveryFee) + propinaNum
     const tr = parseInt(val) || 0
     setEfectivo(Math.max(0, t - tr) > 0 ? String(Math.max(0, t - tr)) : '0')
   }
@@ -385,7 +388,19 @@ export default function CajeroHome() {
     : 0
   const discountAmount = subtotalSinDescuentoGeneral - total
   const sumaPagos = (parseInt(efectivo) || 0) + (parseInt(transferencia) || 0)
-  const descuadre = sumaPagos !== total
+  // Lo que paga el cliente = venta + propina (la propina no va con fiado)
+  const aPagar = total + propinaNum
+  const descuadre = sumaPagos !== aPagar
+
+  // Activar, quitar o cambiar la propina: ajusta el efectivo (o la transferencia si paga todo así)
+  function cambiarPropina(activa, valor) {
+    setConPropina(activa)
+    setPropina(valor)
+    const nuevoAPagar = total + (activa ? parseInt(valor) || 0 : 0)
+    if (payMethod === 'transfer') { setTransferencia(String(nuevoAPagar)); return }
+    const tr = parseInt(transferencia) || 0
+    setEfectivo(String(Math.max(0, nuevoAPagar - tr)))
+  }
 
   async function handleCobrar() {
     if (!cobrarOrder) return
@@ -398,8 +413,8 @@ export default function CajeroHome() {
       avisar('El fiado necesita conexión a internet')
       return
     }
-    if (!fiado && sumaPagos !== total) {
-      avisar('El efectivo + transferencia debe ser igual al total')
+    if (!fiado && sumaPagos !== aPagar) {
+      avisar(propinaNum ? 'El efectivo + transferencia debe ser igual al total más la propina' : 'El efectivo + transferencia debe ser igual al total')
       return
     }
     const debtValue = fiado ? Number(debtAmount) || 0 : 0
@@ -409,15 +424,20 @@ export default function CajeroHome() {
     }
     setProcesando(true)
     let ticket = null // comprobante para imprimir si el cobro sale bien
+    // La propina no es venta: cash/transfer guardan solo la venta y la propina va aparte
+    const { tipCash, tipTransfer, ventaEfectivo, ventaTransfer } =
+      separarPropina(parseInt(efectivo) || 0, parseInt(transferencia) || 0, propinaNum)
     const payment = {
       // id fijo por cobro: si algo falla y se reintenta, el pago no se duplica
       id: paymentId || newId(),
       restaurant_id: user.restaurant_id,
       order_id: cobrarOrder.id,
       table_id: cobrarOrder.table_id,
-      cash: parseInt(efectivo) || 0,
-      transfer: parseInt(transferencia) || 0,
-      total: sumaPagos, // lo que realmente pagó
+      cash: ventaEfectivo,
+      transfer: ventaTransfer,
+      total: ventaEfectivo + ventaTransfer, // la venta que realmente se pagó (sin propina)
+      tip_cash: tipCash,
+      tip_transfer: tipTransfer,
       voided: false,
       is_delivery: cobrarOrder.delivery_type === 'delivery' && !!cobrarOrder.table?.is_delivery,
     }
@@ -505,7 +525,7 @@ export default function CajeroHome() {
         order: cobrarOrderConDescuento,
         deliveryFee,
         pago: {
-          efectivo, transferencia, recibido,
+          efectivo, transferencia, recibido, propina: propinaNum,
           fiado: debtValue, deudor: fiado ? debtorName.trim() : null,
         },
         atendio: user?.name,
@@ -516,6 +536,8 @@ export default function CajeroHome() {
       setEfectivo('')
       setRecibido('')
       setTransferencia('')
+      setConPropina(false)
+      setPropina('')
       setFiado(false)
       setDebtorName('')
       setDebtAmount('')
@@ -548,9 +570,10 @@ export default function CajeroHome() {
       .eq('id', payment.order_id)
       .single()
     if (error || !order) { avisar('No se pudo cargar el pedido: ' + (error?.message || '')); return }
+    const tipCash = Number(payment.tip_cash || 0), tipTransfer = Number(payment.tip_transfer || 0)
     imprimirHTML(ticketCobro({
       restaurante, order, deliveryFee,
-      pago: { efectivo: payment.cash, transferencia: payment.transfer },
+      pago: { efectivo: payment.cash + tipCash, transferencia: payment.transfer + tipTransfer, propina: tipCash + tipTransfer },
       fecha: payment.created_at,
     }))
   }
@@ -583,11 +606,13 @@ export default function CajeroHome() {
   function selectOrder(o) {
     setCobrarOrder(o)
     setPaymentId(newId())
-    // Pedido web: se llena con lo que el cliente dijo que pagaría (sin la propina, que no es venta)
+    // Pedido web: se llena con lo que el cliente dijo que pagaría, propina incluida
     const web = pagoDeclarado(o, orderTotal(o, deliveryFee))
-    setPayMethod(!web || web.ventaTransfer === 0 ? 'cash' : web.ventaEfectivo === 0 ? 'transfer' : 'mixed')
-    setEfectivo(String(web ? web.ventaEfectivo : orderTotal(o, deliveryFee)))
-    setTransferencia(String(web ? web.ventaTransfer : 0))
+    setPayMethod(!web || web.transfer === 0 ? 'cash' : web.efectivo === 0 ? 'transfer' : 'mixed')
+    setEfectivo(String(web ? web.efectivo : orderTotal(o, deliveryFee)))
+    setTransferencia(String(web ? web.transfer : 0))
+    setConPropina(!!web?.propina)
+    setPropina(web?.propina ? String(web.propina) : '')
     setRecibido('')
     setFiado(false)
     setDebtorName('')
@@ -601,8 +626,8 @@ export default function CajeroHome() {
   function changePayMethod(method) {
     setPayMethod(method)
     if (!cobrarOrder) return
-    if (method === 'cash') { setEfectivo(String(total)); setTransferencia('0') }
-    if (method === 'transfer') { setEfectivo('0'); setTransferencia(String(total)); setRecibido('') }
+    if (method === 'cash') { setEfectivo(String(aPagar)); setTransferencia('0') }
+    if (method === 'transfer') { setEfectivo('0'); setTransferencia(String(aPagar)); setRecibido('') }
   }
 
   const q = searchQuery.trim().toLowerCase()
@@ -676,7 +701,13 @@ export default function CajeroHome() {
                 {(caja.income > 0 || caja.expense > 0) && (
                   <div className="flex justify-between"><dt className="text-zinc-500">Ingresos − egresos</dt><dd className="font-mono font-semibold text-zinc-700 tabular">{money(caja.income - caja.expense)}</dd></div>
                 )}
+                {caja.tipsCash > 0 && (
+                  <div className="flex justify-between"><dt className="text-zinc-500">Propinas en efectivo</dt><dd className="font-mono font-semibold text-zinc-700 tabular">{money(caja.tipsCash)}</dd></div>
+                )}
                 <div className="flex justify-between pt-1.5 border-t border-zinc-200"><dt className="text-zinc-500">Transferencias <span className="text-zinc-400">(aparte)</span></dt><dd className="font-mono font-semibold text-zinc-700 tabular">{money(caja.transfer)}</dd></div>
+                {(caja.tipsCash > 0 || caja.tipsTransfer > 0) && (
+                  <div className="flex justify-between"><dt className="text-zinc-500">Propinas para repartir</dt><dd className="font-mono font-semibold text-zinc-700 tabular">{money(caja.tipsCash + caja.tipsTransfer)}</dd></div>
+                )}
               </dl>
               <p className="text-xs text-zinc-500">{caja.sales} cobro{caja.sales !== 1 ? 's' : ''} desde la apertura</p>
             </>
@@ -869,7 +900,7 @@ export default function CajeroHome() {
                 return (
                   <div className="rounded-2xl bg-[var(--brand-light)] border border-[var(--brand-border)] p-4 flex flex-col gap-1 text-sm text-zinc-800">
                     {web && <p><span className="font-bold">Pedido web:</span> {web.texto}{web.cambio > 0 ? ` · cambio ${money(web.cambio)}` : ''}</p>}
-                    {web?.propina > 0 && <p><span className="font-bold">Propina {money(web.propina)}</span> para el domiciliario: no se registra como venta.</p>}
+                    {web?.propina > 0 && <p><span className="font-bold">Propina {money(web.propina)}</span> para el domiciliario: va como propina, no como venta.</p>}
                     {cobrarOrder.customer_note && <p><span className="font-bold">Indicaciones:</span> {cobrarOrder.customer_note}</p>}
                   </div>
                 )
@@ -948,6 +979,47 @@ export default function CajeroHome() {
                     </div>
                   )}
 
+                  {/* Propina voluntaria: sugerida 10%, se puede cambiar por el valor exacto */}
+                  {!fiado && (() => {
+                    const sugerida = propinaSugerida(cobrarOrderConDescuento, deliveryFee)
+                    return (
+                      <div className="rounded-2xl border border-zinc-200 bg-surface p-4 flex flex-col gap-3">
+                        <label className="flex items-center justify-between gap-3 cursor-pointer">
+                          <span>
+                            <span className="block text-sm font-bold text-zinc-800">Dejó propina</span>
+                            <span className="block text-xs text-zinc-500">Sugerida {money(sugerida)} ({PORCENTAJE_PROPINA}%) · no cuenta como venta</span>
+                          </span>
+                          <input
+                            type="checkbox"
+                            checked={conPropina}
+                            onChange={e => cambiarPropina(e.target.checked, e.target.checked ? String(sugerida) : '')}
+                            className="w-5 h-5 accent-[var(--brand)]"
+                          />
+                        </label>
+                        {conPropina && (
+                          <div className="flex flex-col gap-2 pt-3 border-t border-zinc-100">
+                            <div className="flex gap-2">
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                value={propina}
+                                onChange={e => cambiarPropina(true, e.target.value)}
+                                aria-label="Valor de la propina"
+                                className={inputBase}
+                              />
+                              {String(sugerida) !== propina && (
+                                <button type="button" onClick={() => cambiarPropina(true, String(sugerida))} className="h-12 px-3 rounded-xl border border-zinc-200 text-xs font-bold text-zinc-600 hover:bg-zinc-50 shrink-0">
+                                  Volver al {PORCENTAJE_PROPINA}%
+                                </button>
+                              )}
+                            </div>
+                            <p className="text-sm text-zinc-600">Total a pagar con propina: <span className="font-mono font-bold text-zinc-900">{money(aPagar)}</span></p>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
+
                   {/* Método de pago */}
                   {!fiado && (
                     <div className="flex flex-col gap-2">
@@ -1012,7 +1084,7 @@ export default function CajeroHome() {
 
                   {descuadre && sumaPagos > 0 && !fiado && (
                     <p className="rounded-xl px-3.5 py-2.5 text-sm font-semibold bg-yellow-50 border border-yellow-200 text-yellow-700">
-                      {sumaPagos > total ? 'Excede el total en ' : 'Falta por cubrir '}{money(Math.abs(sumaPagos - total))}
+                      {sumaPagos > aPagar ? 'Excede el total en ' : 'Falta por cubrir '}{money(Math.abs(sumaPagos - aPagar))}
                     </p>
                   )}
 
@@ -1026,7 +1098,7 @@ export default function CajeroHome() {
                       <input
                         type="checkbox"
                         checked={fiado}
-                        onChange={() => { setFiado(prev => !prev); setEfectivo(''); setTransferencia(''); setRecibido('') }}
+                        onChange={() => { setFiado(prev => !prev); setEfectivo(''); setTransferencia(''); setRecibido(''); setConPropina(false); setPropina('') }}
                         className="w-5 h-5 accent-[var(--brand)]"
                       />
                     </label>
@@ -1098,7 +1170,7 @@ export default function CajeroHome() {
                         ? 'Procesando…'
                         : fiado
                           ? `Registrar ${money(sumaPagos)} pagado + ${money(debtAmount || 0)} fiado`
-                          : `Cobrar ${money(total)} y liberar mesa`}
+                          : `Cobrar ${money(aPagar)} y liberar mesa`}
                     </button>
                   </div>
                 </>
