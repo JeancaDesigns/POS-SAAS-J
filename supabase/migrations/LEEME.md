@@ -33,6 +33,11 @@ El 2026-10-16 revisé la base de producción y ajusté estos archivos a lo que e
 **0800 (2026-10-29, rama `tarea/diseno-tickets`): APLICADA en producción.**
 - Columnas opcionales `restaurants.instagram` y `restaurants.ticket_message` (encabezado y pie del ticket).
 
+**0900 (2026-10-29, rama `tarea/marca-jeanca`): APLICADA en producción.**
+- `payments.tip_cash` y `payments.tip_transfer` (propina del cobro, no es venta; `cash`/`transfer` siguen siendo solo la venta).
+- `orders.tip_amount` ya no tiene tope de $2.000 (el tope de la página web lo sigue validando `_crear_pedido_publico_base`).
+- Probada con rollback: cobro con propina se guarda; propina negativa se rechaza.
+
 ## Qué encontré en producción
 - `users` tiene **RLS desactivado** y una política `INSERT with check (true)` para cualquiera.
 - La función `change-password` publicada **no verifica quién llama**: cualquiera con la llave

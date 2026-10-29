@@ -67,7 +67,7 @@ export async function imprimirHTML(html) {
     } else img.remove()
   }))
   for (const grupo of zona.querySelectorAll('.t-logos')) {
-    if (grupo.children.length < 3) grupo.querySelector('.t-por')?.remove()
+    if (grupo.querySelectorAll('img, .t-titulo').length < 2) grupo.querySelector('.t-por')?.remove()
   }
 
   // Esperar las imágenes (máx. 2 s) para que no salgan en blanco

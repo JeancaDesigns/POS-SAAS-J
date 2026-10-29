@@ -21,6 +21,9 @@ export default function CajaPanel() {
   // Solo el efectivo entra al cajón; las transferencias se muestran aparte
   const [cashSales, setCashSales] = useState(0)
   const [transferSales, setTransferSales] = useState(0)
+  // Propinas (no son venta): las de efectivo quedan en el cajón; se muestran aparte para repartir
+  const [tipsCash, setTipsCash] = useState(0)
+  const [tipsTransfer, setTipsTransfer] = useState(0)
 
   const restaurantId = user?.restaurant_id
   const { tick, recargar, terminado } = useRecarga()
@@ -48,7 +51,7 @@ export default function CajaPanel() {
           ? supabase.from('cash_movements').select('*').eq('register_id', register.id).order('created_at', { ascending: false })
           : Promise.resolve({ data: [] }),
         register
-          ? supabase.from('payments').select('cash, transfer').eq('restaurant_id', restaurantId).eq('voided', false).gte('created_at', register.created_at)
+          ? supabase.from('payments').select('cash, transfer, tip_cash, tip_transfer').eq('restaurant_id', restaurantId).eq('voided', false).gte('created_at', register.created_at)
           : Promise.resolve({ data: [] }),
         supabase.from('cash_registers').select('*').eq('restaurant_id', restaurantId).order('created_at', { ascending: false }).limit(10),
       ])
@@ -59,6 +62,8 @@ export default function CajaPanel() {
       setMovements(movRes.data || [])
       setCashSales((payRes.data || []).reduce((sum, p) => sum + Number(p.cash || 0), 0))
       setTransferSales((payRes.data || []).reduce((sum, p) => sum + Number(p.transfer || 0), 0))
+      setTipsCash((payRes.data || []).reduce((sum, p) => sum + Number(p.tip_cash || 0), 0))
+      setTipsTransfer((payRes.data || []).reduce((sum, p) => sum + Number(p.tip_transfer || 0), 0))
       if (!histRes.error) setHistory(histRes.data || [])
     }
 
@@ -110,7 +115,7 @@ export default function CajaPanel() {
     const counted = Number(closingAmount)
     if (isNaN(counted) || counted < 0) { avisar('Monto inválido'); return }
 
-    // Esperado final = apertura + ventas en efectivo + ingresos - egresos
+    // Esperado final = apertura + ventas en efectivo + propinas en efectivo + ingresos - egresos
     const expectedFinal = computedExpected
 
     const difference = counted - expectedFinal
@@ -139,6 +144,7 @@ export default function CajaPanel() {
         abiertaEn: cashRegister.created_at, cerradaEn: new Date(),
         apertura: Number(cashRegister.opening_amount || 0),
         efectivo: cashSales, transferencia: transferSales,
+        propinasEfectivo: tipsCash, propinasTransferencia: tipsTransfer,
         ingresos: manualIncome, egresos: manualExpense,
         esperado: expectedFinal, contado: counted, diferencia: difference,
       },
@@ -183,6 +189,7 @@ export default function CajaPanel() {
 
   const computedExpected = Number(cashRegister?.opening_amount || 0)
     + cashSales
+    + tipsCash
     + manualIncome
     - manualExpense
 
@@ -229,9 +236,11 @@ export default function CajaPanel() {
               <dl className="flex flex-col gap-2 text-sm md:border-l md:border-zinc-200 md:pl-6">
                 <div className="flex justify-between"><dt className="text-zinc-500">Base de apertura</dt><dd className="font-mono font-semibold text-zinc-800 tabular">{money(cashRegister.opening_amount)}</dd></div>
                 <div className="flex justify-between"><dt className="text-zinc-500">Ventas en efectivo</dt><dd className="font-mono font-semibold text-zinc-800 tabular">+{money(cashSales)}</dd></div>
+                {tipsCash > 0 && <div className="flex justify-between"><dt className="text-zinc-500">Propinas en efectivo</dt><dd className="font-mono font-semibold text-zinc-800 tabular">+{money(tipsCash)}</dd></div>}
                 <div className="flex justify-between"><dt className="text-zinc-500">Ingresos manuales</dt><dd className="font-mono font-semibold text-zinc-800 tabular">+{money(manualIncome)}</dd></div>
                 <div className="flex justify-between"><dt className="text-zinc-500">Gastos</dt><dd className="font-mono font-semibold text-zinc-800 tabular">−{money(manualExpense)}</dd></div>
                 <div className="flex justify-between pt-2 mt-1 border-t border-zinc-200"><dt className="text-zinc-500">Transferencias <span className="text-zinc-400">(no entran al cajón)</span></dt><dd className="font-mono font-semibold text-zinc-800 tabular">{money(transferSales)}</dd></div>
+                <div className="flex justify-between"><dt className="text-zinc-500">Propinas para repartir <span className="text-zinc-400">(efectivo {money(tipsCash)} · transf. {money(tipsTransfer)})</span></dt><dd className="font-mono font-semibold text-zinc-800 tabular">{money(tipsCash + tipsTransfer)}</dd></div>
               </dl>
             </div>
 

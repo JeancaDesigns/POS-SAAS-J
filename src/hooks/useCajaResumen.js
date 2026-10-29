@@ -5,7 +5,7 @@ import { useRecarga } from './useRecarga'
 
 // Resumen de la caja abierta para la barra lateral de Caja.
 // Misma regla que CajaPanel: esperado en el cajón = apertura + ventas en EFECTIVO
-// + ingresos manuales − egresos. Las transferencias se muestran aparte.
+// + propinas en efectivo + ingresos manuales − egresos. Las transferencias se muestran aparte.
 export function useCajaResumen(restaurantId) {
   const isOnline = useOnlineStatus()
   const [resumen, setResumen] = useState({ loading: true, register: null })
@@ -29,7 +29,7 @@ export function useCajaResumen(restaurantId) {
       }
 
       const [{ data: payments }, { data: movements }] = await Promise.all([
-        supabase.from('payments').select('cash, transfer')
+        supabase.from('payments').select('cash, transfer, tip_cash, tip_transfer')
           .eq('restaurant_id', restaurantId).eq('voided', false)
           .gte('created_at', register.created_at),
         supabase.from('cash_movements').select('type, amount').eq('register_id', register.id),
@@ -38,6 +38,8 @@ export function useCajaResumen(restaurantId) {
 
       const cash = (payments || []).reduce((s, p) => s + Number(p.cash || 0), 0)
       const transfer = (payments || []).reduce((s, p) => s + Number(p.transfer || 0), 0)
+      const tipsCash = (payments || []).reduce((s, p) => s + Number(p.tip_cash || 0), 0)
+      const tipsTransfer = (payments || []).reduce((s, p) => s + Number(p.tip_transfer || 0), 0)
       const income = (movements || []).filter(m => m.type === 'income').reduce((s, m) => s + Number(m.amount), 0)
       const expense = (movements || []).filter(m => m.type === 'expense').reduce((s, m) => s + Number(m.amount), 0)
 
@@ -45,9 +47,9 @@ export function useCajaResumen(restaurantId) {
         loading: false,
         register,
         opening: Number(register.opening_amount || 0),
-        cash, transfer, income, expense,
+        cash, transfer, income, expense, tipsCash, tipsTransfer,
         sales: (payments || []).length,
-        expected: Number(register.opening_amount || 0) + cash + income - expense,
+        expected: Number(register.opening_amount || 0) + cash + tipsCash + income - expense,
       })
     }
     load()

@@ -104,12 +104,14 @@ html, body {
 }
 #zona-impresion * { color: #000 !important; background: transparent !important; }
 #zona-impresion .t-centro { text-align: center; }
-#zona-impresion .t-logos { display: flex; align-items: center; justify-content: center; gap: 2.5mm; margin-bottom: 2mm; }
-#zona-impresion .t-logo { display: block; max-width: 55%; max-height: 14mm; }
-#zona-impresion .t-logo-sistema { display: block; max-width: 26%; max-height: 8mm; }
+/* Los dos logos en columnas iguales: la × queda en el centro exacto */
+#zona-impresion .t-logos { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 2.5mm; margin-bottom: 2mm; }
+#zona-impresion .t-lado { display: flex; justify-content: center; text-align: center; }
+#zona-impresion .t-logo { display: block; width: 100%; max-height: 12mm; object-fit: contain; }
 #zona-impresion .t-por { font-size: 13px; font-weight: 500; }
 #zona-impresion .t-mensaje { font-size: 13px; font-weight: 800; margin-top: 1.5mm; }
-#zona-impresion .t-firma-sistema { font-size: 9.5px; font-weight: 500; margin-top: 2.5mm; }
+#zona-impresion .t-firma-sistema { display: flex; align-items: center; justify-content: center; gap: 1.5mm; font-size: 9.5px; font-weight: 500; margin-top: 2.5mm; }
+#zona-impresion .t-firma-sistema img { display: block; height: 6mm; }
 #zona-impresion .t-titulo { font-size: 15px; font-weight: 800; }
 #zona-impresion .t-grande { font-size: 18px; font-weight: 800; letter-spacing: 0.04em; }
 #zona-impresion .t-pequeno { font-size: 10.5px; font-weight: 500; }
