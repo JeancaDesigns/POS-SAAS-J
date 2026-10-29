@@ -32,7 +32,7 @@ export default function MesasPanel() {
         .eq('restaurant_id', restaurantId).order('name')
       const { data: tablesData } = await supabase
         .from('tables').select('*')
-        .eq('restaurant_id', restaurantId).order('number')
+        .eq('restaurant_id', restaurantId).eq('is_web', false).order('number')
       if (!vivo) return
       setZones(zonesData || [])
       setTables(tablesData || [])
