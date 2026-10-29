@@ -1,3 +1,4 @@
+import { FirmaJeanca } from '../components/MarcaJeanca'
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 import { useAuthStore, fetchProfile, signOutAndClear } from '../store/authStore'
@@ -218,9 +219,7 @@ export default function Login() {
         </div>
       </div>
 
-      <footer className="pb-6 text-center text-xs text-zinc-400">
-        Desarrollado por <span className="font-bold text-zinc-500">Jeanca Dev</span>
-      </footer>
+      <FirmaJeanca />
     </div>
   )
 }

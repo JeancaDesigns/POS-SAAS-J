@@ -1,3 +1,4 @@
+import { LogoJeanca } from './MarcaJeanca'
 import { useState, useEffect } from 'react'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import { useAuthStore, signOutAndClear } from '../store/authStore'
@@ -244,7 +245,8 @@ export default function StatusDrawer() {
           </div>
 
           {/* Versión del sistema, para saber si se está viendo la última publicación */}
-          <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <LogoJeanca className="h-8 w-auto opacity-90" />
             <p className="text-xs text-zinc-500">
               Versión <span className="font-mono font-semibold text-zinc-700">{__APP_VERSION__.commit}</span> · {__APP_VERSION__.fecha}
             </p>

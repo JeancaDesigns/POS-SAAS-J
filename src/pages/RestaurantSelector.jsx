@@ -1,3 +1,4 @@
+import { FirmaJeanca, LogoJeanca } from '../components/MarcaJeanca'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
@@ -23,8 +24,8 @@ export default function RestaurantSelector() {
     <div className="min-h-screen bg-canvas flex flex-col">
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-12">
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900">Bienvenido</h1>
-          <p className="text-zinc-500 text-sm mt-2">Selecciona tu restaurante para continuar</p>
+          <h1><LogoJeanca className="w-[240px] mx-auto" /></h1>
+          <p className="text-zinc-500 text-sm mt-5">Selecciona tu restaurante para continuar</p>
         </div>
 
         {loading ? (
@@ -60,9 +61,7 @@ export default function RestaurantSelector() {
         )}
       </main>
 
-      <footer className="pb-6 text-center text-xs text-zinc-400">
-        Desarrollado por <span className="font-bold text-zinc-500">Jeanca Dev</span>
-      </footer>
+      <FirmaJeanca />
     </div>
   )
 }
