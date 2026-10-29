@@ -47,8 +47,9 @@ export async function imprimirHTML(html) {
     zona.setAttribute('aria-hidden', 'true')
     document.body.appendChild(zona)
   }
-  // Ancho imprimible: el rollo de 80 mm deja ~72 mm útiles y el de 58 mm ~48 mm
-  zona.style.setProperty('--ancho-papel', papel === 58 ? '48mm' : '72mm')
+  // Ancho imprimible: el rollo de 80 mm deja ~72 mm útiles y el de 58 mm ~48 mm.
+  // Se dejan 2 mm de aire: justo al borde, la térmica corta un poquito a cada lado.
+  zona.style.setProperty('--ancho-papel', papel === 58 ? '46mm' : '70mm')
   // Sin tamaño de página: se usa el papel de la impresora y el ticket queda pegado arriba.
   // (Si se pide una página distinta a la del papel, Chrome la centra y deja blanco arriba.)
   // El blanco que sobra abajo lo recorta el driver de la térmica.
