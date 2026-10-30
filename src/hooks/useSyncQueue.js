@@ -3,7 +3,7 @@ import { db } from '../db/localDB'
 import { supabase } from '../supabaseClient'
 import { useOnlineStatus } from './useOnlineStatus'
 import { newId } from '../utils/uuid'
-import { liberarMesaSiQuedaVacia } from '../utils/mesas'
+import { liberarMesaSiQuedaVacia, ACTIVE_ORDER_STATUSES } from '../utils/mesas'
 import { marcarListoYDescontar } from '../utils/inventario'
 
 // Código de Postgres para "uuid inválido": la operación apunta a un id que nunca va a
@@ -143,6 +143,41 @@ export function useSyncQueue() {
           error = e0 || e
         }
 
+        // ── Cambios a un pedido ya enviado, hechos sin conexión (src/db/edicionOffline.js) ──
+        if (op.type === 'add_items') {
+          // ids fijos: si se reintenta, las líneas no se duplican
+          const { error: e } = await supabase.from('order_items')
+            .upsert(op.payload.items, { onConflict: 'id', ignoreDuplicates: true })
+          error = e
+        }
+
+        if (op.type === 'update_item') {
+          const { error: e } = await supabase.from('order_items')
+            .update(op.payload.changes).eq('id', op.payload.itemId)
+          error = e
+        }
+
+        if (op.type === 'update_order') {
+          const { error: e } = await supabase.from('orders')
+            .update(op.payload.changes).eq('id', op.payload.orderId)
+          error = e
+        }
+
+        if (op.type === 'cancel_order') {
+          // Solo si sigue activo: si mientras tanto lo cobraron desde otro equipo, no se toca
+          const { data: cancelados, error: e } = await supabase.from('orders')
+            .update({ status: 'cancelled' })
+            .eq('id', op.payload.orderId).in('status', ACTIVE_ORDER_STATUSES)
+            .select('id')
+          error = e
+          if (!e && cancelados?.length) {
+            const { error: e2 } = await supabase.from('order_items')
+              .update({ status: 'cancelled' }).eq('order_id', op.payload.orderId)
+            error = e2
+            if (!e2) await liberarMesaSiQuedaVacia(op.payload.tableId, op.payload.orderId)
+          }
+        }
+
         if (op.type === 'update_table_status') {
           const { error: e } = await supabase
             .from('tables')
@@ -182,6 +217,10 @@ export function useSyncQueue() {
         } else if (error.code === INVALID_UUID) {
           console.error('Operación descartada (id inválido, nunca podrá sincronizarse):', op, error)
           await db.pendingOperations.delete(op.id)
+        } else if (op.payload.orderId) {
+          // Si falló un cambio del pedido, los siguientes del mismo pedido esperan (van en orden:
+          // p. ej. bajar la cantidad de una línea que todavía no se pudo agregar)
+          blockedIds.add(op.payload.orderId)
         }
       }
 

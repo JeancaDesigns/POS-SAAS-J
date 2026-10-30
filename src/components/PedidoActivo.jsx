@@ -15,6 +15,7 @@ import { useAhora } from '../hooks/useAhora'
 import { imprimirHTML, ofrecerImpresion } from '../utils/imprimir'
 import { comanda, precuenta } from '../utils/tickets'
 import { esWeb, etiquetaPedido } from '../utils/pedidoWeb'
+import { agregarItemsOffline, cambiarItemOffline, cambiarPedidoOffline, cancelarPedidoOffline } from '../db/edicionOffline'
 
 const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
 const lineKey = (productId, variant) => `${productId}::${variant || ''}`
@@ -54,7 +55,10 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
   const total = activeItems.reduce((sum, i) => sum + precioUnitario(i) * i.quantity, 0)
   const newTotal = newItems.reduce((sum, i) => sum + i.product.price * i.quantity, 0)
   const newCount = newItems.reduce((s, i) => s + i.quantity, 0)
-  const editable = isOnline && !!order
+  // Sin conexión también se puede agregar, quitar, anotar y cancelar: queda en el equipo y se
+  // envía al volver (edicionOffline). Mover de mesa y cambiar el tipo de entrega sí necesitan conexión.
+  const editable = !!order
+  const editableEnLinea = isOnline && !!order
 
   // ── Productos nuevos (adición) ──────────────────────────────────────────────
   function addProduct(product, variant = null) {
@@ -86,9 +90,14 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
   async function decreaseConfirmedItem(item) {
     if (busyItem) return
     setBusyItem(item.id)
-    const { error } = item.quantity === 1
-      ? await supabase.from('order_items').update({ status: 'cancelled' }).eq('id', item.id)
-      : await supabase.from('order_items').update({ quantity: item.quantity - 1 }).eq('id', item.id)
+    const cambios = item.quantity === 1 ? { status: 'cancelled' } : { quantity: item.quantity - 1 }
+    if (!isOnline) {
+      await cambiarItemOffline(order, item, cambios)
+      await refetch()
+      setBusyItem(null)
+      return
+    }
+    const { error } = await supabase.from('order_items').update(cambios).eq('id', item.id)
     if (error) avisar('No se pudo quitar el producto: ' + error.message)
     await refetch()
     setBusyItem(null)
@@ -99,6 +108,13 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
     setBusyItem(item.id)
     // Si cocina ya lo marcó como listo, la unidad extra va como línea nueva pendiente;
     // subir la cantidad de una línea "lista" hacía que cocina nunca la preparara
+    if (!isOnline) {
+      if (item.status === 'done') await agregarItemsOffline(order, [{ product: item.product, quantity: 1, note: item.note, variant: item.variant }])
+      else await cambiarItemOffline(order, item, { quantity: item.quantity + 1 })
+      await refetch()
+      setBusyItem(null)
+      return
+    }
     const { error } = item.status === 'done'
       ? await supabase.from('order_items').insert({
           order_id: item.order_id,
@@ -116,6 +132,12 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
   }
 
   async function saveNote(itemId, note) {
+    if (!isOnline) {
+      await cambiarItemOffline(order, items.find(i => i.id === itemId), { note: note || null })
+      setEditingNote(null)
+      refetch()
+      return
+    }
     const { error } = await supabase.from('order_items').update({ note: note || null }).eq('id', itemId)
     if (error) { avisar('No se pudo guardar la nota: ' + error.message); return }
     setEditingNote(null)
@@ -168,6 +190,12 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
     // Única confirmación del flujo: es irreversible
     if (!(await confirmar('Se cancelan todos los productos y la mesa queda libre.', { titulo: '¿Cancelar todo el pedido?', aceptar: 'Sí, cancelar', cancelar: 'Volver' }))) return
     setCancelling(true)
+    if (!isOnline) {
+      await cancelarPedidoOffline(order, table)
+      setCancelling(false)
+      onClose()
+      return
+    }
     const { error } = await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id)
     if (error) {
       avisar('No se pudo cancelar el pedido: ' + error.message)
@@ -191,26 +219,31 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
   async function handleAddMore() {
     if (newItems.length === 0 || !order) return
     setConfirming(true)
-    const { error } = await supabase.from('order_items').insert(
-      newItems.map(i => ({
-        order_id: order.id,
-        product_id: i.product.id,
-        quantity: i.quantity,
-        note: i.note || null,
-        variant: i.variant || null,
-        status: 'pending',
-        kitchen_only: false,
-      }))
-    )
-    if (error) {
-      avisar('No se pudieron agregar los productos. Intenta de nuevo.')
-      setConfirming(false)
-      return
-    }
-    if (scheduledMore) {
-      await supabase.from('orders').update({
-        scheduled_for: horaProgramadaISO(scheduledMore)
-      }).eq('id', order.id)
+    if (!isOnline) {
+      await agregarItemsOffline(order, newItems)
+      if (scheduledMore) await cambiarPedidoOffline(order, { scheduled_for: horaProgramadaISO(scheduledMore) })
+    } else {
+      const { error } = await supabase.from('order_items').insert(
+        newItems.map(i => ({
+          order_id: order.id,
+          product_id: i.product.id,
+          quantity: i.quantity,
+          note: i.note || null,
+          variant: i.variant || null,
+          status: 'pending',
+          kitchen_only: false,
+        }))
+      )
+      if (error) {
+        avisar('No se pudieron agregar los productos. Intenta de nuevo.')
+        setConfirming(false)
+        return
+      }
+      if (scheduledMore) {
+        await supabase.from('orders').update({
+          scheduled_for: horaProgramadaISO(scheduledMore)
+        }).eq('id', order.id)
+      }
     }
     // Comanda solo con lo nuevo, para que cocina no repita lo ya preparado
     ofrecerImpresion('comandaAlEnviar', comanda({
@@ -254,7 +287,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
 
         {!isOnline && (
           <p className="rounded-xl px-3.5 py-2.5 text-sm font-semibold bg-yellow-50 border border-yellow-200 text-yellow-700">
-            Sin conexión: puedes ver el pedido, pero los cambios se habilitan al volver la conexión.
+            Sin conexión: los cambios se guardan en este equipo y se envían solos al volver internet. Mover de mesa y cambiar a domicilio o recoger necesitan conexión.
           </p>
         )}
 
@@ -422,7 +455,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
             {table.is_delivery && (
               <button
                 onClick={toggleDeliveryType}
-                disabled={!editable}
+                disabled={!editableEnLinea}
                 className="h-10 px-3 rounded-xl border border-zinc-200 text-sm font-bold text-zinc-700 hover:bg-zinc-50 flex items-center gap-1.5 disabled:opacity-50"
               >
                 {order.delivery_type === 'delivery' ? <Bike size={16} aria-hidden="true" /> : <Store size={16} aria-hidden="true" />}
@@ -432,7 +465,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
             {!table.is_delivery && (
               <button
                 onClick={cargarMesas}
-                disabled={!editable}
+                disabled={!editableEnLinea}
                 className="h-10 px-3 rounded-xl border border-zinc-200 text-sm font-bold text-zinc-700 hover:bg-zinc-50 flex items-center gap-1.5 disabled:opacity-50"
               >
                 <ArrowRightLeft size={16} aria-hidden="true" />
