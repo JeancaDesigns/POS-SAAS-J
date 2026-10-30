@@ -47,6 +47,12 @@ El 2026-10-16 revisé la base de producción y ajusté estos archivos a lo que e
 - Probado: el admin de Benditas Papas cambia su restaurante (1 fila) y no otro (0 filas), con rollback.
 - Ese mismo día se borraron los restaurantes de prueba Entre Horas y Origen (sin pedidos ni pagos) y sus cuentas.
 
+**1100 (2026-10-29, rama `tarea/rendimiento-bd`): APLICADA en producción.**
+- 26 índices (llaves foráneas y consultas por restaurante y fecha).
+- Se quitaron las políticas duplicadas "pedidos de su restaurante" y "productos de su restaurante".
+- `auth.uid()` → `(select auth.uid())` en todas las políticas (se evalúa una vez por consulta).
+- Verificado: admin, mesero y anónimo ven exactamente lo mismo antes y después; el mesero sigue creando pedidos (rollback).
+
 ## Qué encontré en producción
 - `users` tiene **RLS desactivado** y una política `INSERT with check (true)` para cualquiera.
 - La función `change-password` publicada **no verifica quién llama**: cualquiera con la llave
