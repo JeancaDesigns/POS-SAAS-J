@@ -15,6 +15,7 @@ import RestaurantSelector from './pages/RestaurantSelector'
 import NavBar from './components/NavBar'
 import StatusDrawer from './components/StatusDrawer'
 import DialogoHost from './components/Dialogo'
+import IntroJeanca from './components/IntroJeanca'
 import 'leaflet/dist/leaflet.css'
 import { useSyncQueue } from './hooks/useSyncQueue'
 import { useEstacionImpresion } from './hooks/useEstacionImpresion'
@@ -114,7 +115,7 @@ function ProtectedRoute({ children, roles }) {
 
 // ── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const { user, init } = useAuthStore()
+  const { user, init, intro } = useAuthStore()
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -149,6 +150,7 @@ export default function App() {
     <>
       {!isPublicRoute && <StatusDrawer />}
       <DialogoHost />
+      {intro && <IntroJeanca onFin={() => useAuthStore.setState({ intro: false })} />}
       <div className={
         user && !isPublicRoute
           ? 'pb-[80px] lg:pb-0 lg:pl-[92px]'

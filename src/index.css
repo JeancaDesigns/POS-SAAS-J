@@ -132,3 +132,16 @@ html, body {
   body > *:not(#zona-impresion) { display: none !important; }
   #zona-impresion { position: static; visibility: visible; display: block; }
 }
+
+/* ── Animación de entrada (src/components/IntroJeanca.jsx) ─────────────────────
+   Fuentes del logo servidas desde la app (public/marca/fuentes), con nombre propio
+   para no chocar con las de la interfaz. Medidas idénticas al logo (marca/LEEME.md). */
+@font-face { font-family: 'JeancaBungee'; src: url('/marca/fuentes/Bungee.woff2') format('woff2'); font-display: block; }
+@font-face { font-family: 'JeancaMono'; font-weight: 800; src: url('/marca/fuentes/JetBrainsMono.woff2') format('woff2'); font-display: block; }
+.intro-ventana { box-sizing: border-box; padding: 0 6px 6px; background: #fff; border-radius: 18px; transition: width .12s linear; }
+.intro-barra { height: 38px; display: flex; align-items: center; padding: 0 14px; gap: 8px; }
+.intro-barra i { width: 10px; height: 10px; border-radius: 50%; background: #000; flex: none; }
+.intro-barra span { margin-left: auto; margin-right: 1px; font: 800 20px 'JeancaMono', monospace; letter-spacing: -1px; font-variant-ligatures: none; color: #000; }
+.intro-cuerpo { position: relative; height: 128px; border-radius: 4px 4px 12px 12px; background: #000; overflow: hidden; }
+.intro-letra { position: absolute; left: 50%; top: 50%; font: 400 66px/1 'JeancaBungee', sans-serif; color: #fff; visibility: hidden; transform: translate(0, -50%); }
+.intro-cursor { position: absolute; left: 50%; top: 50%; width: 9px; height: 50px; background: #fff; visibility: hidden; }
