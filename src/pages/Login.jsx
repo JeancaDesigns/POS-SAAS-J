@@ -104,6 +104,8 @@ export default function Login() {
     // en el equipo para poder recargar sin internet. Antes se cargaba a medias aquí y el
     // ticket salía sin WhatsApp ni Instagram hasta recargar la página.
     await init()
+    // Animación de marca encima de la app mientras la pantalla de destino carga sus datos
+    useAuthStore.setState({ intro: true })
 
     if (profile.roles.includes('cocina')) navigate(`/${slug}/cocina`)
     else if (profile.roles.includes('cajero')) navigate(`/${slug}/caja`)

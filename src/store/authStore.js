@@ -54,6 +54,7 @@ export const useAuthStore = create((set) => ({
   logoUrl: null,
   restaurantName: '', // encabezado de tickets impresos
   contactoTicket: null, // { whatsapp, instagram, mensaje } para el ticket impreso
+  intro: false, // animación de entrada (IntroJeanca) justo después de iniciar sesión
   loading: true,
 
   setUser: (user) => set({ user }),
