@@ -96,7 +96,7 @@ export const useAuthStore = create((set) => ({
       if (userData?.restaurant_id) {
         const { data: restaurant, error: restaurantError } = await supabase
           .from('restaurants')
-          .select('slug, name, modules, theme, logo_url, active, whatsapp, instagram, ticket_message')
+          .select('slug, name, modules, theme, logo_url, logo_ticket_url, active, whatsapp, instagram, ticket_message')
           .eq('id', userData.restaurant_id)
           .maybeSingle()
         // Se cayó la conexión entre las dos consultas: usar lo guardado
@@ -116,6 +116,7 @@ export const useAuthStore = create((set) => ({
           whatsapp: restaurant?.whatsapp || null,
           instagram: restaurant?.instagram || null,
           mensaje: restaurant?.ticket_message || null,
+          logoTicketUrl: restaurant?.logo_ticket_url || null,
         }
         restaurantActive = restaurant?.active !== false
       }

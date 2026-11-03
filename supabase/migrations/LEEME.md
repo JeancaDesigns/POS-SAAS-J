@@ -80,3 +80,8 @@ mensaje trae los resultados). Pegarlo completo en SQL Editor → Run, y revisar 
 coincida con su `[esperado ...]`.
 
 Si `prueba_rls.sql` se regenera: es la concatenación de 0300, 0400, 0500 y `_bloque_pruebas.sql`.
+
+**1200 (2026-11-03, rama `claude/mobile-expense-management-co4p0c`): APLICADA en producción.**
+- Columna nueva `restaurants.logo_ticket_url`: logo en blanco y negro que los tickets imprimen tal cual.
+  Vacío = se sigue convirtiendo `logo_url`. Benditas Papas quedó con `/logos/benditas-papas/ticket-relleno.png`
+  (servido desde `public/`; la otra versión es `ticket-lineas.png`).

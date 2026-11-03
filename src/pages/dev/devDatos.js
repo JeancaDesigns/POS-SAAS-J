@@ -63,9 +63,9 @@ export async function cargarResumen() {
 }
 
 // Sube el logo con nombre nuevo (así el navegador no muestra el viejo guardado) y devuelve su URL pública
-export async function subirLogo(slug, archivo) {
+export async function subirLogo(slug, archivo, nombre = 'logo') {
   const ext = (archivo.name.split('.').pop() || 'png').toLowerCase()
-  const ruta = `${slug}/logo-${Date.now()}.${ext}`
+  const ruta = `${slug}/${nombre}-${Date.now()}.${ext}`
   const { error } = await supabase.storage.from('restaurant-logos').upload(ruta, archivo)
   if (error) throw error
   return supabase.storage.from('restaurant-logos').getPublicUrl(ruta).data.publicUrl
