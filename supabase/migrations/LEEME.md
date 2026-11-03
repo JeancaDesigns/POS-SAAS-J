@@ -86,3 +86,11 @@ Si `prueba_rls.sql` se regenera: es la concatenación de 0300, 0400, 0500 y `_bl
   Vacío = se sigue convirtiendo `logo_url`. Benditas Papas quedó con `/logos/benditas-papas/ticket-lineas.png`
   (servido desde `public/`; la otra versión es `ticket-relleno.png`, se veía muy cargada). Su `logo_url` es `angel.png`
   (solo el ángel: los logos se muestran en cuadritos).
+
+**1300 (2026-11-03, rama `tarea/caja-cerrada`): PENDIENTE de aplicar.**
+- `caja_abierta(restaurant_id)` (interna) y `pedidos_abiertos(slug)` (pública): hay una caja con status `open`.
+- `crear_pedido_publico` rechaza el pedido con la caja cerrada ("Pedidos aún no abiertos (caja cerrada)"),
+  además del horario. La página lo muestra con el mensaje amable.
+- Los pedidos del personal se frenan en la app (TomaPedido, solo con internet), no con trigger: así un pedido
+  tomado sin internet no se pierde al sincronizar.
+- El frontend funciona sin 1300: si `pedidos_abiertos` no existe, la página no bloquea.
