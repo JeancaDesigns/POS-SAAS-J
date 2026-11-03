@@ -17,7 +17,8 @@ export function Titulo({ children }) {
 }
 
 // datos/onDatos: estado del formulario. logoActual: URL guardada. archivo/onArchivo: logo nuevo elegido.
-export default function FormDatos({ datos, onDatos, logoActual, archivo, onArchivo }) {
+// logoTicketActual/archivoTicket/onArchivoTicket: lo mismo para el logo de los tickets (opcional).
+export default function FormDatos({ datos, onDatos, logoActual, archivo, onArchivo, logoTicketActual, archivoTicket, onArchivoTicket }) {
   const set = k => e => onDatos({ ...datos, [k]: e.target.value })
   return (
     <div className="flex flex-col gap-3">
@@ -49,25 +50,35 @@ export default function FormDatos({ datos, onDatos, logoActual, archivo, onArchi
       </div>
 
       <Titulo>Logo</Titulo>
-      <SelectorLogo logoActual={logoActual} archivo={archivo} onArchivo={onArchivo} />
+      <SelectorLogo logoActual={logoActual} archivo={archivo} onArchivo={onArchivo}
+        logoTicketActual={logoTicketActual} archivoTicket={archivoTicket} onArchivoTicket={onArchivoTicket} />
     </div>
   )
 }
 
-// Logo con vista previa en pantalla y en el ticket (negro puro, como lo imprime la térmica)
-function SelectorLogo({ logoActual, archivo, onArchivo }) {
+// URL temporal para ver un archivo elegido antes de subirlo
+function useVistaArchivo(archivo) {
+  const url = useMemo(() => (archivo ? URL.createObjectURL(archivo) : null), [archivo])
+  useEffect(() => () => { if (url) URL.revokeObjectURL(url) }, [url])
+  return url
+}
+
+// Logo con vista previa en pantalla y en el ticket. El ticket usa el logo para tickets si hay
+// (ya viene en blanco y negro, se imprime tal cual); si no, el logo de pantalla convertido a negro puro.
+function SelectorLogo({ logoActual, archivo, onArchivo, logoTicketActual, archivoTicket, onArchivoTicket }) {
   const [termico, setTermico] = useState({ de: null, url: null })
-  const urlArchivo = useMemo(() => (archivo ? URL.createObjectURL(archivo) : null), [archivo])
-  useEffect(() => () => { if (urlArchivo) URL.revokeObjectURL(urlArchivo) }, [urlArchivo])
+  const urlArchivo = useVistaArchivo(archivo)
+  const urlArchivoTicket = useVistaArchivo(archivoTicket)
 
   const url = archivo ? urlArchivo : logoActual
+  const urlTicket = archivoTicket ? urlArchivoTicket : logoTicketActual
   useEffect(() => {
-    if (!url) return
+    if (!url || urlTicket) return
     let vivo = true
     logoTermico(url).then(t => { if (vivo) setTermico({ de: url, url: t }) })
     return () => { vivo = false }
-  }, [url])
-  const enTicket = termico.de === url ? termico.url : null
+  }, [url, urlTicket])
+  const enTicket = urlTicket || (termico.de === url ? termico.url : null)
 
   return (
     <div className="rounded-xl border border-zinc-200 bg-surface p-3 flex flex-col gap-3">
@@ -89,6 +100,12 @@ function SelectorLogo({ logoActual, archivo, onArchivo }) {
         {archivo ? `Cambiar (${archivo.name})` : url ? 'Cambiar logo' : 'Subir logo'}
         <input type="file" accept="image/*" className="sr-only" onChange={e => onArchivo(e.target.files?.[0] || null)} />
       </label>
+      {onArchivoTicket && (
+        <label className="h-11 rounded-xl border border-zinc-200 bg-surface-2 text-sm font-bold text-zinc-800 flex items-center justify-center cursor-pointer hover:bg-zinc-50">
+          {archivoTicket ? `Cambiar (${archivoTicket.name})` : urlTicket ? 'Cambiar logo para tickets' : 'Subir logo para tickets (blanco y negro)'}
+          <input type="file" accept="image/*" className="sr-only" onChange={e => onArchivoTicket(e.target.files?.[0] || null)} />
+        </label>
+      )}
     </div>
   )
 }

@@ -48,14 +48,17 @@ const logo = (url, clase, respaldo = '') => `<img class="${clase}" data-termico 
 
 // Encabezado: [logo del restaurante] × [logo JEANCA], del mismo ancho y con la × al centro;
 // debajo el contacto.
-// Sin logo del restaurante se escribe el nombre.
-function encabezado({ nombre, logoUrl, whatsapp, instagram }) {
+// El logo para tickets (logoTicketUrl) ya viene en blanco y negro y va tal cual; sin él se
+// convierte el logo de pantalla. Sin ninguno se escribe el nombre.
+function encabezado({ nombre, logoUrl, logoTicketUrl, whatsapp, instagram }) {
   const telefono = whatsapp ? String(whatsapp).replace(/^(\d{3})(\d{3})(\d{4})$/, '$1 $2 $3') : ''
   const red = instagram ? `@${String(instagram).replace(/^@/, '')}` : ''
   const contacto = [telefono && `WhatsApp ${esc(telefono)}`, red && esc(red)].filter(Boolean).join(' · ')
   return `<div class="t-centro">
-    ${logoUrl
-      ? `<div class="t-logos"><div class="t-lado">${logo(logoUrl, 't-logo', nombre || 'Restaurante')}</div><span class="t-por">×</span><div class="t-lado"><img class="t-logo" src="${LOGO_JEANCA}" alt="Jeanca"></div></div>`
+    ${logoTicketUrl || logoUrl
+      ? `<div class="t-logos"><div class="t-lado">${logoTicketUrl
+          ? `<img class="t-logo" src="${esc(logoTicketUrl)}" alt="${esc(nombre || 'Restaurante')}">`
+          : logo(logoUrl, 't-logo', nombre || 'Restaurante')}</div><span class="t-por">×</span><div class="t-lado"><img class="t-logo" src="${LOGO_JEANCA}" alt="Jeanca"></div></div>`
       : `<div class="t-titulo">${esc(nombre || 'Restaurante')}</div>`}
     ${contacto ? `<div class="t-pequeno">${contacto}</div>` : ''}
   </div>`
@@ -148,6 +151,18 @@ export function precuenta({ restaurante, order, deliveryFee, fecha = new Date() 
     ${cuenta}
     ${SEP}
     ${pie(restaurante, 'La propina es voluntaria<br>Pendiente de pago — no es factura')}`
+}
+
+// ── Página de prueba: encabezado real (para ver cómo sale el logo) + una comanda ──
+export function paginaPrueba({ restaurante, papel }) {
+  return `${encabezado(restaurante)}
+    ${SEP}
+    ${comanda({
+      order: { table: { number: 'de prueba' } },
+      items: [{ quantity: 1, product: { name: 'Impresora funcionando' }, note: `Papel de ${papel} mm`, status: 'pending' }],
+      titulo: 'PRUEBA',
+    })}
+    ${pie(restaurante, '')}`
 }
 
 // ── Comanda de cocina: letra grande, sin precios ───────────────────────────────

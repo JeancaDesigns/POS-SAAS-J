@@ -125,6 +125,7 @@ function Resumen({ restaurante, resumen }) {
 function Datos({ restaurante, onGuardado }) {
   const [datos, setDatos] = useState(() => datosDesde(restaurante))
   const [archivo, setArchivo] = useState(null)
+  const [archivoTicket, setArchivoTicket] = useState(null)
   const [guardando, setGuardando] = useState(false)
 
   async function guardar() {
@@ -135,6 +136,9 @@ function Datos({ restaurante, onGuardado }) {
     if (archivo) {
       try { cambios.logo_url = await subirLogo(restaurante.slug, archivo) } catch (e) { falloLogo = e.message }
     }
+    if (archivoTicket) {
+      try { cambios.logo_ticket_url = await subirLogo(restaurante.slug, archivoTicket, 'logo-ticket') } catch (e) { falloLogo = e.message }
+    }
     const { error } = await supabase.from('restaurants').update(cambios).eq('id', restaurante.id)
     setGuardando(false)
     if (error) { avisar('No se pudo guardar: ' + error.message); return }
@@ -144,7 +148,8 @@ function Datos({ restaurante, onGuardado }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <FormDatos datos={datos} onDatos={setDatos} logoActual={restaurante.logo_url} archivo={archivo} onArchivo={setArchivo} />
+      <FormDatos datos={datos} onDatos={setDatos} logoActual={restaurante.logo_url} archivo={archivo} onArchivo={setArchivo}
+        logoTicketActual={restaurante.logo_ticket_url} archivoTicket={archivoTicket} onArchivoTicket={setArchivoTicket} />
       <p className="text-xs text-zinc-500">El personal ve los cambios al volver a iniciar sesión o recargar el POS.</p>
       <button onClick={guardar} disabled={guardando} className="sticky bottom-4 h-12 rounded-xl font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] disabled:opacity-60 shadow-pop">
         {guardando ? 'Guardando…' : 'Guardar cambios'}

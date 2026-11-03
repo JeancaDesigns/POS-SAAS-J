@@ -77,6 +77,8 @@ export async function imprimirHTML(html) {
     Promise.all(imgs.map(img => new Promise(r => { img.onload = r; img.onerror = r }))),
     espera(2000),
   ])
+  // La que no cargó (p. ej. el logo para tickets sin conexión) se quita para que no salga rota
+  for (const img of zona.querySelectorAll('img')) if (img.complete && !img.naturalWidth) img.remove()
 
   window.print()
 }

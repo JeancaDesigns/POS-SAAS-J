@@ -1,7 +1,7 @@
 import { LogoJeanca } from './MarcaJeanca'
 import { useState, useEffect } from 'react'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
-import { useAuthStore, signOutAndClear } from '../store/authStore'
+import { useAuthStore, signOutAndClear, restauranteTicket } from '../store/authStore'
 import { db } from '../db/localDB'
 import DebtPanel from './DebtPanel'
 import ReportsPanel from './ReportsPanel'
@@ -10,7 +10,7 @@ import { LogOut, Wifi, WifiOff, X, CreditCard, BarChart3, Wrench, ChevronRight }
 import { confirmar } from '../utils/dialogo'
 import Selector from './Selector'
 import { getPreferenciasImpresion, setPreferenciasImpresion, imprimirHTML } from '../utils/imprimir'
-import { comanda } from '../utils/tickets'
+import { paginaPrueba } from '../utils/tickets'
 
 export default function StatusDrawer() {
   const isOnline = useOnlineStatus()
@@ -234,11 +234,7 @@ export default function StatusDrawer() {
               )}
             </div>
             <button
-              onClick={() => imprimirHTML(comanda({
-                order: { table: { number: 'de prueba' } },
-                items: [{ quantity: 1, product: { name: 'Impresora funcionando' }, note: `Papel de ${impresion.papel} mm`, status: 'pending' }],
-                titulo: 'PRUEBA',
-              }))}
+              onClick={() => imprimirHTML(paginaPrueba({ restaurante: restauranteTicket(), papel: impresion.papel }))}
               className="h-10 rounded-xl border border-zinc-200 text-sm font-bold text-zinc-700 hover:bg-zinc-50"
             >
               Imprimir página de prueba
