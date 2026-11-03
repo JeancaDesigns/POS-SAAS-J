@@ -25,6 +25,7 @@ export default function StatusDrawer() {
   const [impresion, setImpresion] = useState(getPreferenciasImpresion)
   const cambiarImpresion = cambios => setImpresion(setPreferenciasImpresion(cambios))
   const isAdminOrCajero = user?.roles?.some(r => ['admin', 'cajero', 'dev'].includes(r))
+  const isAdminOrDev = user?.roles?.some(r => ['admin', 'dev'].includes(r))
 
   // Al cambiar la conexión (estado derivado, sin efecto): se abre si se va,
   // y muestra "conexión restablecida" unos segundos cuando vuelve
@@ -171,7 +172,9 @@ export default function StatusDrawer() {
             </div>
           </div>
 
-          {/* Impresión: se guarda en este equipo (cada uno puede tener otra impresora) */}
+          {/* Impresión: se guarda en este equipo (cada uno puede tener otra impresora).
+              Solo admin y dev la cambian, para que nadie más la desconfigure */}
+          {isAdminOrDev && (
           <div className="flex flex-col gap-2">
             <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Impresión en este equipo</p>
             <div role="radiogroup" aria-label="Ancho del papel" className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-zinc-100 border border-zinc-200">
@@ -241,6 +244,7 @@ export default function StatusDrawer() {
               Imprimir página de prueba
             </button>
           </div>
+          )}
 
           {/* Versión del sistema, para saber si se está viendo la última publicación */}
           <div className="flex items-center gap-3">
