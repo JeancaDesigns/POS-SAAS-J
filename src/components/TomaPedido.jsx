@@ -84,6 +84,15 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
     const scheduledFor = horaProgramadaISO(scheduled)
 
     if (isOnline) {
+      // Sin caja abierta no se toman pedidos. Sin internet no se puede revisar: el pedido entra a la cola
+      const { count: cajas, error: cajaError } = await supabase.from('cash_registers')
+        .select('id', { count: 'exact', head: true })
+        .eq('restaurant_id', user.restaurant_id).eq('status', 'open')
+      if (!cajaError && cajas === 0) {
+        avisar('La caja está cerrada. Ábrela en Caja antes de tomar pedidos: los productos quedan guardados.', { titulo: 'Caja cerrada' })
+        return
+      }
+
       // Otro mesero pudo abrir esta mesa mientras tanto: no crear un segundo pedido oculto.
       // El carrito queda guardado y aparece como adición al abrir la mesa de nuevo.
       if (!table.is_delivery) {

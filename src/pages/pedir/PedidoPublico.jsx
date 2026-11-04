@@ -30,6 +30,9 @@ function formatHour(hour) {
   return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'p. m.' : 'a. m.'}`
 }
 
+// Dentro del horario pero sin caja abierta (el restaurante aún se está alistando)
+const MENSAJE_CAJA_CERRADA = 'En este momento estamos organizando todo para ofrecerte el mejor servicio. Nuestros pedidos aún no están abiertos, pero pronto lo estarán. Por favor, intenta más tarde.'
+
 // Abierto según la hora de Colombia, no la del celular del cliente
 function isOpen(restaurant) {
   if (!restaurant?.opening_time || !restaurant?.closing_time) return true
@@ -244,6 +247,22 @@ export default function PedidoPublico() {
     return () => clearInterval(interval)
   }, [restaurant])
 
+  // Caja abierta en el restaurante, revisada cada minuto. Si la consulta falla, no se bloquea:
+  // la base de datos igual rechaza el pedido al enviarlo.
+  const [cajaAbierta, setCajaAbierta] = useState(true)
+  useEffect(() => {
+    if (!slug) return
+    let vivo = true
+    async function check() {
+      const { data, error } = await supabase.rpc('pedidos_abiertos', { p_slug: slug })
+      if (vivo && !error && data !== null) setCajaAbierta(data)
+    }
+    check()
+    const interval = setInterval(check, 60000)
+    return () => { vivo = false; clearInterval(interval) }
+  }, [slug])
+  const recibiendo = open && cajaAbierta
+
   // Nombre del restaurante en la pestaña del navegador
   useEffect(() => {
     if (restaurant?.name) document.title = `${restaurant.name} · Pedidos`
@@ -441,6 +460,7 @@ export default function PedidoPublico() {
     if (items.length === 0 || confirming) return
     setIntentado(true)
     if (!open) { avisar('El restaurante está cerrado en este momento'); return }
+    if (!cajaAbierta) { avisar(MENSAJE_CAJA_CERRADA, { titulo: 'Aún no recibimos pedidos' }); return }
     if (hayErrores) { avisar(Object.values(errores)[0]); return }
     setConfirming(true)
 
@@ -473,6 +493,11 @@ export default function PedidoPublico() {
 
     if (error || !order) {
       const msg = error?.message || ''
+      if (msg.includes('caja cerrada')) {
+        setCajaAbierta(false)
+        avisar(MENSAJE_CAJA_CERRADA, { titulo: 'Aún no recibimos pedidos' })
+        return
+      }
       avisar(
         msg.includes('fuera del horario') ? 'El restaurante está cerrado en este momento'
           : msg.includes('mesa de domicilio') ? 'El restaurante aún no tiene los domicilios configurados. Llámanos para pedir.'
@@ -858,7 +883,8 @@ export default function PedidoPublico() {
         <div className="fixed bottom-0 inset-x-0 z-40 p-4 pb-[calc(env(safe-area-inset-bottom)+16px)] bg-gradient-to-t from-canvas via-canvas to-transparent">
           <div className="max-w-3xl mx-auto">
             {!open && <p className="text-center text-sm font-semibold text-red-600 mb-2">Estamos cerrados · abrimos a las {formatHour(restaurant?.opening_time)}</p>}
-            <button onClick={handleConfirm} disabled={confirming || !open}
+            {open && !cajaAbierta && <p className="text-center text-sm font-semibold text-amber-700 mb-2">Aún no recibimos pedidos · intenta en un rato</p>}
+            <button onClick={handleConfirm} disabled={confirming || !recibiendo}
               className="w-full h-14 rounded-2xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white font-extrabold text-lg shadow-[0_8px_30px_var(--brand-shadow)] disabled:opacity-50">
               {confirming ? 'Enviando pedido…' : `Confirmar pedido · ${money(aPagar)}`}
             </button>
@@ -954,6 +980,16 @@ export default function PedidoPublico() {
                 <p className="text-red-600 text-sm mt-0.5">
                   Nuestro horario es de {formatHour(restaurant?.opening_time)} a {formatHour(restaurant?.closing_time)}. Puedes ver el menú y pedir cuando abramos.
                 </p>
+              </div>
+            </div>
+          )}
+
+          {open && !cajaAbierta && (
+            <div className="rounded-2xl p-4 bg-amber-50 border border-amber-200 flex items-start gap-3">
+              <Clock size={22} className="shrink-0 text-amber-600 mt-0.5" aria-hidden="true" />
+              <div>
+                <p className="font-bold text-amber-700">Aún no recibimos pedidos</p>
+                <p className="text-amber-700 text-sm mt-0.5">{MENSAJE_CAJA_CERRADA}</p>
               </div>
             </div>
           )}
