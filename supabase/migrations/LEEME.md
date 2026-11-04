@@ -87,7 +87,9 @@ Si `prueba_rls.sql` se regenera: es la concatenación de 0300, 0400, 0500 y `_bl
   (servido desde `public/`; la otra versión es `ticket-relleno.png`, se veía muy cargada). Su `logo_url` es `angel.png`
   (solo el ángel: los logos se muestran en cuadritos).
 
-**1300 (2026-11-03, rama `tarea/caja-cerrada`): PENDIENTE de aplicar.**
+**1300 (2026-11-03, rama `tarea/caja-cerrada`): APLICADA en producción (2026-11-04).**
+- Verificado: `pedidos_abiertos('benditas-papas')` = false con la caja cerrada; anon puede llamar `pedidos_abiertos` y
+  `crear_pedido_publico` pero no `caja_abierta`.
 - `caja_abierta(restaurant_id)` (interna) y `pedidos_abiertos(slug)` (pública): hay una caja con status `open`.
 - `crear_pedido_publico` rechaza el pedido con la caja cerrada ("Pedidos aún no abiertos (caja cerrada)"),
   además del horario. La página lo muestra con el mensaje amable.
