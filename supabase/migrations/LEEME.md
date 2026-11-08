@@ -105,3 +105,6 @@ pantalla, `ticket.png` negro para la impresora). Falta crear su admin desde el p
 **1400 (2026-11-08): APLICADA en producción.** Columna `tables.tipo` (opcional): `llevar` (slot para llevar, va con
 `is_delivery`, el pedido siempre es "recoger") y `personal` (cuenta a nombre de alguien, sin `is_delivery`). Vacío = mesa o
 domicilio como antes. La app lo muestra con `nombreMesa`/`tipoMesa` (`src/utils/mesas.js`) y en Admin › Mesas se elige el tipo.
+
+**1500 (2026-11-08): APLICADA en producción.** Columna `zones.orden` (opcional): las zonas con número salen primero, de
+menor a mayor; las demás después, por nombre. Social: Sala principal 1, Segundo piso 2, Para llevar 3, Personal 4.

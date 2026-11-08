@@ -23,7 +23,7 @@ export function useTables() {
       if (isOnline) {
         const { data: zonesData } = await supabase
           .from('zones').select('*')
-          .eq('restaurant_id', restaurantId).order('name')
+          .eq('restaurant_id', restaurantId).order('orden', { nullsFirst: false }).order('name')
 
         const { data: tablesData } = await supabase
           .from('tables').select('*') // sin la mesa web: es interna, solo para pedidos de la página
@@ -51,7 +51,7 @@ export function useTables() {
         const zns = await db.cachedZones
           .where('restaurant_id').equals(restaurantId)
           .toArray()
-          .then(arr => arr.sort((a, b) => a.name.localeCompare(b.name)))
+          .then(arr => arr.sort((a, b) => (a.orden ?? Infinity) - (b.orden ?? Infinity) || a.name.localeCompare(b.name)))
 
         let tbs = await db.cachedTables
           .where('restaurant_id').equals(restaurantId)

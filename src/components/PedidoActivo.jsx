@@ -148,7 +148,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
   async function cargarMesas() {
     const { data: zonasData } = await supabase
       .from('zones').select('*')
-      .eq('restaurant_id', user.restaurant_id).order('name')
+      .eq('restaurant_id', user.restaurant_id).order('orden', { nullsFirst: false }).order('name')
     const { data: mesasData } = await supabase
       .from('tables').select('*')
       .eq('restaurant_id', user.restaurant_id)
