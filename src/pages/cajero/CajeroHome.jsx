@@ -10,7 +10,7 @@ import { buildWhatsappLink, getEstimatedTime } from '../../utils/whatsapp'
 import { orderTotal, propinaSugerida, separarPropina, PORCENTAJE_PROPINA } from '../../utils/totales'
 import { precioUnitario } from '../../utils/precio'
 import { newId } from '../../utils/uuid'
-import { liberarMesaSiQuedaVacia } from '../../utils/mesas'
+import { liberarMesaSiQuedaVacia, pideNombre, nombreMesa } from '../../utils/mesas'
 import { inicioJornada } from '../../utils/jornada'
 import { useCajaResumen } from '../../hooks/useCajaResumen'
 import { Bell, Search, Printer } from 'lucide-react'
@@ -34,7 +34,7 @@ function useCajaOrders(restaurantId) {
       if (isOnline) {
         const { data } = await supabase
           .from('orders')
-          .select('*, table:tables(number, is_delivery, zone:zones(name)), items:order_items(*, product:products(name, price))')
+          .select('*, table:tables(number, is_delivery, tipo, zone:zones(name)), items:order_items(*, product:products(name, price))')
           .eq('restaurant_id', restaurantId)
           .in('status', ['draft', 'confirmed', 'delivered', 'dispatched', 'inDelivery'])
           .order('started_at', { ascending: true })
@@ -82,6 +82,7 @@ function useCajaOrders(restaurantId) {
             table: table ? {
               number: table.number,
               is_delivery: table.is_delivery,
+              tipo: table.tipo,
               zone: zone ? { name: zone.name } : null,
             } : null,
           }
@@ -120,8 +121,8 @@ function useCajaOrders(restaurantId) {
 
 function tableName(order) {
   if (esWeb(order)) return `${etiquetaPedido(order)}${order.customer_name ? ` · ${order.customer_name}` : ''}`
-  if (order.table?.is_delivery)
-    return `Domicilio ${order.table.number}${order.customer_name ? ` · ${order.customer_name}` : ''}`
+  if (pideNombre(order.table))
+    return `${nombreMesa(order.table)}${order.customer_name ? ` · ${order.customer_name}` : ''}`
   return `Mesa ${order.table?.number} · ${order.table?.zone?.name}`
 }
 
@@ -136,9 +137,7 @@ const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
 
 function orderTitle(order) {
   if (esWeb(order)) return etiquetaPedido(order)
-  return order.table?.is_delivery
-    ? `Domicilio ${String(order.table.number).padStart(2, '0')}`
-    : `Mesa ${String(order.table?.number ?? '').padStart(2, '0')}`
+  return nombreMesa(order.table, { pad: true })
 }
 
 function minutesSince(dateStr) {
@@ -157,7 +156,7 @@ function OrderRow({ order, deliveryFee, selected, onClick }) {
   const items = order.items.filter(i => i.status !== 'cancelled')
   const mins = minutesSince(order.started_at)
   const sub = [
-    order.table?.is_delivery ? (order.customer_name || 'Domicilio') : order.table?.zone?.name,
+    pideNombre(order.table) ? (order.customer_name || nombreMesa(order.table)) : order.table?.zone?.name,
     `${items.length} producto${items.length !== 1 ? 's' : ''}`,
     mins != null ? `${mins} min` : null,
   ].filter(Boolean).join(' · ')
@@ -274,7 +273,7 @@ export default function CajeroHome() {
     let vivo = true
     supabase
       .from('payments')
-      .select('*, table:tables(number, is_delivery, zone:zones(name)), order:orders(source, order_number)')
+      .select('*, table:tables(number, is_delivery, tipo, zone:zones(name)), order:orders(source, order_number)')
       .eq('restaurant_id', user.restaurant_id)
       .eq('voided', false)
       .gte('created_at', inicioJornada().toISOString())
@@ -316,7 +315,7 @@ export default function CajeroHome() {
     async function fetchOnlineOrders() {
       const { data } = await supabase
         .from('orders')
-        .select('*, table:tables(number, is_delivery)')
+        .select('*, table:tables(number, is_delivery, tipo)')
         .eq('restaurant_id', restaurantId)
         .eq('source', 'online')
         .gte('created_at', inicioJornada().toISOString())
@@ -568,7 +567,7 @@ export default function CajeroHome() {
     if (!isOnline) { avisar('Para reimprimir se necesita conexión'); return }
     const { data: order, error } = await supabase
       .from('orders')
-      .select('*, table:tables(number, is_delivery, zone:zones(name)), items:order_items(*, product:products(name, price))')
+      .select('*, table:tables(number, is_delivery, tipo, zone:zones(name)), items:order_items(*, product:products(name, price))')
       .eq('id', payment.order_id)
       .single()
     if (error || !order) { avisar('No se pudo cargar el pedido: ' + (error?.message || '')); return }
@@ -591,9 +590,7 @@ export default function CajeroHome() {
   }
 
   const filteredHistorial = historial.filter(p => {
-    const name = p.table?.is_delivery
-      ? `domicilio ${p.table.number}`
-      : `mesa ${p.table?.number}`
+    const name = nombreMesa(p.table)
     const matchSearch = name.toLowerCase().includes(searchQuery.toLowerCase())
     const matchMethod = filterMethod === 'all'
       || (filterMethod === 'cash' && p.cash > 0 && p.transfer === 0)
@@ -810,7 +807,7 @@ export default function CajeroHome() {
               <div key={payment.id} className="px-3.5 py-3 rounded-xl bg-surface border border-zinc-200 flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-zinc-900 truncate">
-                    {esWeb(payment.order) ? etiquetaPedido(payment.order) : payment.table?.is_delivery ? `Domicilio ${payment.table.number}` : `Mesa ${payment.table?.number} · ${payment.table?.zone?.name || ''}`}
+                    {esWeb(payment.order) ? etiquetaPedido(payment.order) : pideNombre(payment.table) ? nombreMesa(payment.table) : `Mesa ${payment.table?.number} · ${payment.table?.zone?.name || ''}`}
                   </p>
                   <p className="text-xs text-zinc-500 mt-0.5">
                     {new Date(payment.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
@@ -871,7 +868,7 @@ export default function CajeroHome() {
                   </button>
                   <h2 className="text-2xl font-extrabold tracking-tight text-zinc-900">{orderTitle(cobrarOrder)}</h2>
                   <p className="text-sm text-zinc-500 mt-0.5">
-                    {[cobrarOrder.table?.is_delivery ? cobrarOrder.customer_name : cobrarOrder.table?.zone?.name,
+                    {[pideNombre(cobrarOrder.table) ? cobrarOrder.customer_name : cobrarOrder.table?.zone?.name,
                       minutesSince(cobrarOrder.started_at) != null ? `abierta hace ${minutesSince(cobrarOrder.started_at)} min` : null]
                       .filter(Boolean).join(' · ')}
                   </p>

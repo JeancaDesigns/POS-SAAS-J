@@ -86,6 +86,7 @@ export async function getCachedOrders(restaurantId, statuses) {
       table: table ? {
         number: table.number,
         is_delivery: table.is_delivery,
+        tipo: table.tipo,
         zone: zone ? { name: zone.name } : null,
       } : null,
     }

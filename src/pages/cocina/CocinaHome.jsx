@@ -12,6 +12,7 @@ import { useRecarga } from '../../hooks/useRecarga'
 import { imprimirHTML } from '../../utils/imprimir'
 import { comanda } from '../../utils/tickets'
 import { esWeb, etiquetaPedido } from '../../utils/pedidoWeb'
+import { pideNombre, nombreMesa, tipoMesa } from '../../utils/mesas'
 import EtiquetaPrioridad from '../../components/EtiquetaPrioridad'
 
 // Los cancelados se muestran a cocina solo durante 12 h (o hasta que los descarte)
@@ -106,7 +107,7 @@ function ComandaCard({ order, onClick }) {
             <p className="text-lg font-extrabold tracking-tight text-zinc-900 truncate">
               {etiquetaPedido(order)}
             </p>
-            {order.table?.is_delivery && order.customer_name && (
+            {pideNombre(order.table) && order.customer_name && (
               <p className="text-sm text-zinc-500 truncate">{order.customer_name}</p>
             )}
             <EtiquetaPrioridad order={order} className="mt-1" />
@@ -194,7 +195,7 @@ export default function CocinaHome() {
       if (isOnline) {
         const { data } = await supabase
           .from('orders')
-          .select('*, table:tables(number, is_delivery, zone:zones(name)), items:order_items(*, product:products(name, category_id, variants, category:categories(name, icon)))')
+          .select('*, table:tables(number, is_delivery, tipo, zone:zones(name)), items:order_items(*, product:products(name, category_id, variants, category:categories(name, icon)))')
           .eq('restaurant_id', restaurantId)
           // Cancelados solo de las últimas 12 h: ya no se borran, así que sin este
           // límite la consulta crecería para siempre
@@ -268,6 +269,7 @@ export default function CocinaHome() {
             table: table ? {
               number: table.number,
               is_delivery: table.is_delivery,
+              tipo: table.tipo,
               zone: zone ? { name: zone.name } : null,
             } : null,
           }
@@ -410,8 +412,8 @@ export default function CocinaHome() {
 
   function tableName(order) {
     if (esWeb(order)) return `${etiquetaPedido(order)}${order.customer_name ? ` — ${order.customer_name}` : ''}`
-    if (order.table?.is_delivery)
-      return `Domicilio ${order.table.number}${order.customer_name ? ` — ${order.customer_name}` : ''}`
+    if (pideNombre(order.table))
+      return `${nombreMesa(order.table)}${order.customer_name ? ` — ${order.customer_name}` : ''}`
     return `Mesa ${order.table?.number} — ${order.table?.zone?.name}`
   }
 
@@ -423,7 +425,8 @@ export default function CocinaHome() {
   const deliveredOrders = orders.filter(o => o.status === 'delivered')
 
   // ── Filtro por tipo (se recuerda en este dispositivo) ───────────────────────
-  const kindOf = o => !o.table?.is_delivery ? 'mesa' : o.delivery_type === 'pickup' ? 'pickup' : 'delivery'
+  // Las cuentas personales cuentan como mesa; para llevar, como "para recoger"
+  const kindOf = o => !o.table?.is_delivery ? 'mesa' : tipoMesa(o.table) === 'llevar' || o.delivery_type === 'pickup' ? 'pickup' : 'delivery'
   const matchKind = o => kind === 'all' || kindOf(o) === kind
   const kindCounts = activeOrders.reduce((acc, o) => ({ ...acc, [kindOf(o)]: (acc[kindOf(o)] || 0) + 1 }), {})
   const visibleOrders = activeOrders.filter(matchKind)
@@ -583,7 +586,7 @@ export default function CocinaHome() {
                     {etiquetaPedido(activeOrder)}
                   </h2>
                   <p className="text-base text-zinc-500 mt-1">
-                    {[activeOrder.table?.is_delivery ? activeOrder.customer_name : null, `hace ${timeAgo(activeOrder.started_at, ahora)}`].filter(Boolean).join(' · ')}
+                    {[pideNombre(activeOrder.table) ? activeOrder.customer_name : null, `hace ${timeAgo(activeOrder.started_at, ahora)}`].filter(Boolean).join(' · ')}
                   </p>
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {activeOrder.is_addition && (

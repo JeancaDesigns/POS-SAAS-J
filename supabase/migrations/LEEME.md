@@ -101,3 +101,7 @@ Si `prueba_rls.sql` se regenera: es la concatenación de 0300, 0400, 0500 y `_bl
 cocina = barra, admin): 8 categorías y 90 productos sacados de su carta web (Mal de Ojo y Dulce o Truco inactivos: temporada
 de Halloween), zona Salón (mesas 1-10) y Para llevar (11-13). Logos en `public/logos/social/` (`logo.png` blanco para
 pantalla, `ticket.png` negro para la impresora). Falta crear su admin desde el panel dev.
+
+**1400 (2026-11-08): APLICADA en producción.** Columna `tables.tipo` (opcional): `llevar` (slot para llevar, va con
+`is_delivery`, el pedido siempre es "recoger") y `personal` (cuenta a nombre de alguien, sin `is_delivery`). Vacío = mesa o
+domicilio como antes. La app lo muestra con `nombreMesa`/`tipoMesa` (`src/utils/mesas.js`) y en Admin › Mesas se elige el tipo.

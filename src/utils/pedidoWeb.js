@@ -1,3 +1,5 @@
+import { nombreMesa } from './mesas'
+
 // Pedidos hechos por la página pública (source = 'online'): se muestran como "Web #058"
 // para no confundirlos con los domicilios que toma el personal por teléfono.
 
@@ -9,13 +11,10 @@ export function numeroWeb(order) {
   return `#${String(order?.order_number ?? '').padStart(3, '0')}`
 }
 
-// Nombre corto del pedido: "Web #058", "Domicilio 3" o "Mesa 04"
+// Nombre corto del pedido: "Web #058", "Domicilio 3", "Para llevar 12", "Cuenta 5" o "Mesa 04"
 export function etiquetaPedido(order, { pad = false } = {}) {
   if (esWeb(order)) return `Web ${numeroWeb(order)}`
-  const t = order?.table
-  const n = t?.number ?? '?'
-  if (t?.is_delivery) return `Domicilio ${pad ? String(n).padStart(2, '0') : n}`
-  return `Mesa ${pad ? String(n).padStart(2, '0') : n}`
+  return nombreMesa(order?.table, { pad })
 }
 
 // Cómo dijo el cliente que va a pagar (pedidos web a domicilio).

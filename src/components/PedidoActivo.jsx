@@ -8,7 +8,7 @@ import { useAuthStore, restauranteTicket } from '../store/authStore'
 import { useCartPersistence } from '../hooks/useCartPersistence'
 import { precioUnitario } from '../utils/precio'
 import ProductPicker, { VariantSheet } from './ProductPicker'
-import { liberarMesaSiQuedaVacia } from '../utils/mesas'
+import { liberarMesaSiQuedaVacia, tipoMesa, nombreMesa } from '../utils/mesas'
 import { horaProgramadaISO } from '../utils/hora'
 import { avisar, confirmar } from '../utils/dialogo'
 import { useAhora } from '../hooks/useAhora'
@@ -152,7 +152,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
     const { data: mesasData } = await supabase
       .from('tables').select('*')
       .eq('restaurant_id', user.restaurant_id)
-      .eq('status', 'free').eq('is_delivery', false).order('number')
+      .eq('status', 'free').eq('is_delivery', false).is('tipo', null).order('number')
 
     const zonasConMesas = (zonasData || []).filter(zona => (mesasData || []).some(m => m.zone_id === zona.id))
     setZonas(zonasConMesas)
@@ -276,7 +276,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
     </div>
   )
 
-  const title = esWeb(order) ? etiquetaPedido(order) : table.is_delivery ? `Domicilio ${table.number}` : `Mesa ${String(table.number).padStart(2, '0')}`
+  const title = esWeb(order) ? etiquetaPedido(order) : nombreMesa(table, { pad: !table.is_delivery })
   const minutes = order?.started_at ? Math.max(0, Math.round((ahora - new Date(order.started_at)) / 60000)) : null
   const mesasZona = todasMesas.filter(m => m.zone_id === zonaSeleccionada)
 
@@ -452,7 +452,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
         </div>
         {order && (
           <div className="flex items-center gap-1.5 shrink-0">
-            {table.is_delivery && (
+            {tipoMesa(table) === 'domicilio' && (
               <button
                 onClick={toggleDeliveryType}
                 disabled={!editableEnLinea}
@@ -462,7 +462,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
                 <span className="hidden sm:inline">{order.delivery_type === 'delivery' ? 'A domicilio' : 'Recoger'}</span>
               </button>
             )}
-            {!table.is_delivery && (
+            {tipoMesa(table) === 'mesa' && (
               <button
                 onClick={cargarMesas}
                 disabled={!editableEnLinea}

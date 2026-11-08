@@ -42,7 +42,7 @@ export function useEstacionImpresion(restaurantId) {
     async function imprimirPedido(orderId, idsNuevos) {
       const { data: order } = await supabase
         .from('orders')
-        .select('*, table:tables(number, is_delivery, zone:zones(name)), items:order_items(*, product:products(name))')
+        .select('*, table:tables(number, is_delivery, tipo, zone:zones(name)), items:order_items(*, product:products(name))')
         .eq('id', orderId)
         .eq('restaurant_id', restaurantId)
         .maybeSingle()

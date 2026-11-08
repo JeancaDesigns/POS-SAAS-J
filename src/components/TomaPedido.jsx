@@ -9,7 +9,7 @@ import { db } from '../db/localDB'
 import { newId } from '../utils/uuid'
 import { useCartPersistence } from '../hooks/useCartPersistence'
 import { horaProgramadaISO } from '../utils/hora'
-import { ACTIVE_ORDER_STATUSES } from '../utils/mesas'
+import { ACTIVE_ORDER_STATUSES, tipoMesa, pideNombre, nombreMesa } from '../utils/mesas'
 import { avisar } from '../utils/dialogo'
 import { ofrecerImpresion } from '../utils/imprimir'
 import { comanda } from '../utils/tickets'
@@ -30,7 +30,8 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
   const [showSchedule, setShowSchedule] = useState(false)
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
-  const [deliveryType, setDeliveryType] = useState('delivery')
+  // Para llevar siempre es "recoger"; solo los domicilios eligen
+  const [deliveryType, setDeliveryType] = useState(() => (tipoMesa(table) === 'llevar' ? 'pickup' : 'delivery'))
   const [confirming, setConfirming] = useState(false)
   const [variantModal, setVariantModal] = useState(null)
   useCartPersistence(`cart-mesa-${table.id}`, items, setItems)
@@ -64,8 +65,8 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
 
   async function handleConfirm() {
     if (items.length === 0) return
-    if (table.is_delivery && !customerName.trim()) {
-      avisar('El nombre del cliente es obligatorio para domicilios')
+    if (pideNombre(table) && !customerName.trim()) {
+      avisar(tipoMesa(table) === 'personal' ? 'Escribe a nombre de quién va la cuenta' : 'El nombre del cliente es obligatorio')
       setCartOpen(true)
       return
     }
@@ -209,7 +210,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
     })
   }
 
-  const title = table.is_delivery ? `Domicilio ${table.number}` : `Mesa ${String(table.number).padStart(2, '0')}`
+  const title = nombreMesa(table, { pad: !table.is_delivery })
 
   if (loading) return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-canvas">
@@ -228,9 +229,9 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 pb-4 flex flex-col gap-4">
-        {table.is_delivery && (
+        {pideNombre(table) && (
           <div className="flex flex-col gap-2.5 p-3.5 rounded-xl border border-zinc-200 bg-surface-2">
-            <div role="radiogroup" aria-label="Tipo de entrega" className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-zinc-100 border border-zinc-200">
+            {tipoMesa(table) === 'domicilio' && <div role="radiogroup" aria-label="Tipo de entrega" className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-zinc-100 border border-zinc-200">
               {[['delivery', 'A domicilio'], ['pickup', 'Recoger en local']].map(([k, l]) => (
                 <button
                   key={k}
@@ -242,22 +243,22 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
                   {l}
                 </button>
               ))}
-            </div>
+            </div>}
             <input
               value={customerName}
               onChange={e => setCustomerName(e.target.value)}
-              placeholder="Nombre del cliente *"
-              aria-label="Nombre del cliente"
+              placeholder={tipoMesa(table) === 'personal' ? 'A nombre de quién va la cuenta *' : 'Nombre del cliente *'}
+              aria-label={tipoMesa(table) === 'personal' ? 'Dueño de la cuenta' : 'Nombre del cliente'}
               className="h-11 px-3 rounded-lg bg-surface border border-zinc-300 text-sm text-zinc-900 outline-none focus:border-[var(--brand)] placeholder:text-zinc-400"
             />
-            <input
+            {table.is_delivery && <input
               type="tel"
               value={customerPhone}
               onChange={e => setCustomerPhone(e.target.value)}
               placeholder="Teléfono (opcional)"
               aria-label="Teléfono"
               className="h-11 px-3 rounded-lg bg-surface border border-zinc-300 text-sm text-zinc-900 outline-none focus:border-[var(--brand)] placeholder:text-zinc-400"
-            />
+            />}
           </div>
         )}
 

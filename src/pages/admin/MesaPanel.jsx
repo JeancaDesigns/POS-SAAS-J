@@ -3,9 +3,13 @@ import { supabase } from '../../supabaseClient'
 import { useAuthStore } from '../../store/authStore'
 import { Plus, Pencil, Trash2, X, Bike } from 'lucide-react'
 import { avisar } from '../../utils/dialogo'
+import { TIPOS_MESA, tipoMesa } from '../../utils/mesas'
 import Selector from '../../components/Selector'
 import { useRecarga } from '../../hooks/useRecarga'
 
+
+// Tipo de la mesa → columnas: domicilio y para llevar van con is_delivery; para llevar y cuenta personal, en `tipo`
+const columnasTipo = tipo => ({ is_delivery: tipo === 'domicilio' || tipo === 'llevar', tipo: tipo === 'llevar' || tipo === 'personal' ? tipo : null })
 
 export default function MesasPanel() {
   const { user } = useAuthStore()
@@ -16,7 +20,7 @@ export default function MesasPanel() {
   const [editZone, setEditZone] = useState(null)
   const [editTable, setEditTable] = useState(null)
   const [zoneForm, setZoneForm] = useState({ name: '' })
-  const [tableForm, setTableForm] = useState({ number: '', capacity: '', zone_id: '', is_delivery: false })
+  const [tableForm, setTableForm] = useState({ number: '', capacity: '', zone_id: '', tipo: 'mesa' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [activeZone, setActiveZone] = useState(null)
@@ -51,14 +55,14 @@ export default function MesasPanel() {
   }
   function openNewTable() {
     setEditTable(null)
-    setTableForm({ number: '', capacity: '', zone_id: activeZone || zones[0]?.id || '', is_delivery: false })
+    setTableForm({ number: '', capacity: '', zone_id: activeZone || zones[0]?.id || '', tipo: 'mesa' })
     setError(''); setShowTableForm(true)
   }
   function openEditTable(table) {
     setEditTable(table)
     setTableForm({
       number: String(table.number), capacity: String(table.capacity || ''),
-      zone_id: table.zone_id, is_delivery: table.is_delivery,
+      zone_id: table.zone_id, tipo: tipoMesa(table),
     })
     setError(''); setShowTableForm(true)
   }
@@ -88,7 +92,7 @@ export default function MesasPanel() {
         number: parseInt(tableForm.number),
         capacity: tableForm.capacity ? parseInt(tableForm.capacity) : null,
         zone_id: tableForm.zone_id,
-        is_delivery: tableForm.is_delivery,
+        ...columnasTipo(tableForm.tipo),
       }).eq('id', editTable.id))
     } else {
       ({ error: saveError } = await supabase.from('tables').insert({
@@ -96,7 +100,7 @@ export default function MesasPanel() {
         number: parseInt(tableForm.number),
         capacity: tableForm.capacity ? parseInt(tableForm.capacity) : null,
         zone_id: tableForm.zone_id,
-        is_delivery: tableForm.is_delivery,
+        ...columnasTipo(tableForm.tipo),
         status: 'free',
       }))
     }
@@ -185,8 +189,8 @@ export default function MesasPanel() {
             {zoneTables.map(t => (
               <div key={t.id} className="group relative h-[116px] p-3 rounded-2xl bg-surface border border-zinc-200 shadow-card flex flex-col justify-between">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-zinc-500">{t.is_delivery ? 'Domicilio' : 'Mesa'}</span>
-                  {t.is_delivery && <Bike size={14} className="text-zinc-400" aria-hidden="true" />}
+                  <span className="text-xs font-semibold text-zinc-500">{TIPOS_MESA[tipoMesa(t)]}</span>
+                  {tipoMesa(t) === 'domicilio' && <Bike size={14} className="text-zinc-400" aria-hidden="true" />}
                 </div>
                 <span className="text-[30px] leading-none font-extrabold tracking-tight text-zinc-900">{String(t.number).padStart(2, '0')}</span>
                 <span className="text-[11px] font-semibold text-zinc-500">{t.capacity ? `${t.capacity} puestos · ` : ''}{STATUS_TXT[t.status] || 'Libre'}</span>
@@ -233,12 +237,15 @@ export default function MesasPanel() {
                     <Selector title="Zona" value={tableForm.zone_id} onChange={v => setTableForm(f => ({ ...f, zone_id: v }))} className={field}
                       options={zones.map(z => ({ value: z.id, label: z.name }))} />
                   </label>
-                  <label className="px-3.5 py-3 rounded-xl border border-zinc-200 flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" checked={tableForm.is_delivery} onChange={e => setTableForm(f => ({ ...f, is_delivery: e.target.checked }))} className="w-5 h-5 accent-[var(--brand)]" />
-                    <span>
-                      <span className="block text-sm font-bold text-zinc-800">Es para domicilios</span>
-                      <span className="block text-xs text-zinc-500">Los pedidos de esta mesa piden datos del cliente y van a domicilios</span>
-                    </span>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-bold text-zinc-700">Tipo</span>
+                    <Selector title="Tipo" value={tableForm.tipo} onChange={v => setTableForm(f => ({ ...f, tipo: v }))} className={field}
+                      options={[
+                        { value: 'mesa', label: 'Mesa' },
+                        { value: 'domicilio', label: 'Domicilio (pide datos del cliente)' },
+                        { value: 'llevar', label: 'Para llevar (a nombre del cliente)' },
+                        { value: 'personal', label: 'Cuenta personal (a nombre de alguien)' },
+                      ]} />
                   </label>
                 </>
               )}

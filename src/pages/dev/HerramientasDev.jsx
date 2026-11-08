@@ -3,7 +3,7 @@ import { supabase } from '../../supabaseClient'
 import { avisar, confirmar } from '../../utils/dialogo'
 import { useRecarga } from '../../hooks/useRecarga'
 import { etiquetaPedido, esPrioridad } from '../../utils/pedidoWeb'
-import { ACTIVE_ORDER_STATUSES, liberarMesaSiQuedaVacia } from '../../utils/mesas'
+import { ACTIVE_ORDER_STATUSES, liberarMesaSiQuedaVacia, nombreMesa } from '../../utils/mesas'
 import { campoClase } from './FormDatos'
 import { ESTADO_PEDIDO, hace, money } from './devDatos'
 
@@ -26,7 +26,7 @@ export default function HerramientasDev({ restaurante }) {
       let d = {}
       if (seccion === 'pedidos') {
         const { data, error } = await supabase.from('orders')
-          .select('id, status, source, order_number, customer_name, delivery_type, started_at, created_at, table_id, table:tables(number, is_delivery, is_web, zone:zones(name))')
+          .select('id, status, source, order_number, customer_name, delivery_type, started_at, created_at, table_id, table:tables(number, is_delivery, tipo, is_web, zone:zones(name))')
           .eq('restaurant_id', restaurantId).in('status', ACTIVE_ORDER_STATUSES)
           .order('created_at', { ascending: true })
         d = { pedidos: data || [], error }
@@ -93,7 +93,7 @@ export default function HerramientasDev({ restaurante }) {
 
   // ── Mesas ───────────────────────────────────────────────────────────────────
   async function liberarMesa(t) {
-    const nombre = t.is_delivery ? `Domicilio ${t.number}` : `Mesa ${t.number}`
+    const nombre = nombreMesa(t)
     const { count } = await supabase.from('orders').select('id', { count: 'exact', head: true })
       .eq('table_id', t.id).in('status', ACTIVE_ORDER_STATUSES)
     if (count && t.is_delivery) {
@@ -176,7 +176,7 @@ export default function HerramientasDev({ restaurante }) {
       {!cargando && seccion === 'mesas' && (datos.mesas.length === 0 ? vacio('Todas las mesas están libres') : datos.mesas.map(t => (
         <div key={t.id} className={item}>
           <div className="min-w-0 flex-1">
-            <p className="font-bold text-zinc-900">{t.is_delivery ? `Domicilio ${t.number}` : `Mesa ${t.number}`}{t.zone?.name ? ` · ${t.zone.name}` : ''}</p>
+            <p className="font-bold text-zinc-900">{nombreMesa(t)}{t.zone?.name ? ` · ${t.zone.name}` : ''}</p>
             <p className="text-xs text-zinc-500">{ESTADO_MESA[t.status] || t.status}</p>
           </div>
           <button onClick={() => liberarMesa(t)} className={botonRojo}>Liberar</button>

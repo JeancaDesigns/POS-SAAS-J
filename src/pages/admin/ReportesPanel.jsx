@@ -7,6 +7,7 @@ import {
 import { useAuthStore } from '../../store/authStore'
 import { inicioJornada } from '../../utils/jornada'
 import { fetchAll } from '../../utils/fetchAll'
+import { pideNombre, nombreMesa } from '../../utils/mesas'
 
 // ── Consultas del panel (devuelven datos; el componente solo los guarda) ─────────
 
@@ -15,7 +16,7 @@ async function obtenerPagosHoy(restaurantId) {
 
   const { data } = await supabase
     .from('payments')
-    .select('*, order:orders(started_at, customer_name, table:tables(number, is_delivery))')
+    .select('*, order:orders(started_at, customer_name, table:tables(number, is_delivery, tipo))')
     .eq('restaurant_id', restaurantId)
     .eq('voided', false)
     .gte('created_at', today.toISOString())
@@ -80,7 +81,7 @@ async function obtenerMeses(restaurantId) {
   // Todos los pagos, paginados (antes se cortaba en silencio a 1.000 filas)
   const paymentsData = await fetchAll(() => supabase
     .from('payments')
-    .select('*, table:tables(number, is_delivery)')
+    .select('*, table:tables(number, is_delivery, tipo)')
     .eq('restaurant_id', restaurantId)
     .eq('voided', false)
     .order('created_at', { ascending: false }))
@@ -527,8 +528,8 @@ export default function ReportesPanel() {
                 >
                   <div>
                     <p className="text-sm font-semibold text-zinc-800">
-                      {payment.order?.table?.is_delivery
-                        ? `Domicilio ${payment.order.table.number}`
+                      {pideNombre(payment.order?.table)
+                        ? nombreMesa(payment.order.table)
                         : `Mesa ${payment.order?.table?.number || '—'}`}
                       {payment.order?.customer_name && ` · ${payment.order.customer_name}`}
                     </p>
