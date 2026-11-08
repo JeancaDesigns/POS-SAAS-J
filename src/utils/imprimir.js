@@ -2,6 +2,8 @@
 // El contenido va a #zona-impresion: al imprimir, index.css oculta el resto de la app y
 // muestra solo esa zona en blanco y negro. Funciona igual en tablet Android (servicio de
 // impresión o RawBT), PC (driver de la impresora) y POS todo en uno.
+// En la app POS Sunmi (APK para la T2, gestion-personal/movil/pos-sunmi) hay window.SunmiNativo:
+// el ticket se dibuja como imagen y sale directo por la impresora interna, sin diálogo.
 
 import { confirmar } from './dialogo'
 import { logoTermico } from './logoTermico'
@@ -80,7 +82,66 @@ export async function imprimirHTML(html) {
   // La que no cargó (p. ej. el logo para tickets sin conexión) se quita para que no salga rota
   for (const img of zona.querySelectorAll('img')) if (img.complete && !img.naturalWidth) img.remove()
 
+  if (await imprimirSunmi(zona, papel)) return
   window.print()
+}
+
+// ── Impresora interna de Sunmi ──────────────────────────────────────────────
+const sunmi = () => {
+  try { return window.SunmiNativo?.disponible() ? window.SunmiNativo : null } catch { return null }
+}
+
+export const hayImpresoraSunmi = () => !!sunmi()
+
+// Dibuja #zona-impresion al ancho exacto del papel (8 puntos por mm), en negro puro, y lo manda
+// a la app. Devuelve false si no hay impresora Sunmi o algo falla (entonces va window.print()).
+async function imprimirSunmi(zona, papel) {
+  const nativo = sunmi()
+  if (!nativo) return false
+  try {
+    const puntos = nativo.ancho() || (papel === 58 ? 384 : 576)
+    const { default: html2canvas } = await import('html2canvas-pro')
+    // La zona está oculta fuera de la impresión: se muestra fuera de la pantalla mientras se dibuja.
+    // La Sunmi imprime todo el ancho (72 mm en 80, 48 mm en 58): se deja 1 mm de aire a cada lado.
+    const margen = 8
+    zona.style.cssText += ';display:block;position:fixed;left:-10000px;top:0'
+    zona.style.setProperty('--ancho-papel', `${(puntos - 2 * margen) / 8}mm`)
+    let lienzo
+    try {
+      await document.fonts?.ready
+      lienzo = await html2canvas(zona, {
+        scale: (puntos - 2 * margen) / zona.offsetWidth,
+        backgroundColor: '#ffffff',
+        logging: false,
+        useCORS: true,
+      })
+    } finally {
+      zona.style.display = ''
+      zona.style.position = ''
+      zona.style.left = ''
+      zona.style.top = ''
+    }
+    // Al ancho exacto de la impresora, y en negro o blanco: los grises del suavizado salen borrosos
+    const papelImg = document.createElement('canvas')
+    papelImg.width = puntos
+    papelImg.height = lienzo.height
+    const ctx = papelImg.getContext('2d')
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(0, 0, puntos, lienzo.height)
+    ctx.drawImage(lienzo, margen, 0, puntos - 2 * margen, lienzo.height)
+    const img = ctx.getImageData(0, 0, puntos, lienzo.height)
+    const d = img.data
+    for (let i = 0; i < d.length; i += 4) {
+      const v = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2] < 170 ? 0 : 255
+      d[i] = d[i + 1] = d[i + 2] = v
+      d[i + 3] = 255
+    }
+    ctx.putImageData(img, 0, 0)
+    return nativo.imprimir(papelImg.toDataURL('image/png')) === true
+  } catch (e) {
+    console.error('Impresión Sunmi', e)
+    return false
+  }
 }
 
 // Preguntar o no según la preferencia del equipo ('siempre' | 'nunca' | 'preguntar')
