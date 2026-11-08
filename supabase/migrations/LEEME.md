@@ -96,3 +96,8 @@ Si `prueba_rls.sql` se regenera: es la concatenación de 0300, 0400, 0500 y `_bl
 - Los pedidos del personal se frenan en la app (TomaPedido, solo con internet), no con trigger: así un pedido
   tomado sin internet no se pierde al sincronizar.
 - El frontend funciona sin 1300: si `pedidos_abiertos` no existe, la página no bloquea.
+
+**Social Drinks and Coffee (2026-11-08):** restaurante creado por SQL (slug `social`, tema `coffee`, módulos mesero, caja,
+cocina = barra, admin): 8 categorías y 90 productos sacados de su carta web (Mal de Ojo y Dulce o Truco inactivos: temporada
+de Halloween), zona Salón (mesas 1-10) y Para llevar (11-13). Logos en `public/logos/social/` (`logo.png` blanco para
+pantalla, `ticket.png` negro para la impresora). Falta crear su admin desde el panel dev.
