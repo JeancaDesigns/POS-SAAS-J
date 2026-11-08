@@ -33,7 +33,7 @@ export default function MesasPanel() {
     async function fetchData() {
       const { data: zonesData } = await supabase
         .from('zones').select('*')
-        .eq('restaurant_id', restaurantId).order('name')
+        .eq('restaurant_id', restaurantId).order('orden', { nullsFirst: false }).order('name')
       const { data: tablesData } = await supabase
         .from('tables').select('*')
         .eq('restaurant_id', restaurantId).eq('is_web', false).order('number')
