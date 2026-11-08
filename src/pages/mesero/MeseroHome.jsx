@@ -1,5 +1,7 @@
-import { useState } from 'react'
-import { Bike } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Bike, ShoppingBag, User } from 'lucide-react'
+import { supabase } from '../../supabaseClient'
+import { ACTIVE_ORDER_STATUSES, TIPOS_MESA, tipoMesa } from '../../utils/mesas'
 import { useTables } from '../../hooks/useTables'
 import { useAuthStore } from '../../store/authStore'
 import TomaPedido from '../../components/TomaPedido'
@@ -34,6 +36,18 @@ export default function MeseroHome() {
 
   const [activeZone, setActiveZone] = useState(null)
   const [selectedTable, setSelectedTable] = useState(null)
+  const [duenos, setDuenos] = useState({}) // cuentas personales abiertas: id de la mesa → nombre
+
+  // A nombre de quién va cada cuenta personal abierta (se ve en la tarjeta)
+  const personalesAbiertas = tables.filter(t => tipoMesa(t) === 'personal' && (t.status || 'free') !== 'free').map(t => t.id).join(',')
+  useEffect(() => {
+    if (!personalesAbiertas || !navigator.onLine) return
+    let vivo = true
+    supabase.from('orders').select('table_id, customer_name')
+      .in('table_id', personalesAbiertas.split(',')).in('status', ACTIVE_ORDER_STATUSES)
+      .then(({ data }) => { if (vivo && data) setDuenos(Object.fromEntries(data.map(o => [o.table_id, o.customer_name]))) })
+    return () => { vivo = false }
+  }, [personalesAbiertas])
 
   if (loading) {
     return (
@@ -109,11 +123,14 @@ export default function MeseroHome() {
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
             {zoneTables.map(table => {
               const s = STATUS[table.status] || STATUS.free
+              const tipo = tipoMesa(table)
+              const Icono = { domicilio: Bike, llevar: ShoppingBag, personal: User }[tipo]
+              const dueno = tipo === 'personal' && (table.status || 'free') !== 'free' ? duenos[table.id] : null
               return (
                 <button
                   key={table.id}
                   onClick={() => setSelectedTable(table)}
-                  aria-label={`${table.is_delivery ? 'Domicilio' : 'Mesa'} ${table.number}, ${s.label}`}
+                  aria-label={`${TIPOS_MESA[tipo]} ${table.number}${dueno ? `, ${dueno}` : ''}, ${s.label}`}
                   className={`
                     h-[116px] p-3 rounded-2xl border text-left
                     flex flex-col justify-between
@@ -123,16 +140,16 @@ export default function MeseroHome() {
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-zinc-500">
-                      {table.is_delivery ? 'Domicilio' : 'Mesa'}
+                      {TIPOS_MESA[tipo]}
                     </span>
-                    {table.is_delivery
-                      ? <Bike size={14} className={s.text} aria-hidden="true" />
+                    {Icono
+                      ? <Icono size={14} className={s.text} aria-hidden="true" />
                       : <span className={`w-2 h-2 rounded-full ${s.dot}`} aria-hidden="true" />}
                   </div>
                   <span className="text-[30px] leading-none font-extrabold tracking-tight text-zinc-900">
                     {String(table.number).padStart(2, '0')}
                   </span>
-                  <span className={`font-mono text-[11px] font-semibold ${s.text}`}>{s.label}</span>
+                  <span className={`text-[11px] font-semibold truncate ${dueno ? 'text-zinc-800' : `font-mono ${s.text}`}`}>{dueno || s.label}</span>
                 </button>
               )
             })}

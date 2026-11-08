@@ -3,6 +3,7 @@ import { useAuthStore } from '../store/authStore'
 import { supabase } from '../supabaseClient'
 import { X, ChevronDown } from 'lucide-react'
 import { fetchAll } from '../utils/fetchAll'
+import { pideNombre, nombreMesa } from '../utils/mesas'
 
 function paymentMethodLabel(payment) {
   const cash = payment.cash > 0
@@ -14,7 +15,7 @@ function paymentMethodLabel(payment) {
 }
 
 function tableLabel(payment) {
-  if (payment.table?.is_delivery) return `Domicilio ${payment.table.number}`
+  if (pideNombre(payment.table)) return nombreMesa(payment.table)
   if (payment.table) return `Mesa ${payment.table.number}${payment.table.zone?.name ? ` · ${payment.table.zone.name}` : ''}`
   return 'Sin mesa'
 }
@@ -42,7 +43,7 @@ export default function ReportsPanel({ onClose }) {
 
       const data = await fetchAll(() => supabase
         .from('payments')
-        .select('*, table:tables(number, is_delivery, zone:zones(name))')
+        .select('*, table:tables(number, is_delivery, tipo, zone:zones(name))')
         .eq('restaurant_id', user.restaurant_id)
         .eq('voided', false)
         .gte('created_at', since.toISOString())

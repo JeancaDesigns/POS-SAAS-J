@@ -26,6 +26,7 @@ function lugar(order) {
     return `Web #${String(order.order_number ?? '').padStart(3, '0')}${order.customer_name ? ` — ${esc(order.customer_name)}` : ''}`
   }
   const t = order.table
+  if (t?.tipo === 'personal') return `Cuenta ${esc(t.number)}${order.customer_name ? ` — ${esc(order.customer_name)}` : ''}`
   if (t?.is_delivery) {
     const tipo = order.delivery_type === 'delivery' ? 'Domicilio' : 'Para llevar'
     return `${tipo}${order.customer_name ? ` — ${esc(order.customer_name)}` : ''}`

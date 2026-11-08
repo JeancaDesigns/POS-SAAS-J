@@ -5,7 +5,7 @@ import { fetchAll } from '../../utils/fetchAll'
 import { inicioJornada } from '../../utils/jornada'
 import { useAuthStore } from '../../store/authStore'
 import { precioUnitario } from '../../utils/precio'
-import { liberarMesaSiQuedaVacia } from '../../utils/mesas'
+import { liberarMesaSiQuedaVacia, TIPOS_MESA, tipoMesa } from '../../utils/mesas'
 import { avisar, confirmar } from '../../utils/dialogo'
 import { useRecarga } from '../../hooks/useRecarga'
 import { etiquetaPedido } from '../../utils/pedidoWeb'
@@ -39,7 +39,7 @@ export default function TicketsPanel() {
     else { since = new Date(); since.setDate(since.getDate() - Number(period)) }
     fetchAll(() => supabase
       .from('orders')
-      .select(`*, table:tables(number, is_delivery), order_items(*, products(name, price)), payments(total, cash, transfer, voided)`)
+      .select(`*, table:tables(number, is_delivery, tipo), order_items(*, products(name, price)), payments(total, cash, transfer, voided)`)
       .eq('restaurant_id', restaurantId)
       .gte('created_at', since.toISOString())
       .order('created_at', { ascending: false }))
@@ -220,7 +220,7 @@ export default function TicketsPanel() {
                 </div>
                 <div className="mt-5 text-sm flex flex-col gap-1.5">
                   <div className="flex justify-between"><span className="text-[#555]">Fecha</span><span className="font-medium">{new Date(selectedOrder.created_at).toLocaleString('es-CO')}</span></div>
-                  <div className="flex justify-between"><span className="text-[#555]">{selectedOrder.table?.is_delivery ? 'Domicilio' : 'Mesa'}</span><span className="font-medium">{selectedOrder.table?.number}</span></div>
+                  <div className="flex justify-between"><span className="text-[#555]">{TIPOS_MESA[tipoMesa(selectedOrder.table)]}</span><span className="font-medium">{selectedOrder.table?.number}</span></div>
                   <div className="flex justify-between"><span className="text-[#555]">Cliente</span><span className="font-medium">{selectedOrder.customer_name || 'General'}</span></div>
                   <div className="flex justify-between"><span className="text-[#555]">Estado</span><span className="font-medium">{STATUS[statusOf(selectedOrder)].label}</span></div>
                 </div>

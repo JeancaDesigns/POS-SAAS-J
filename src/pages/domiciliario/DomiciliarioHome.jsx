@@ -91,7 +91,7 @@ export default function DomiciliarioHome() {
 
       const { data } = await supabase
         .from('orders')
-        .select(`*, table:tables(number, is_delivery), items:order_items(*, product:products(name, price))`)
+        .select(`*, table:tables(number, is_delivery, tipo), items:order_items(*, product:products(name, price))`)
         .eq('restaurant_id', restaurantId)
         .eq('delivery_type', 'delivery')
         .in('status', ['inDelivery', 'dispatched'])
