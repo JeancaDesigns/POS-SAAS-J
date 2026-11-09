@@ -93,6 +93,12 @@ const sunmi = () => {
 
 export const hayImpresoraSunmi = () => !!sunmi()
 
+// Cajón de dinero conectado a la Sunmi (app POS Sunmi 1.1+). En otros equipos no hace nada.
+export const hayCajon = () => typeof sunmi()?.abrirCajon === 'function'
+export function abrirCajon() {
+  try { return hayCajon() ? sunmi().abrirCajon() === true : false } catch { return false }
+}
+
 // En la Sunmi, apenas abre el POS se deja listo lo que la primera impresión tendría que cargar
 // (la librería que dibuja y la firma del pie), y se dibuja algo mínimo para "calentar" el motor.
 if (typeof window !== 'undefined') {

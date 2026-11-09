@@ -18,7 +18,7 @@ import { useCajaResumen } from '../../hooks/useCajaResumen'
 import { Bell, Search, Printer } from 'lucide-react'
 import { avisar, confirmar } from '../../utils/dialogo'
 import { useRecarga } from '../../hooks/useRecarga'
-import { imprimirHTML, ofrecerImpresion } from '../../utils/imprimir'
+import { imprimirHTML, ofrecerImpresion, abrirCajon, hayCajon } from '../../utils/imprimir'
 import { ticketCobro, precuenta } from '../../utils/tickets'
 import { esWeb, etiquetaPedido, pagoDeclarado } from '../../utils/pedidoWeb'
 import EtiquetaPrioridad from '../../components/EtiquetaPrioridad'
@@ -476,6 +476,7 @@ export default function CajeroHome() {
       }
       const { error } = await supabase.rpc('pagar_productos', { p_pago: pago, p_items: items })
       if (error) throw new Error(error.message)
+      if (ventaEfectivo + tipCash > 0) abrirCajon() // entra efectivo: se abre el cajón
       ticket = ticketCobro({
         restaurante,
         order: baseCobro,
@@ -627,6 +628,7 @@ export default function CajeroHome() {
         })
       }
 
+      if (ventaEfectivo + tipCash > 0) abrirCajon() // entra efectivo: se abre el cajón
       ticket = ticketCobro({
         restaurante,
         order: cobrarOrderConDescuento,
@@ -809,6 +811,11 @@ export default function CajeroHome() {
                 )}
               </dl>
               <p className="text-xs text-zinc-500">{caja.sales} cobro{caja.sales !== 1 ? 's' : ''} desde la apertura</p>
+              {hayCajon() && (
+                <button onClick={() => abrirCajon()} className="h-10 rounded-xl border border-zinc-300 bg-surface text-sm font-bold text-zinc-700 hover:bg-zinc-50">
+                  Abrir cajón
+                </button>
+              )}
             </>
           )}
         </div>
