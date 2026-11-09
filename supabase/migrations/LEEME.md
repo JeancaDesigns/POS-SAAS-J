@@ -108,3 +108,12 @@ domicilio como antes. La app lo muestra con `nombreMesa`/`tipoMesa` (`src/utils/
 
 **1500 (2026-11-08): APLICADA en producción.** Columna `zones.orden` (opcional): las zonas con número salen primero, de
 menor a mayor; las demás después, por nombre. Social: Sala principal 1, Segundo piso 2, Para llevar 3, Personal 4.
+
+**1600 (2026-11-09): APLICADA en producción.** Pagar por producto y ticket solo con el logo del restaurante.
+- `order_items.paid_qty`: unidades ya pagadas por producto; lo que falta = `quantity − paid_qty` (`pendienteDePago` en
+  `src/utils/totales.js`). `payments.items` = qué unidades pagó cada pago parcial.
+- `pagar_productos(pago, items)`: pago parcial + `paid_qty` en una transacción, idempotente por id del pago y sin dejar pagar
+  más unidades de las que hay. `anular_pago(id)`: anula y devuelve esas unidades a "por cobrar" (Caja › Historial › Anular).
+  Probado con un pedido de prueba dentro de una transacción revertida.
+- `restaurants.ticket_solo_logo`: encabezado sin "× JEANCA". Social = true.
+- Social quedó sin el módulo `cocina`: lo enviado se cobra de una (`src/utils/cocina.js`); se cambia en Dev › Datos.

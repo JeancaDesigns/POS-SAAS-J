@@ -48,18 +48,21 @@ const LOGO_JEANCA = '/marca/jeanca-logo-negro.png'
 const logo = (url, clase, respaldo = '') => `<img class="${clase}" data-termico data-respaldo="${esc(respaldo)}" src="${esc(url)}" alt="">`
 
 // Encabezado: [logo del restaurante] × [logo JEANCA], del mismo ancho y con la × al centro;
-// debajo el contacto.
+// debajo el contacto. soloLogo (restaurants.ticket_solo_logo): solo el del restaurante, centrado.
 // El logo para tickets (logoTicketUrl) ya viene en blanco y negro y va tal cual; sin él se
 // convierte el logo de pantalla. Sin ninguno se escribe el nombre.
-function encabezado({ nombre, logoUrl, logoTicketUrl, whatsapp, instagram }) {
+function encabezado({ nombre, logoUrl, logoTicketUrl, soloLogo, whatsapp, instagram }) {
   const telefono = whatsapp ? String(whatsapp).replace(/^(\d{3})(\d{3})(\d{4})$/, '$1 $2 $3') : ''
   const red = instagram ? `@${String(instagram).replace(/^@/, '')}` : ''
   const contacto = [telefono && `WhatsApp ${esc(telefono)}`, red && esc(red)].filter(Boolean).join(' · ')
+  const logoRest = clase => logoTicketUrl
+    ? `<img class="${clase}" src="${esc(logoTicketUrl)}" alt="${esc(nombre || 'Restaurante')}">`
+    : logo(logoUrl, clase, nombre || 'Restaurante')
   return `<div class="t-centro">
-    ${logoTicketUrl || logoUrl
-      ? `<div class="t-logos"><div class="t-lado">${logoTicketUrl
-          ? `<img class="t-logo" src="${esc(logoTicketUrl)}" alt="${esc(nombre || 'Restaurante')}">`
-          : logo(logoUrl, 't-logo', nombre || 'Restaurante')}</div><span class="t-por">×</span><div class="t-lado"><img class="t-logo" src="${LOGO_JEANCA}" alt="Jeanca"></div></div>`
+    ${(logoTicketUrl || logoUrl) && soloLogo
+      ? `<div class="t-logo-solo">${logoRest('t-logo')}</div>`
+      : logoTicketUrl || logoUrl
+      ? `<div class="t-logos"><div class="t-lado">${logoRest('t-logo')}</div><span class="t-por">×</span><div class="t-lado"><img class="t-logo" src="${LOGO_JEANCA}" alt="Jeanca"></div></div>`
       : `<div class="t-titulo">${esc(nombre || 'Restaurante')}</div>`}
     ${contacto ? `<div class="t-pequeno">${contacto}</div>` : ''}
   </div>`

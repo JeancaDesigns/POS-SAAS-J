@@ -7,11 +7,13 @@ import { useOnlineStatus } from '../../hooks/useOnlineStatus'
 import { db } from '../../db/localDB'
 import { cacheOrders, getCachedOrders } from '../../db/cacheHelpers'
 import { buildWhatsappLink, getEstimatedTime } from '../../utils/whatsapp'
-import { orderTotal, propinaSugerida, separarPropina, PORCENTAJE_PROPINA } from '../../utils/totales'
+import { orderTotal, propinaSugerida, separarPropina, PORCENTAJE_PROPINA, pendienteDePago, seleccionDePago, lineaConCantidad } from '../../utils/totales'
 import { precioUnitario } from '../../utils/precio'
 import { newId } from '../../utils/uuid'
 import { liberarMesaSiQuedaVacia, pideNombre, nombreMesa } from '../../utils/mesas'
 import { inicioJornada } from '../../utils/jornada'
+import { usaCocina } from '../../utils/cocina'
+import { marcarListoYDescontar } from '../../utils/inventario'
 import { useCajaResumen } from '../../hooks/useCajaResumen'
 import { Bell, Search, Printer } from 'lucide-react'
 import { avisar, confirmar } from '../../utils/dialogo'
@@ -127,9 +129,10 @@ function tableName(order) {
 }
 
 // Un pedido se cobra cuando ya salió de cocina (mesa/recoger) o fue entregado (domicilio).
-// Misma regla para el botón del ticket y para handleCobrar.
+// Sin cocina (se prepara en la barra), apenas se envía. Misma regla para el ticket y handleCobrar.
 function puedeCobrar(order) {
-  return ['delivered', 'dispatched'].includes(order.status)
+  if (['delivered', 'dispatched'].includes(order.status)) return true
+  return order.status === 'confirmed' && !usaCocina()
 }
 
 // ─── Piezas de la pantalla ───────────────────────────────────────────────────
@@ -180,7 +183,8 @@ function OrderRow({ order, deliveryFee, selected, onClick }) {
         <p className="text-xs text-zinc-500 mt-0.5 truncate">{sub}</p>
       </div>
       <div className="shrink-0 flex flex-col items-end gap-1.5">
-        <span className="font-mono text-sm font-semibold text-zinc-900 tabular">{money(orderTotal(order, deliveryFee))}</span>
+        <span className="font-mono text-sm font-semibold text-zinc-900 tabular">{money(orderTotal(pendienteDePago(order), deliveryFee))}</span>
+        {pendienteDePago(order).yaPagado > 0 && <span className="text-[10px] font-bold text-zinc-500">pagaron una parte</span>}
         <span className={`h-5 px-1.5 inline-flex items-center rounded-full border text-[10px] font-bold ${st.cls}`}>{st.text}</span>
       </div>
     </button>
@@ -223,7 +227,9 @@ export default function CajeroHome() {
   const [view, setView] = useState('cobrar') // 'cobrar' | 'curso' | 'historial'
   const [payMethod, setPayMethod] = useState('cash') // 'cash' | 'transfer' | 'mixed'
   const caja = useCajaResumen(user?.restaurant_id)
-  const [cobrarOrder, setCobrarOrder] = useState(null)
+  const [cobrarOrder, setCobrarOrder] = useState(null) // lo que falta por pagar (pendienteDePago)
+  // Pagar por producto: { [order_item.id]: unidades } (null = cobrar todo lo que falta)
+  const [seleccion, setSeleccion] = useState(null)
   const [paymentId, setPaymentId] = useState(null)
   const [efectivo, setEfectivo] = useState('')
   const [transferencia, setTransferencia] = useState('')
@@ -352,9 +358,15 @@ export default function CajeroHome() {
 
   // El pedido con el descuento tal como está escrito en el modal (aún no guardado en la base).
   // Solo admin/dev pueden editarlo; para los demás roles se respeta el descuento ya guardado en el pedido.
-  const cobrarOrderConDescuento = cobrarOrder && canDiscount
-    ? { ...cobrarOrder, discount_type: discountType, discount_value: Number(discountValue) || 0 }
-    : cobrarOrder
+  // Pagando por producto: solo las unidades elegidas, sin descuento general (va con el último pago)
+  const baseCobro = cobrarOrder && seleccion ? seleccionDePago(cobrarOrder, seleccion) : cobrarOrder
+  const cobrarOrderConDescuento = baseCobro && canDiscount && !seleccion
+    ? { ...baseCobro, discount_type: discountType, discount_value: Number(discountValue) || 0 }
+    : baseCobro
+  const unidades = o => (o?.items || []).filter(i => i.status !== 'cancelled').reduce((s, i) => s + Number(i.quantity), 0)
+  const unidadesSel = seleccion ? Object.values(seleccion).reduce((s, n) => s + n, 0) : 0
+  // Pago parcial = eligieron solo una parte; si eligen todo, es un cobro normal y se cierra el pedido
+  const esParcial = !!seleccion && unidadesSel > 0 && unidadesSel < unidades(cobrarOrder)
   const propinaNum = conPropina && !fiado ? Math.max(0, parseInt(propina) || 0) : 0
 
   function handleDiscountChange(type, value) {
@@ -382,10 +394,10 @@ export default function CajeroHome() {
     const tr = parseInt(val) || 0
     setEfectivo(Math.max(0, t - tr) > 0 ? String(Math.max(0, t - tr)) : '0')
   }
-  const total = cobrarOrder ? orderTotal(cobrarOrderConDescuento, deliveryFee) : 0
+  const total = baseCobro ? orderTotal(cobrarOrderConDescuento, deliveryFee) : 0
   // Subtotal sin el descuento general del pedido (pero sí con descuentos por producto ya guardados), para mostrar cuánto resta el descuento en vivo
-  const subtotalSinDescuentoGeneral = cobrarOrder
-    ? orderTotal({ ...cobrarOrder, discount_type: null, discount_value: 0 }, deliveryFee)
+  const subtotalSinDescuentoGeneral = baseCobro
+    ? orderTotal({ ...baseCobro, discount_type: null, discount_value: 0 }, deliveryFee)
     : 0
   const discountAmount = subtotalSinDescuentoGeneral - total
   const sumaPagos = (parseInt(efectivo) || 0) + (parseInt(transferencia) || 0)
@@ -403,8 +415,89 @@ export default function CajeroHome() {
     setEfectivo(String(Math.max(0, nuevoAPagar - tr)))
   }
 
+  // Elegir qué unidades paga esta persona: los montos se ajustan al nuevo total (sin propina ni fiado)
+  function cambiarSeleccion(nueva) {
+    setSeleccion(nueva)
+    setConPropina(false)
+    setPropina('')
+    setRecibido('')
+    setFiado(false)
+    const base = nueva ? seleccionDePago(cobrarOrder, nueva)
+      : canDiscount ? { ...cobrarOrder, discount_type: discountType, discount_value: Number(discountValue) || 0 } : cobrarOrder
+    const t = orderTotal(base, deliveryFee)
+    if (payMethod === 'transfer') { setEfectivo('0'); setTransferencia(String(t)) } else { setEfectivo(String(t)); setTransferencia('0') }
+  }
+
+  function limpiarCobro() {
+    setCobrarOrder(null)
+    setSeleccion(null)
+    setPaymentId(null)
+    setEfectivo('')
+    setRecibido('')
+    setTransferencia('')
+    setConPropina(false)
+    setPropina('')
+    setFiado(false)
+    setDebtorName('')
+    setDebtAmount('')
+    setSelectedDebtor(null)
+    setDiscountType('percent')
+    setDiscountValue('')
+  }
+
+  // Pago de una parte del pedido (pagar por producto): el pedido sigue abierto con lo que falta
+  async function cobrarParcial() {
+    if (!isOnline) { avisar('Pagar por producto necesita conexión a internet'); return }
+    if (sumaPagos !== aPagar) {
+      avisar(propinaNum ? 'El efectivo + transferencia debe ser igual al total más la propina' : 'El efectivo + transferencia debe ser igual al total')
+      return
+    }
+    setProcesando(true)
+    const { tipCash, tipTransfer, ventaEfectivo, ventaTransfer } =
+      separarPropina(parseInt(efectivo) || 0, parseInt(transferencia) || 0, propinaNum)
+    const pago = {
+      id: paymentId || newId(),
+      restaurant_id: user.restaurant_id,
+      order_id: cobrarOrder.id,
+      table_id: cobrarOrder.table_id,
+      cash: ventaEfectivo,
+      transfer: ventaTransfer,
+      total: ventaEfectivo + ventaTransfer,
+      tip_cash: tipCash,
+      tip_transfer: tipTransfer,
+      is_delivery: false,
+    }
+    const items = Object.entries(seleccion).filter(([, n]) => n > 0).map(([id, qty]) => ({ id, qty }))
+    let ticket = null
+    try {
+      if (!usaCocina()) {
+        const { error } = await marcarListoYDescontar({ orderId: cobrarOrder.id })
+        if (error) throw new Error('No se pudo descontar el inventario: ' + error.message)
+      }
+      const { error } = await supabase.rpc('pagar_productos', { p_pago: pago, p_items: items })
+      if (error) throw new Error(error.message)
+      ticket = ticketCobro({
+        restaurante,
+        order: baseCobro,
+        deliveryFee,
+        pago: { efectivo, transferencia, recibido, propina: propinaNum },
+        atendio: user?.name,
+      })
+      limpiarCobro()
+    } catch (err) {
+      avisar(err.message || 'No se pudo cobrar. Intenta de nuevo.')
+    } finally {
+      setProcesando(false)
+      refetch()
+      caja.refresh()
+    }
+    if (ticket) ofrecerImpresion('alCobrar', ticket, { titulo: 'Pago registrado', mensaje: '¿Imprimir el comprobante de lo que pagó?' })
+  }
+
   async function handleCobrar() {
     if (!cobrarOrder) return
+    if (seleccion && unidadesSel === 0) { avisar('Elige qué productos va a pagar'); return }
+    if (esParcial && puedeCobrar(cobrarOrder)) { await cobrarParcial(); return }
     if (!puedeCobrar(cobrarOrder)) {
       avisar('Este pedido aún no salió de cocina')
       return
@@ -454,6 +547,12 @@ export default function CajeroHome() {
             .update({ discount_type: discountType, discount_value: Number(discountValue) || 0 })
             .eq('id', cobrarOrder.id)
           if (error) fail('No se pudo guardar el descuento', error)
+        }
+
+        // Sin cocina nadie marca las líneas como listas: se marcan al cobrar y se descuenta el inventario
+        if (!usaCocina()) {
+          const { error } = await marcarListoYDescontar({ orderId: cobrarOrder.id })
+          if (error) fail('No se pudo descontar el inventario', error)
         }
 
         const { error: payError } = await supabase.from('payments')
@@ -513,7 +612,14 @@ export default function CajeroHome() {
         await liberarMesaSiQuedaVacia(cobrarOrder.table_id, cobrarOrder.id)
 
       } else {
-        // Offline — cola de sincronización
+        // Offline — cola de sincronización (sin cocina: primero marcar las líneas como listas)
+        if (!usaCocina()) {
+          await db.pendingOperations.add({
+            type: 'mark_order_done',
+            payload: { orderId: cobrarOrder.id, status: 'delivered', delivered_at: new Date().toISOString() },
+            created_at: new Date().toISOString(),
+          })
+        }
         await db.pendingOperations.add({
           type: 'register_payment',
           payload: { ...payment, paid_at: new Date().toISOString() },
@@ -532,19 +638,7 @@ export default function CajeroHome() {
         atendio: user?.name,
       })
 
-      setCobrarOrder(null)
-      setPaymentId(null)
-      setEfectivo('')
-      setRecibido('')
-      setTransferencia('')
-      setConPropina(false)
-      setPropina('')
-      setFiado(false)
-      setDebtorName('')
-      setDebtAmount('')
-      setSelectedDebtor(null)
-      setDiscountType('percent')
-      setDiscountValue('')
+      limpiarCobro()
     } catch (err) {
       avisar(err.message || 'No se pudo cobrar. Intenta de nuevo.')
     } finally {
@@ -571,9 +665,11 @@ export default function CajeroHome() {
       .eq('id', payment.order_id)
       .single()
     if (error || !order) { avisar('No se pudo cargar el pedido: ' + (error?.message || '')); return }
+    // Pago por producto: solo lo que pagó esa persona
+    const pagado = payment.items ? seleccionDePago(order, Object.fromEntries(payment.items.map(i => [i.id, i.qty]))) : order
     const tipCash = Number(payment.tip_cash || 0), tipTransfer = Number(payment.tip_transfer || 0)
     imprimirHTML(ticketCobro({
-      restaurante, order, deliveryFee,
+      restaurante, order: pagado, deliveryFee,
       pago: { efectivo: payment.cash + tipCash, transferencia: payment.transfer + tipTransfer, propina: tipCash + tipTransfer },
       fecha: payment.created_at,
     }))
@@ -583,7 +679,8 @@ export default function CajeroHome() {
     const ok = await confirmar('Dejará de contar en caja y reportes.', { titulo: '¿Anular este pago?', aceptar: 'Sí, anular' })
     if (!ok) return
     // Anulación lógica: queda el registro para auditoría
-    const { error } = await supabase.from('payments').update({ voided: true }).eq('id', payment.id)
+    // Si era un pago por producto, esas unidades vuelven a quedar por cobrar
+    const { error } = await supabase.rpc('anular_pago', { p_id: payment.id })
     if (error) { avisar('No se pudo anular el pago: ' + error.message); return }
     recargarHistorial()
     caja.refresh()
@@ -602,8 +699,10 @@ export default function CajeroHome() {
   const totalHistorial = filteredHistorial.reduce((s, p) => s + p.total, 0)
 
   // ─── Selección y filtros ─────────────────────────────────────────────────────
-  function selectOrder(o) {
+  function selectOrder(pedido) {
+    const o = pendienteDePago(pedido)
     setCobrarOrder(o)
+    setSeleccion(null)
     setPaymentId(newId())
     // Pedido web: se llena con lo que el cliente dijo que pagaría, SIN la propina: esa se
     // la queda el domiciliario, así que no entra al cajón (si entrara, el cierre saldría faltando)
@@ -813,6 +912,7 @@ export default function CajeroHome() {
                     {new Date(payment.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
                     {payment.cash > 0 && ` · Efectivo ${money(payment.cash)}`}
                     {payment.transfer > 0 && ` · Transf. ${money(payment.transfer)}`}
+                    {payment.items && ' · por producto'}
                   </p>
                 </div>
                 <div className="shrink-0 flex flex-col items-end gap-1">
@@ -908,15 +1008,52 @@ export default function CajeroHome() {
 
               {/* Cuenta */}
               <div className="bg-surface border border-zinc-200 rounded-2xl shadow-card overflow-hidden">
+                {canPayCurrent && isOnline && unidades(cobrarOrder) > 1 && (
+                  <div className="px-4 pt-3 pb-1 flex items-center justify-between gap-3">
+                    <span className="text-xs text-zinc-500">
+                      {seleccion ? `Paga ${unidadesSel} de ${unidades(cobrarOrder)} productos` : 'Si alguien paga solo lo suyo:'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => cambiarSeleccion(seleccion ? null : {})}
+                      aria-pressed={!!seleccion}
+                      className={`h-9 px-3 rounded-xl text-sm font-bold border transition-colors ${seleccion ? 'bg-zinc-900 text-surface border-zinc-900' : 'border-zinc-300 bg-surface text-zinc-700 hover:bg-zinc-50'}`}
+                    >
+                      {seleccion ? 'Cobrar todo' : 'Pagar por producto'}
+                    </button>
+                  </div>
+                )}
                 <ul className="px-4">
-                  {cobrarOrder.items.filter(i => i.status !== 'cancelled').map(item => (
-                    <li key={item.id} className="flex items-baseline gap-3 py-2.5 border-b border-zinc-100">
-                      <span className="font-mono text-xs font-semibold text-zinc-500 w-6 shrink-0">{item.quantity}×</span>
-                      <span className="flex-1 text-sm font-semibold text-zinc-800">{item.product.name}</span>
-                      <span className="font-mono text-sm font-semibold text-zinc-800 tabular">{money(precioUnitario(item) * item.quantity)}</span>
+                  {cobrarOrder.items.filter(i => i.status !== 'cancelled').map(item => {
+                    const max = Number(item.quantity)
+                    const n = seleccion?.[item.id] || 0
+                    const fijar = v => cambiarSeleccion({ ...seleccion, [item.id]: Math.max(0, Math.min(max, v)) })
+                    return seleccion ? (
+                      <li key={item.id} className="flex items-center gap-3 py-2 border-b border-zinc-100">
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button type="button" onClick={() => fijar(n - 1)} disabled={n === 0} aria-label={`Quitar un ${item.product.name}`} className="w-9 h-9 rounded-lg border border-zinc-200 text-lg font-bold text-zinc-700 disabled:opacity-30">−</button>
+                          <span className="font-mono text-sm font-bold w-12 text-center tabular">{n}<span className="text-zinc-400 font-semibold">/{max}</span></span>
+                          <button type="button" onClick={() => fijar(n + 1)} disabled={n === max} aria-label={`Agregar un ${item.product.name}`} className="w-9 h-9 rounded-lg border border-zinc-200 text-lg font-bold text-zinc-700 disabled:opacity-30">+</button>
+                        </div>
+                        <button type="button" onClick={() => fijar(n === max ? 0 : max)} className={`flex-1 text-left text-sm font-semibold ${n > 0 ? 'text-zinc-900' : 'text-zinc-500'}`}>{item.product.name}</button>
+                        <span className={`font-mono text-sm font-semibold tabular ${n > 0 ? 'text-zinc-800' : 'text-zinc-400'}`}>{money(orderTotal({ items: [lineaConCantidad(item, n)] }))}</span>
+                      </li>
+                    ) : (
+                      <li key={item.id} className="flex items-baseline gap-3 py-2.5 border-b border-zinc-100">
+                        <span className="font-mono text-xs font-semibold text-zinc-500 w-6 shrink-0">{item.quantity}×</span>
+                        <span className="flex-1 text-sm font-semibold text-zinc-800">{item.product.name}</span>
+                        <span className="font-mono text-sm font-semibold text-zinc-800 tabular">{money(precioUnitario(item) * item.quantity)}</span>
+                      </li>
+                    )
+                  })}
+                  {cobrarOrder.yaPagado > 0 && (
+                    <li className="flex items-baseline gap-3 py-2.5 border-b border-zinc-100">
+                      <span className="w-6 shrink-0" />
+                      <span className="flex-1 text-sm text-zinc-500">Ya pagaron por producto</span>
+                      <span className="font-mono text-sm font-semibold text-zinc-500 tabular">{money(cobrarOrder.yaPagado)}</span>
                     </li>
-                  ))}
-                  {cobrarOrder.delivery_type === 'delivery' && cobrarOrder.table?.is_delivery && (
+                  )}
+                  {!seleccion && cobrarOrder.delivery_type === 'delivery' && cobrarOrder.table?.is_delivery && (
                     <li className="flex items-baseline gap-3 py-2.5 border-b border-zinc-100">
                       <span className="w-6 shrink-0" />
                       <span className="flex-1 text-sm text-zinc-500">Domicilio</span>
@@ -934,7 +1071,7 @@ export default function CajeroHome() {
                   )}
                 </ul>
                 <div className="px-4 py-4 bg-surface-2 flex items-center justify-between">
-                  <span className="text-sm font-bold text-zinc-700">Total</span>
+                  <span className="text-sm font-bold text-zinc-700">{seleccion ? 'Paga esta persona' : cobrarOrder.yaPagado > 0 ? 'Falta por pagar' : 'Total'}</span>
                   <span className="font-mono text-3xl font-semibold tracking-tight text-zinc-900 tabular">{money(total)}</span>
                 </div>
               </div>
@@ -949,7 +1086,7 @@ export default function CajeroHome() {
               ) : (
                 <>
                   {/* Descuento (solo admin/dev) */}
-                  {canDiscount && (
+                  {canDiscount && !seleccion && (
                     <div className="flex flex-col gap-2">
                       <span className="text-sm font-bold text-zinc-700">Descuento</span>
                       <div className="flex gap-2">
@@ -1088,8 +1225,8 @@ export default function CajeroHome() {
                     </p>
                   )}
 
-                  {/* Fiado */}
-                  <div className="rounded-2xl border border-zinc-200 bg-surface p-4 flex flex-col gap-3">
+                  {/* Fiado (no en pagos por producto) */}
+                  {!seleccion && <div className="rounded-2xl border border-zinc-200 bg-surface p-4 flex flex-col gap-3">
                     <label className="flex items-center justify-between gap-3 cursor-pointer">
                       <span>
                         <span className="block text-sm font-bold text-zinc-800">Dejar fiado</span>
@@ -1152,13 +1289,13 @@ export default function CajeroHome() {
                         )}
                       </div>
                     )}
-                  </div>
+                  </div>}
 
                   {/* Cobrar */}
                   <div className="sticky bottom-24 lg:bottom-0 pt-2 bg-gradient-to-t from-canvas via-canvas to-transparent">
                     <button
                       onClick={handleCobrar}
-                      disabled={procesando || (!fiado && descuadre) || fiadoIncompleto}
+                      disabled={procesando || (!fiado && descuadre) || fiadoIncompleto || (!!seleccion && unidadesSel === 0)}
                       className="
                         w-full h-14 rounded-xl text-base font-extrabold text-white
                         bg-[var(--brand)] hover:bg-[var(--brand-hover)]
@@ -1168,9 +1305,13 @@ export default function CajeroHome() {
                     >
                       {procesando
                         ? 'Procesando…'
-                        : fiado
-                          ? `Registrar ${money(sumaPagos)} pagado + ${money(debtAmount || 0)} fiado`
-                          : `Cobrar ${money(aPagar)} y liberar mesa`}
+                        : seleccion && unidadesSel === 0
+                          ? 'Elige qué productos paga'
+                          : esParcial
+                            ? `Cobrar ${money(aPagar)} · la cuenta sigue abierta`
+                            : fiado
+                              ? `Registrar ${money(sumaPagos)} pagado + ${money(debtAmount || 0)} fiado`
+                              : `Cobrar ${money(aPagar)} y liberar mesa`}
                     </button>
                   </div>
                 </>
