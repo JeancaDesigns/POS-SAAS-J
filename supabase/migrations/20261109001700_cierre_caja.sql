@@ -20,7 +20,6 @@ begin
   return new;
 end; $$;
 
-drop trigger if exists cash_registers_no_cerrar_con_pedidos on public.cash_registers;
-create trigger cash_registers_no_cerrar_con_pedidos
+create or replace trigger cash_registers_no_cerrar_con_pedidos
   before update on public.cash_registers
   for each row execute function public.no_cerrar_caja_con_pedidos();

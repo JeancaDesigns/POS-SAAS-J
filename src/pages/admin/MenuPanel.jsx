@@ -5,6 +5,7 @@ import { Plus, Pencil, Trash2, Search, X } from 'lucide-react'
 import { avisar, confirmar } from '../../utils/dialogo'
 import Selector from '../../components/Selector'
 import { useRecarga } from '../../hooks/useRecarga'
+import { costoProducto, margen, TONO_MARGEN, pesos, num } from '../../utils/costeo'
 
 const ICONS = ['🌭', '🍟', '🥤', '🍨', '🍔', '🌮', '🍕', '🍗', '🎮']
 
@@ -36,8 +37,9 @@ export default function MenuPanel() {
   const [catForm, setCatForm] = useState({ name: '', icon: '🌭' })
   const [prodForm, setProdForm] = useState({
     name: '', price: '', category_id: '', available: true,
-    local_only: false, variants: [], newVariant: '', description: '',
+    local_only: false, variants: [], newVariant: '', description: '', costo: '', costo_extra_pct: '',
   })
+  const [recetas, setRecetas] = useState({}) // product_id -> recipe_items (con su insumo), para el costo
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -53,9 +55,14 @@ export default function MenuPanel() {
       const { data: prods } = await supabase
         .from('products').select('*, category:categories(name)')
         .eq('restaurant_id', restaurantId).eq('active', true).order('price')
+      const { data: recs } = await supabase
+        .from('recipes')
+        .select('product_id, recipe_items(quantity, inventory_item:inventory_items(name, unit, cost, compra_cantidad, compra_precio))')
+        .eq('restaurant_id', restaurantId)
       if (!vivo) return
       setCategories(cats || [])
       setProducts(prods || [])
+      setRecetas(Object.fromEntries((recs || []).map(r => [r.product_id, r.recipe_items])))
     }
     fetchData()
     return () => { vivo = false }
@@ -69,7 +76,7 @@ export default function MenuPanel() {
   }
   function openNewProd() {
     setEditItem(null)
-    setProdForm({ name: '', price: '', category_id: categories[0]?.id || '', available: true, local_only: false, variants: [], newVariant: '', description: '' })
+    setProdForm({ name: '', price: '', category_id: categories[0]?.id || '', available: true, local_only: false, variants: [], newVariant: '', description: '', costo: '', costo_extra_pct: '' })
     setError(''); setShowForm(true)
   }
   function openEditProd(prod) {
@@ -78,6 +85,7 @@ export default function MenuPanel() {
       name: prod.name, price: String(prod.price), category_id: prod.category_id,
       available: prod.available, local_only: prod.local_only || false,
       variants: prod.variants || [], newVariant: '', description: prod.description || '',
+      costo: prod.costo ?? '', costo_extra_pct: prod.costo_extra_pct ? String(prod.costo_extra_pct) : '',
     })
     setError(''); setShowForm(true)
   }
@@ -102,6 +110,8 @@ export default function MenuPanel() {
       name: prodForm.name, price: parseInt(prodForm.price), category_id: prodForm.category_id,
       available: prodForm.available, local_only: prodForm.local_only,
       variants: prodForm.variants, description: prodForm.description || null,
+      costo: Number(prodForm.costo) || null,
+      costo_extra_pct: Math.max(0, Number(prodForm.costo_extra_pct) || 0),
     }
     const { error } = editItem
       ? await supabase.from('products').update(payload).eq('id', editItem.id)
@@ -209,6 +219,10 @@ export default function MenuPanel() {
                     <p className="sm:hidden font-mono text-sm font-semibold text-zinc-900 tabular">{money(prod.price)}</p>
                     <p className="text-xs text-zinc-500 truncate">
                       {[prod.category?.name, prod.variants?.length ? `${prod.variants.length} opciones` : null, prod.local_only ? 'Solo en el local' : null].filter(Boolean).join(' · ')}
+                      {(() => {
+                        const m = margen(prod.price, costoProducto(prod, recetas[prod.id]).total)
+                        return m && <span className={`ml-1.5 px-1.5 rounded-full border text-[10px] font-bold ${TONO_MARGEN[m.tono]}`}>costo {num(m.pct, 0)} %</span>
+                      })()}
                     </p>
                   </div>
                   <span className="hidden sm:inline font-mono text-sm font-semibold text-zinc-900 tabular shrink-0">{money(prod.price)}</span>
@@ -291,6 +305,49 @@ export default function MenuPanel() {
                         options={categories.map(c => ({ value: c.id, label: c.name }))} />
                     </label>
                   </div>
+
+                  {/* Costo y ganancia */}
+                  {(() => {
+                    const receta = editItem ? recetas[editItem.id] : null
+                    const c = costoProducto({ costo: prodForm.costo, costo_extra_pct: prodForm.costo_extra_pct }, receta)
+                    const m = margen(prodForm.price, c.total)
+                    return (
+                      <fieldset className="rounded-xl border border-zinc-200 p-3.5 flex flex-col gap-3">
+                        <legend className="px-1 text-sm font-bold text-zinc-700">Costo</legend>
+                        {receta?.length ? (
+                          <p className="text-sm text-zinc-700">
+                            Por receta: <b className="font-mono">{pesos(c.base)}</b>
+                            <span className="block text-xs text-zinc-500">Sale de los insumos de su receta (Inventario › Recetas).{c.faltan.length ? ` Falta el precio de: ${c.faltan.join(', ')}.` : ''}</span>
+                          </p>
+                        ) : (
+                          <label className="flex flex-col gap-1.5">
+                            <span className="text-xs font-semibold text-zinc-500">Costo de compra (lo que cuesta cada uno)</span>
+                            <input type="number" inputMode="numeric" value={prodForm.costo} onChange={e => setProdForm(f => ({ ...f, costo: e.target.value }))} placeholder="Ej: 2000 por una cerveza" className={`${field} font-mono`} />
+                            <span className="text-xs text-zinc-500">Si lleva varios insumos (un cóctel), mejor arma su receta en Inventario: el costo sale solo.</span>
+                          </label>
+                        )}
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-xs font-semibold text-zinc-500">+ otros insumos (hielo, limón, decoración…)</span>
+                          <div className="flex gap-1.5 flex-wrap items-center">
+                            {[0, 10, 20, 30].map(v => (
+                              <button key={v} type="button" onClick={() => setProdForm(f => ({ ...f, costo_extra_pct: String(v) }))} aria-pressed={Number(prodForm.costo_extra_pct || 0) === v}
+                                className={`h-9 px-3 rounded-lg border text-sm font-bold ${Number(prodForm.costo_extra_pct || 0) === v ? 'border-[var(--brand)] bg-[var(--brand-light)] text-zinc-900' : 'border-zinc-200 text-zinc-600'}`}>
+                                {v} %
+                              </button>
+                            ))}
+                            <input type="number" inputMode="numeric" value={prodForm.costo_extra_pct} onChange={e => setProdForm(f => ({ ...f, costo_extra_pct: e.target.value }))} aria-label="Porcentaje de otros insumos" placeholder="otro" className="w-20 h-9 rounded-lg px-2.5 bg-surface border border-zinc-300 font-mono text-sm text-zinc-900 outline-none focus:border-[var(--brand)]" />
+                          </div>
+                        </div>
+                        {c.total > 0 && (
+                          <div className="rounded-lg bg-zinc-50 border border-zinc-200 px-3 py-2.5 grid grid-cols-3 gap-2 text-center">
+                            <div><p className="text-[11px] text-zinc-500">Costo</p><p className="font-mono text-sm font-bold text-zinc-900">{pesos(c.total)}</p></div>
+                            <div><p className="text-[11px] text-zinc-500">Ganancia</p><p className="font-mono text-sm font-bold text-zinc-900">{m ? pesos(m.ganancia) : '—'}</p></div>
+                            <div><p className="text-[11px] text-zinc-500">% costo</p><p className={`font-mono text-sm font-bold ${m ? TONO_MARGEN[m.tono].split(' ')[0] : 'text-zinc-400'}`}>{m ? `${num(m.pct, 0)} %` : '—'}</p></div>
+                          </div>
+                        )}
+                      </fieldset>
+                    )
+                  })()}
 
                   <div className="flex flex-col gap-1.5">
                     <span className="text-sm font-bold text-zinc-700">Opciones <span className="font-medium text-zinc-400">(tamaños, sabores…)</span></span>
