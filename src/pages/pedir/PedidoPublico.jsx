@@ -902,7 +902,7 @@ export default function PedidoPublico() {
           <div className="flex items-center gap-3">
             <div className="w-14 h-14 rounded-2xl shrink-0 flex items-center justify-center overflow-hidden bg-zinc-50 border border-zinc-200">
               {restaurant?.logo_url
-                ? <img src={restaurant.logo_url} alt="" className="w-full h-full object-contain p-1" />
+                ? <img src={restaurant.logo_url} alt="" onError={e => { e.currentTarget.style.visibility = 'hidden' }} className="w-full h-full object-contain p-1" />
                 : <span className="text-lg font-extrabold text-[var(--brand-text)]">{(restaurant?.name || '?').slice(0, 2).toUpperCase()}</span>}
             </div>
             <div className="min-w-0 flex-1">

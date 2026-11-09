@@ -185,7 +185,7 @@ export default function MesasPanel() {
         {zoneTables.length === 0 ? (
           <div className="bg-surface border border-dashed border-zinc-300 rounded-2xl py-14 text-center text-sm text-zinc-500">Esta zona aún no tiene mesas</div>
         ) : (
-          <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-6 gap-3">
             {zoneTables.map(t => (
               <div key={t.id} className="group relative h-[116px] p-3 rounded-2xl bg-surface border border-zinc-200 shadow-card flex flex-col justify-between">
                 <div className="flex items-center justify-between">

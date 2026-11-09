@@ -202,14 +202,16 @@ export default function MenuPanel() {
           ) : (
             <ul className="divide-y divide-zinc-100">
               {visibleProducts.map(prod => (
-                <li key={prod.id} className={`px-4 py-3 flex items-center gap-3 ${!prod.available ? 'bg-zinc-50' : ''}`}>
+                <li key={prod.id} className={`px-3 sm:px-4 py-3 flex items-center gap-2 sm:gap-3 ${!prod.available ? 'bg-zinc-50' : ''}`}>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-bold truncate ${prod.available ? 'text-zinc-900' : 'text-zinc-500'}`}>{prod.name}</p>
+                    {/* En celular el nombre puede ir en dos líneas y el precio va debajo: antes se cortaba "Aguardiente A…" */}
+                    <p className={`text-sm font-bold line-clamp-2 sm:truncate break-words ${prod.available ? 'text-zinc-900' : 'text-zinc-500'}`}>{prod.name}</p>
+                    <p className="sm:hidden font-mono text-sm font-semibold text-zinc-900 tabular">{money(prod.price)}</p>
                     <p className="text-xs text-zinc-500 truncate">
                       {[prod.category?.name, prod.variants?.length ? `${prod.variants.length} opciones` : null, prod.local_only ? 'Solo en el local' : null].filter(Boolean).join(' · ')}
                     </p>
                   </div>
-                  <span className="font-mono text-sm font-semibold text-zinc-900 tabular shrink-0">{money(prod.price)}</span>
+                  <span className="hidden sm:inline font-mono text-sm font-semibold text-zinc-900 tabular shrink-0">{money(prod.price)}</span>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="hidden sm:inline text-xs font-semibold text-zinc-500 w-16 text-right">{prod.available ? 'Disponible' : 'Agotado'}</span>
                     <Toggle checked={prod.available} onChange={() => toggleAvailable(prod)} label={`${prod.name} disponible`} />

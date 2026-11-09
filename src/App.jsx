@@ -153,7 +153,7 @@ export default function App() {
       {intro && <IntroJeanca onFin={() => useAuthStore.setState({ intro: false })} />}
       <div className={
         user && !isPublicRoute
-          ? 'pb-[80px] lg:pb-0 lg:pl-[92px]'
+          ? 'con-nav pb-[80px] lg:pb-0 lg:pl-[92px]'
           : ''
       }>
         <Routes>
