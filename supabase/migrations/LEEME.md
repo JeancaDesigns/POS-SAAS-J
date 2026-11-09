@@ -134,3 +134,6 @@ la Edge Function `reporte-semanal` (desplegada, `verify_jwt` false: valida el to
 de un admin/dev para el botón "Correo" del Dashboard). Falta el secreto `RESEND_API_KEY` (Edge Functions › Secrets): sin él la
 función responde "Falta configurar el servicio de correo". Remitente por defecto `onboarding@resend.dev` (solo envía al dueño
 de la cuenta de Resend); con un dominio propio verificado, poner `REPORTE_REMITENTE`.
+- (2026-11-09, v3 de la función) El correo trae un resumen corto y el **reporte en PDF adjunto** (`pdf.js`, pdf-lib,
+  tamaño carta, 2 páginas: cifras con comparación, ventas por día vs. semana anterior, horas pico, productos, categorías,
+  lo que más ganancia deja). Se despliega con `import_map_path: deno.json`.
