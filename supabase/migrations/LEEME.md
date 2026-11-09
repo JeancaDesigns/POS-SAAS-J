@@ -127,3 +127,10 @@ compra_cantidad / compra_precio` (botella de 750 ml a $50.000 → `cost` = $66,6
 
 **Demo QA (2026-11-09):** restaurante de prueba (slug `demo-qa`, copia del menú y mesas de Social) con el usuario
 `qa@demo-qa.invalid` (admin), creado por SQL para revisar pantallas con capturas. Se puede desactivar en Dev › Peligro.
+
+**1900 (2026-11-09): APLICADA en producción.** Reporte semanal por correo: `restaurants.reporte_correo` (Social y Benditas →
+el correo de Jeanca; se cambia en Dev › Datos), pg_cron `reporte-semanal` los lunes 12:47 UTC (7:47 a. m. Colombia) que llama
+la Edge Function `reporte-semanal` (desplegada, `verify_jwt` false: valida el token del Vault `reporte_cron_token` o la sesión
+de un admin/dev para el botón "Correo" del Dashboard). Falta el secreto `RESEND_API_KEY` (Edge Functions › Secrets): sin él la
+función responde "Falta configurar el servicio de correo". Remitente por defecto `onboarding@resend.dev` (solo envía al dueño
+de la cuenta de Resend); con un dominio propio verificado, poner `REPORTE_REMITENTE`.

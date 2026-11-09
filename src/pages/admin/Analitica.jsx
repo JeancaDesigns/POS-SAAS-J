@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import { fetchAll } from '../../utils/fetchAll'
-import { restauranteTicket } from '../../store/authStore'
+import { restauranteTicket, useAuthStore } from '../../store/authStore'
+import { avisar } from '../../utils/dialogo'
 import { analizar, rangoPeriodo, variacion, ventasPorDia, DIAS_SEMANA } from '../../utils/analitica'
 import { pesos, num, TONO_MARGEN } from '../../utils/costeo'
 import { imprimirHTML } from '../../utils/imprimir'
 import { reportePeriodo } from '../../utils/tickets'
 import { reporteTexto } from './reporteTexto'
-import { Printer, Send, TrendingUp, TrendingDown } from 'lucide-react'
+import { Printer, Send, Mail, TrendingUp, TrendingDown } from 'lucide-react'
 
 const PERIODOS = [['hoy', 'Hoy'], ['ayer', 'Ayer'], ['semana', 'Esta semana'], ['semana_pasada', 'Semana pasada'], ['mes', 'Este mes'], ['30', '30 días']]
 
@@ -146,6 +147,18 @@ export default function Analitica({ restaurantId }) {
   }
 
   const restaurante = restauranteTicket()
+  const puedeCorreo = useAuthStore(s => s.user?.roles?.some(r => ['admin', 'dev'].includes(r)))
+  const [enviando, setEnviando] = useState(false)
+  // El reporte de cada lunes, enviado ahora (semana pasada) para probar el correo
+  async function correoPrueba() {
+    setEnviando(true)
+    const { data, error } = await supabase.functions.invoke('reporte-semanal', { body: { restaurant_id: restaurantId } })
+    setEnviando(false)
+    let msg = data?.error
+    if (error) { try { msg = (await error.context?.json())?.error || error.message } catch { msg = error.message } }
+    if (msg) avisar(msg, { titulo: 'No se pudo enviar' })
+    else avisar(`Se envió el reporte de la semana pasada a ${data.para.join(', ')}. Cada lunes a las 7:47 a. m. llega solo.`, { titulo: 'Reporte enviado' })
+  }
   const enviar = () => window.open(`https://wa.me/?text=${encodeURIComponent(reporteTexto({ restaurante: restaurante.nombre, periodo: rango, a, anterior: ant }))}`, '_blank')
   const imprimir = () => imprimirHTML(reportePeriodo({ restaurante, periodo: rango, a, anterior: ant }))
 
@@ -180,6 +193,11 @@ export default function Analitica({ restaurantId }) {
           <button onClick={enviar} disabled={!a} className="h-10 px-3.5 rounded-xl bg-[#25D366] text-white text-sm font-bold flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50">
             <Send size={15} aria-hidden="true" /> WhatsApp
           </button>
+          {puedeCorreo && (
+            <button onClick={correoPrueba} disabled={enviando} title="Enviar ahora el reporte semanal por correo" className="h-10 px-3.5 rounded-xl border border-zinc-300 bg-surface text-sm font-bold text-zinc-700 flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50">
+              <Mail size={15} aria-hidden="true" /> {enviando ? 'Enviando…' : 'Correo'}
+            </button>
+          )}
           <button onClick={imprimir} disabled={!a} className="h-10 px-3.5 rounded-xl border border-zinc-300 bg-surface text-sm font-bold text-zinc-700 flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50">
             <Printer size={15} aria-hidden="true" /> Imprimir
           </button>
