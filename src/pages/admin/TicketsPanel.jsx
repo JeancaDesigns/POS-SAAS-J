@@ -174,13 +174,16 @@ export default function TicketsPanel() {
                       <p className="text-sm font-bold text-zinc-900 truncate">
                         {titleOf(order)}{order.customer_name ? ` · ${order.customer_name}` : ''}
                       </p>
-                      <p className="text-xs text-zinc-500">
+                      <p className="text-xs text-zinc-500 truncate">
                         {new Date(order.created_at).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                         {order.order_number ? ` · #${String(order.order_number).padStart(3, '0')}` : ''}
                       </p>
                     </div>
-                    <span className={`h-6 px-2 rounded-full border text-[11px] font-bold flex items-center shrink-0 ${st.cls}`}>{st.label}</span>
-                    <span className="font-mono text-sm font-semibold text-zinc-900 tabular shrink-0 w-24 text-right">{money(calculateTotal(order))}</span>
+                    {/* En celular el estado va debajo del valor, para que la fecha quepa en una línea */}
+                    <div className="shrink-0 flex flex-col-reverse sm:flex-row items-end sm:items-center gap-1 sm:gap-3">
+                      <span className={`h-6 px-2 rounded-full border text-[11px] font-bold flex items-center whitespace-nowrap ${st.cls}`}>{st.label}</span>
+                      <span className="font-mono text-sm font-semibold text-zinc-900 tabular sm:w-24 text-right">{money(calculateTotal(order))}</span>
+                    </div>
                   </button>
                   <button
                     onClick={() => handleDelete(order)}

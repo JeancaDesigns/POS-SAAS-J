@@ -144,7 +144,8 @@ export default function Login() {
             {restaurantInfo?.logo_url ? (
               <img
                 src={restaurantInfo.logo_url}
-                alt={restaurantInfo.name || 'Restaurante'}
+                alt=""
+                onError={e => { e.currentTarget.style.display = 'none' }}
                 className="h-20 max-w-[220px] object-contain"
               />
             ) : (

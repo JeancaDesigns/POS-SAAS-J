@@ -5,6 +5,7 @@ import { Package, Plus, Pencil, X, Trash2, ArrowUpDown, Search } from 'lucide-re
 import { avisar, confirmar } from '../../utils/dialogo'
 import Selector from '../../components/Selector'
 import { useRecarga } from '../../hooks/useRecarga'
+import { costoUnitario, costoReceta, enPresentaciones, porPedir, margen, TONO_MARGEN, pesos, num, plural, OZ_ML } from '../../utils/costeo'
 
 const inputClass = 'w-full h-11 rounded-xl px-3.5 bg-surface border border-zinc-300 text-[15px] text-zinc-900 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--brand-soft)] placeholder:text-zinc-400 transition-[border-color,box-shadow]'
 
@@ -20,7 +21,8 @@ export default function InventarioPanel() {
   const [showItemModal, setShowItemModal] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
   const [movementModal, setMovementModal] = useState(null)
-  const [itemForm, setItemForm] = useState({ name: '', stock: '', min_stock: '', unit: 'und', cost: '' })
+  const FORM_VACIO = { name: '', stock: '', min_stock: '', stock_ideal: '', unit: 'ml', cost: '', compra_nombre: '', compra_cantidad: '', compra_precio: '' }
+  const [itemForm, setItemForm] = useState(FORM_VACIO)
   const [movement, setMovement] = useState({ type: 'in', quantity: '', reason: '' })
 
   // ── Recetas ──────────────────────────────────────────────────────────────────
@@ -30,7 +32,7 @@ export default function InventarioPanel() {
   const [showRecipeModal, setShowRecipeModal] = useState(false)
   const [editingRecipe, setEditingRecipe] = useState(null)
   const [recipeForm, setRecipeForm] = useState({ product_id: '', ingredients: [] })
-  const [newIngredient, setNewIngredient] = useState({ inventory_item_id: '', quantity: '' })
+  const [newIngredient, setNewIngredient] = useState({ inventory_item_id: '', quantity: '', enOz: false })
 
   const restaurantId = user?.restaurant_id
   const { tick: tickItems, recargar: recargarItems } = useRecarga()
@@ -52,18 +54,26 @@ export default function InventarioPanel() {
   }, [restaurantId, tickItems])
 
   function resetItemForm() {
-    setItemForm({ name: '', stock: '', min_stock: '', unit: 'und', cost: '' })
+    setItemForm(FORM_VACIO)
     setEditingItem(null)
   }
 
   async function saveItem() {
     if (!itemForm.name.trim()) return
+    const compra = {
+      compra_nombre: itemForm.compra_nombre.trim() || null,
+      compra_cantidad: Number(itemForm.compra_cantidad) || null,
+      compra_precio: Number(itemForm.compra_precio) || null,
+    }
     const payload = {
-      name: itemForm.name,
+      name: itemForm.name.trim(),
       stock: Number(itemForm.stock) || 0,
       min_stock: Number(itemForm.min_stock) || 0,
+      stock_ideal: Number(itemForm.stock_ideal) || null,
       unit: itemForm.unit,
-      cost: Number(itemForm.cost) || 0,
+      ...compra,
+      // costo por unidad: sale de la compra (botella $50.000 / 750 ml); si no, el que se escribió
+      cost: compra.compra_precio && compra.compra_cantidad ? compra.compra_precio / compra.compra_cantidad : Number(itemForm.cost) || 0,
       available: true,
       restaurant_id: user.restaurant_id,
     }
@@ -88,7 +98,11 @@ export default function InventarioPanel() {
 
   function openEditItem(item) {
     setEditingItem(item)
-    setItemForm({ name: item.name, stock: item.stock, min_stock: item.min_stock, unit: item.unit, cost: item.cost })
+    setItemForm({
+      name: item.name, stock: item.stock ?? '', min_stock: item.min_stock ?? '', stock_ideal: item.stock_ideal ?? '',
+      unit: item.unit || 'und', cost: item.cost ?? '',
+      compra_nombre: item.compra_nombre || '', compra_cantidad: item.compra_cantidad ?? '', compra_precio: item.compra_precio ?? '',
+    })
     setShowItemModal(true)
   }
 
@@ -132,10 +146,10 @@ export default function InventarioPanel() {
         .from('recipes')
         .select(`
           *,
-          product:products(name),
+          product:products(name, price, costo_extra_pct),
           recipe_items(
             id, quantity,
-            inventory_item:inventory_items(id, name, unit)
+            inventory_item:inventory_items(id, name, unit, cost, compra_cantidad, compra_precio)
           )
         `)
         .eq('restaurant_id', restaurantId)
@@ -157,7 +171,7 @@ export default function InventarioPanel() {
   function openNewRecipe() {
     setEditingRecipe(null)
     setRecipeForm({ product_id: '', ingredients: [] })
-    setNewIngredient({ inventory_item_id: '', quantity: '' })
+    setNewIngredient({ inventory_item_id: '', quantity: '', enOz: false })
     setShowRecipeModal(true)
   }
 
@@ -171,9 +185,10 @@ export default function InventarioPanel() {
         name: ri.inventory_item.name,
         unit: ri.inventory_item.unit,
         quantity: ri.quantity,
+        inventory_item: ri.inventory_item,
       })),
     })
-    setNewIngredient({ inventory_item_id: '', quantity: '' })
+    setNewIngredient({ inventory_item_id: '', quantity: '', enOz: false })
     setShowRecipeModal(true)
   }
 
@@ -189,10 +204,12 @@ export default function InventarioPanel() {
         inventory_item_id: invItem.id,
         name: invItem.name,
         unit: invItem.unit,
-        quantity: Number(newIngredient.quantity),
+        // En barra se mide en onzas: se guarda en ml (1 oz = 30 ml)
+        quantity: Number(newIngredient.quantity) * (newIngredient.enOz && invItem.unit === 'ml' ? OZ_ML : 1),
+        inventory_item: invItem,
       }]
     }))
-    setNewIngredient({ inventory_item_id: '', quantity: '' })
+    setNewIngredient({ inventory_item_id: '', quantity: '', enOz: newIngredient.enOz })
   }
 
   function removeIngredientFromForm(idx) {
@@ -272,14 +289,26 @@ export default function InventarioPanel() {
   const visibleItems = items
     .filter(i => stockFilter === 'all' || levelOf(i) === stockFilter)
     .filter(i => !q || i.name.toLowerCase().includes(q))
-  const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
+  const money = pesos
+  // Lo que hay que pedir: insumos en el mínimo o por debajo, con cantidad sugerida
+  const listaPedido = items.map(i => ({ item: i, pedir: porPedir(i) })).filter(x => x.pedir)
+  const totalPedido = listaPedido.reduce((t, x) => t + x.pedir.costo, 0)
+  const textoPedido = () => [
+    `*Pedido de insumos* — ${new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })}`,
+    ...listaPedido.map(({ item, pedir }) => `• ${item.name}: ${num(pedir.cantidad, 2)} ${plural(pedir.unidad, pedir.cantidad)}`),
+  ].join('\n')
+  // Stock en unidades y, si se sabe la presentación, en botellas/bolsas…
+  const stockTexto = i => {
+    const pres = enPresentaciones(i, i.stock)
+    return `${num(i.stock, 2)} ${i.unit}${pres != null ? ` · ${num(pres)} ${plural(i.compra_nombre || 'pres.', num(pres))}` : ''}`
+  }
 
   return (
     <div className="flex flex-col gap-4">
 
-      <div role="tablist" aria-label="Inventario" className="self-start flex p-1 rounded-xl bg-zinc-100 border border-zinc-200">
-        {[['inventario', `Insumos · ${items.length}`], ['recetas', `Recetas · ${recipes.length}`]].map(([k, l]) => (
-          <button key={k} role="tab" aria-selected={view === k} onClick={() => setView(k)} className={`h-10 px-4 rounded-lg text-sm font-bold transition-colors ${view === k ? 'bg-surface text-zinc-900 shadow-card' : 'text-zinc-500'}`}>{l}</button>
+      <div role="tablist" aria-label="Inventario" className="self-start max-w-full overflow-x-auto flex p-1 rounded-xl bg-zinc-100 border border-zinc-200">
+        {[['inventario', `Insumos · ${items.length}`], ['pedir', `Por pedir · ${listaPedido.length}`], ['recetas', 'Recetas']].map(([k, l]) => (
+          <button key={k} role="tab" aria-selected={view === k} onClick={() => setView(k)} className={`h-10 px-3 sm:px-4 whitespace-nowrap rounded-lg text-sm font-bold transition-colors ${view === k ? 'bg-surface text-zinc-900 shadow-card' : 'text-zinc-500'}`}>{l}</button>
         ))}
       </div>
 
@@ -342,10 +371,19 @@ export default function InventarioPanel() {
                           <div className="flex-1 max-w-[220px] h-1.5 rounded-full bg-zinc-100 overflow-hidden" aria-hidden="true">
                             <div className={`h-full rounded-full ${level === 'empty' ? 'bg-red-500' : level === 'low' ? 'bg-orange-500' : 'bg-[var(--brand)]'}`} style={{ width: `${pct}%` }} />
                           </div>
-                          <span className="text-xs text-zinc-500 font-mono tabular">{item.stock} {item.unit} · mín {item.min_stock}</span>
+                          <span className="text-xs text-zinc-500 font-mono tabular">{stockTexto(item)} · mín {num(item.min_stock, 2)}</span>
                         </div>
                       </div>
-                      <span className="hidden sm:block font-mono text-sm font-semibold text-zinc-700 tabular w-24 text-right">{money(item.cost)}</span>
+                      <span className="hidden sm:block text-right w-32 shrink-0">
+                        {item.compra_precio > 0 && item.compra_cantidad > 0 ? (
+                          <>
+                            <span className="block font-mono text-sm font-semibold text-zinc-700 tabular">{money(item.compra_precio)}</span>
+                            <span className="block text-[11px] text-zinc-500">{item.compra_nombre || 'presentación'} · {pesos(costoUnitario(item))}/{item.unit}</span>
+                          </>
+                        ) : (
+                          <span className="block font-mono text-sm font-semibold text-zinc-700 tabular">{item.cost ? `${money(item.cost)}/${item.unit}` : '—'}</span>
+                        )}
+                      </span>
                       <div className="flex shrink-0">
                         <button onClick={() => setMovementModal(item)} aria-label={`Registrar movimiento de ${item.name}`} className="h-9 px-2.5 rounded-lg flex items-center gap-1.5 text-xs font-bold text-[var(--brand-text)] hover:bg-[var(--brand-light)]">
                           <ArrowUpDown size={14} aria-hidden="true" /> <span className="hidden md:inline">Movimiento</span>
@@ -362,10 +400,59 @@ export default function InventarioPanel() {
         </>
       )}
 
+      {view === 'pedir' && (
+        <>
+          <p className="text-sm text-zinc-500">
+            Insumos en el mínimo o por debajo. Se pide hasta el <b className="text-zinc-700">ideal</b> (o el doble del mínimo), en presentaciones completas.
+            El stock baja solo con cada venta que tenga receta.
+          </p>
+          <div className="bg-surface border border-zinc-200 rounded-2xl shadow-card overflow-hidden">
+            {listaPedido.length === 0 ? (
+              <p className="py-14 text-center text-sm text-zinc-500">{items.length ? 'Todo por encima del mínimo: no hay que pedir nada.' : 'Agrega insumos con su stock mínimo para saber qué pedir.'}</p>
+            ) : (
+              <ul className="divide-y divide-zinc-100">
+                {listaPedido.map(({ item, pedir }) => (
+                  <li key={item.id} className="px-4 py-3 flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-zinc-900">{item.name}</p>
+                      <p className="text-xs text-zinc-500 font-mono tabular">Hay {stockTexto(item)} · mín {num(item.min_stock, 2)}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-extrabold text-zinc-900 whitespace-nowrap">{num(pedir.cantidad, 2)} {plural(pedir.unidad, pedir.cantidad)}</p>
+                      {pedir.costo > 0 && <p className="text-[11px] text-zinc-500 font-mono tabular">≈ {money(pedir.costo)}</p>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {listaPedido.length > 0 && (
+              <div className="px-4 py-3 bg-surface-2 border-t border-zinc-200 flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+                <span className="text-sm text-zinc-600">{totalPedido > 0 ? <>Costo aproximado <b className="font-mono text-zinc-900">{money(totalPedido)}</b></> : 'Sin precios de compra'}</span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => { try { await navigator.clipboard.writeText(textoPedido()); avisar('Lista copiada', { titulo: 'Listo' }) } catch { avisar(textoPedido(), { titulo: 'Copia la lista' }) } }}
+                    className="h-10 px-3.5 rounded-xl border border-zinc-300 bg-surface text-sm font-bold text-zinc-700 hover:bg-zinc-50 whitespace-nowrap"
+                  >
+                    Copiar lista
+                  </button>
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(textoPedido())}`}
+                    target="_blank" rel="noreferrer"
+                    className="h-10 px-3.5 rounded-xl bg-[#25D366] text-white text-sm font-bold flex items-center whitespace-nowrap"
+                  >
+                    Enviar por WhatsApp
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
       {view === 'recetas' && (
         <>
           <div className="flex items-center justify-between gap-3">
-            <p className="text-sm text-zinc-500">Cada receta descuenta sus insumos cuando cocina marca el producto como listo.</p>
+            <p className="text-sm text-zinc-500 min-w-0">Cada receta da el costo del producto y descuenta sus insumos al venderlo.</p>
             <button onClick={openNewRecipe} className="h-11 px-4 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white text-sm font-bold flex items-center gap-1.5 transition-colors shrink-0">
               <Plus size={16} aria-hidden="true" /> Receta
             </button>
@@ -381,10 +468,23 @@ export default function InventarioPanel() {
                   <li key={recipe.id} className="px-4 py-3 flex items-start gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-zinc-900">{recipe.product?.name}</p>
+                      {(() => {
+                        const { costo, faltan } = costoReceta(recipe.recipe_items)
+                        const total = costo * (1 + (Number(recipe.product?.costo_extra_pct) || 0) / 100)
+                        const m = margen(recipe.product?.price, total)
+                        return (
+                          <p className="text-xs text-zinc-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span>Costo <b className="font-mono text-zinc-800">{money(total)}</b>{recipe.product?.costo_extra_pct > 0 ? ` (con ${num(recipe.product.costo_extra_pct)} % otros)` : ''}</span>
+                            <span>· Precio <b className="font-mono text-zinc-800">{money(recipe.product?.price)}</b></span>
+                            {m && <span className={`h-5 px-1.5 rounded-full border text-[10px] font-bold inline-flex items-center ${TONO_MARGEN[m.tono]}`}>costo {num(m.pct, 0)} % · gana {money(m.ganancia)}</span>}
+                            {faltan.length > 0 && <span className="text-orange-700">Falta el precio de: {faltan.join(', ')}</span>}
+                          </p>
+                        )
+                      })()}
                       <div className="flex flex-wrap gap-1.5 mt-1.5">
                         {recipe.recipe_items.map(ri => (
                           <span key={ri.id} className="h-6 px-2 rounded-full bg-zinc-100 border border-zinc-200 text-[11px] font-semibold text-zinc-600 flex items-center">
-                            <span className="font-mono mr-1">{ri.quantity} {ri.inventory_item.unit}</span> {ri.inventory_item.name}
+                            <span className="font-mono mr-1">{num(ri.quantity, 2)} {ri.inventory_item.unit}</span> {ri.inventory_item.name}
                           </span>
                         ))}
                       </div>
@@ -406,31 +506,87 @@ export default function InventarioPanel() {
       ══════════════════════════════════════════════════════════════════════════ */}
       {showItemModal && (
         <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center sm:p-4 bg-black/40 backdrop-blur-[2px]">
-          <div className="w-full max-w-lg bg-surface rounded-t-3xl sm:rounded-2xl border border-zinc-200 shadow-pop p-6">
-            <h2 className="text-zinc-900 font-bold text-lg mb-5">
-              {editingItem ? 'Editar producto' : 'Nuevo producto'}
+          <div className="w-full max-w-lg bg-surface rounded-t-3xl sm:rounded-2xl border border-zinc-200 shadow-pop p-5 sm:p-6 max-h-[92vh] overflow-y-auto">
+            <h2 className="text-zinc-900 font-bold text-lg mb-4">
+              {editingItem ? 'Editar insumo' : 'Nuevo insumo'}
             </h2>
-            <div className="space-y-3">
-              <input placeholder="Nombre" value={itemForm.name}
-                onChange={e => setItemForm({ ...itemForm, name: e.target.value })}
-                className={inputClass} />
-              <div className="grid grid-cols-2 gap-3">
-                <input type="number" placeholder="Stock actual" value={itemForm.stock}
-                  onChange={e => setItemForm({ ...itemForm, stock: e.target.value })}
-                  className={inputClass} />
-                <input type="number" placeholder="Stock mínimo" value={itemForm.min_stock}
-                  onChange={e => setItemForm({ ...itemForm, min_stock: e.target.value })}
-                  className={inputClass} />
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-[1fr_auto] gap-3">
+                <label className="flex flex-col gap-1.5 min-w-0">
+                  <span className="text-sm font-bold text-zinc-700">Nombre</span>
+                  <input placeholder="Ej: Vodka Smirnoff" value={itemForm.name}
+                    onChange={e => setItemForm({ ...itemForm, name: e.target.value })}
+                    className={inputClass} />
+                </label>
+                <label className="flex flex-col gap-1.5 w-28">
+                  <span className="text-sm font-bold text-zinc-700">Se mide en</span>
+                  <Selector title="Unidad" value={itemForm.unit}
+                    onChange={v => setItemForm({ ...itemForm, unit: v })}
+                    className={inputClass}
+                    options={['ml', 'gr', 'und', 'kg', 'lt', 'porciones'].map(u => ({ value: u, label: u }))} />
+                </label>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Selector title="Unidad" value={itemForm.unit}
-                  onChange={v => setItemForm({ ...itemForm, unit: v })}
-                  className={inputClass}
-                  options={['und', 'gr', 'kg', 'ml', 'lt', 'porciones', 'tazas', 'cucharadas'].map(u => ({ value: u, label: u }))} />
-                <input type="number" placeholder="Costo" value={itemForm.cost}
-                  onChange={e => setItemForm({ ...itemForm, cost: e.target.value })}
-                  className={inputClass} />
+
+              <fieldset className="rounded-xl border border-zinc-200 p-3 flex flex-col gap-2.5">
+                <legend className="px-1 text-sm font-bold text-zinc-700">Cómo se compra</legend>
+                <div className="grid grid-cols-3 gap-2">
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold text-zinc-500">Presentación</span>
+                    <input placeholder="botella" value={itemForm.compra_nombre}
+                      onChange={e => setItemForm({ ...itemForm, compra_nombre: e.target.value })}
+                      className={inputClass} />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold text-zinc-500">Trae ({itemForm.unit})</span>
+                    <input type="number" inputMode="decimal" placeholder="750" value={itemForm.compra_cantidad}
+                      onChange={e => setItemForm({ ...itemForm, compra_cantidad: e.target.value })}
+                      className={`${inputClass} font-mono`} />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold text-zinc-500">Precio</span>
+                    <input type="number" inputMode="numeric" placeholder="50000" value={itemForm.compra_precio}
+                      onChange={e => setItemForm({ ...itemForm, compra_precio: e.target.value })}
+                      className={`${inputClass} font-mono`} />
+                  </label>
+                </div>
+                {Number(itemForm.compra_precio) > 0 && Number(itemForm.compra_cantidad) > 0 ? (
+                  <p className="text-xs text-zinc-600">
+                    Cada {itemForm.unit} cuesta <b className="font-mono">{pesos(costoUnitario(itemForm))}</b>
+                    {itemForm.unit === 'ml' && <> · 1 oz ≈ <b className="font-mono">{pesos(costoUnitario(itemForm) * OZ_ML)}</b></>}
+                  </p>
+                ) : (
+                  <label className="flex items-center gap-2 text-xs text-zinc-500">
+                    O el costo por {itemForm.unit}:
+                    <input type="number" inputMode="decimal" placeholder="0" value={itemForm.cost}
+                      onChange={e => setItemForm({ ...itemForm, cost: e.target.value })}
+                      className="w-28 h-9 rounded-lg px-2.5 bg-surface border border-zinc-300 font-mono text-sm text-zinc-900 outline-none focus:border-[var(--brand)]" />
+                  </label>
+                )}
+              </fieldset>
+
+              <div className="grid grid-cols-3 gap-2">
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-zinc-500">Hay ({itemForm.unit})</span>
+                  <input type="number" inputMode="decimal" placeholder="0" value={itemForm.stock}
+                    onChange={e => setItemForm({ ...itemForm, stock: e.target.value })}
+                    className={`${inputClass} font-mono`} />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-zinc-500">Pedir con ({itemForm.unit})</span>
+                  <input type="number" inputMode="decimal" placeholder="mínimo" value={itemForm.min_stock}
+                    onChange={e => setItemForm({ ...itemForm, min_stock: e.target.value })}
+                    className={`${inputClass} font-mono`} />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-zinc-500">Ideal ({itemForm.unit})</span>
+                  <input type="number" inputMode="decimal" placeholder="opcional" value={itemForm.stock_ideal}
+                    onChange={e => setItemForm({ ...itemForm, stock_ideal: e.target.value })}
+                    className={`${inputClass} font-mono`} />
+                </label>
               </div>
+              {Number(itemForm.compra_cantidad) > 0 && Number(itemForm.stock) > 0 && (
+                <p className="text-xs text-zinc-500 -mt-1">Hay {num(Number(itemForm.stock) / Number(itemForm.compra_cantidad))} {itemForm.compra_nombre || 'presentaciones'}.</p>
+              )}
             </div>
             <div className="flex gap-3 mt-6">
               <button onClick={() => setShowItemModal(false)}
@@ -540,10 +696,11 @@ export default function InventarioPanel() {
                   <p className="text-sm text-zinc-500 mb-2">Ingredientes</p>
                   <div className="space-y-2">
                     {recipeForm.ingredients.map((ing, idx) => (
-                      <div key={idx} className="flex items-center justify-between rounded-xl bg-zinc-50 border border-zinc-100 px-4 py-2.5">
-                        <span className="text-zinc-800 text-sm font-medium">
-                          {ing.quantity} {ing.unit} — {ing.name}
+                      <div key={idx} className="flex items-center gap-2 rounded-xl bg-zinc-50 border border-zinc-100 px-4 py-2.5">
+                        <span className="text-zinc-800 text-sm font-medium min-w-0">
+                          {num(ing.quantity, 2)} {ing.unit}{ing.unit === 'ml' && ing.quantity % OZ_ML === 0 ? ` (${ing.quantity / OZ_ML} oz)` : ''} — {ing.name}
                         </span>
+                        <span className="ml-auto font-mono text-xs text-zinc-500 tabular">{costoUnitario(ing.inventory_item) ? pesos(costoUnitario(ing.inventory_item) * ing.quantity) : 'sin precio'}</span>
                         <button
                           onClick={() => removeIngredientFromForm(idx)}
                           className="text-red-400 hover:text-red-500 transition-colors ml-3"
@@ -555,6 +712,16 @@ export default function InventarioPanel() {
                   </div>
                 </div>
               )}
+
+              {recipeForm.ingredients.length > 0 && (() => {
+                const { costo } = costoReceta(recipeForm.ingredients)
+                return (
+                  <p className="rounded-xl bg-zinc-50 border border-zinc-200 px-4 py-2.5 text-sm text-zinc-700 flex justify-between">
+                    <span>Costo de la receta <span className="text-zinc-500">(sin % de otros insumos)</span></span>
+                    <b className="font-mono">{pesos(costo)}</b>
+                  </p>
+                )
+              })()}
 
               {/* Agregar ingrediente */}
               <div>
@@ -572,11 +739,23 @@ export default function InventarioPanel() {
                   />
                   <input
                     type="number"
+                    inputMode="decimal"
                     placeholder="Cant."
                     value={newIngredient.quantity}
                     onChange={e => setNewIngredient(prev => ({ ...prev, quantity: e.target.value }))}
-                    className={`${inputClass} w-24`}
+                    className={`${inputClass} w-20`}
                   />
+                  {items.find(i => i.id === newIngredient.inventory_item_id)?.unit === 'ml' && (
+                    <button
+                      type="button"
+                      onClick={() => setNewIngredient(prev => ({ ...prev, enOz: !prev.enOz }))}
+                      aria-pressed={newIngredient.enOz}
+                      title="Cambiar entre ml y onzas"
+                      className="h-11 w-12 shrink-0 rounded-xl border border-zinc-300 text-sm font-bold text-zinc-700"
+                    >
+                      {newIngredient.enOz ? 'oz' : 'ml'}
+                    </button>
+                  )}
                   <button
                     onClick={addIngredientToForm}
                     className="px-4 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white font-bold transition-all active:scale-95"

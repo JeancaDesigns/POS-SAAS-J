@@ -148,3 +148,9 @@ html, body {
 .intro-cuerpo { position: relative; height: 128px; border-radius: 4px 4px 12px 12px; background: #000; overflow: hidden; }
 .intro-letra { position: absolute; left: 50%; top: 50%; font: 400 66px/1 'JeancaBungee', sans-serif; color: #fff; visibility: hidden; transform: translate(0, -50%); }
 .intro-cursor { position: absolute; left: 50%; top: 50%; width: 9px; height: 50px; background: #fff; visibility: hidden; }
+
+/* Con la barra de navegación abajo (celular): las pantallas de alto completo descuentan sus 80 px,
+   si no la página siempre se podía bajar un poquito aunque no hubiera nada más. */
+@media (max-width: 1023px) {
+  .con-nav .min-h-screen { min-height: calc(100dvh - 80px); }
+}

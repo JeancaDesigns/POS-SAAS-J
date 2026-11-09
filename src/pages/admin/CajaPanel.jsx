@@ -3,8 +3,10 @@ import { supabase } from '../../supabaseClient'
 import { useAuthStore, restauranteTicket } from '../../store/authStore'
 import { avisar, confirmar } from '../../utils/dialogo'
 import { useRecarga } from '../../hooks/useRecarga'
-import { ofrecerImpresion } from '../../utils/imprimir'
+import { ofrecerImpresion, abrirCajon, hayCajon } from '../../utils/imprimir'
 import { cierreCaja } from '../../utils/tickets'
+import { ACTIVE_ORDER_STATUSES, nombreMesa } from '../../utils/mesas'
+import { etiquetaPedido, esWeb } from '../../utils/pedidoWeb'
 
 export default function CajaPanel() {
   const user = useAuthStore((s) => s.user)
@@ -104,6 +106,7 @@ export default function CajaPanel() {
       return
     }
     setCashRegister(data)
+    if (amount > 0) abrirCajon() // para meter la base
     setCashSales(0)
     setTransferSales(0)
     setOpeningAmount('0')
@@ -114,6 +117,20 @@ export default function CajaPanel() {
     if (!cashRegister) return
     const counted = Number(closingAmount)
     if (isNaN(counted) || counted < 0) { avisar('Monto inválido'); return }
+
+    // Con pedidos abiertos no se cierra: quedarían sin cobrar fuera del cierre (la BD también lo impide)
+    const { data: abiertos, error: errAbiertos } = await supabase
+      .from('orders')
+      .select('id, source, order_number, customer_name, table:tables(number, tipo, is_delivery, zone:zones(name))')
+      .eq('restaurant_id', restaurantId)
+      .in('status', ACTIVE_ORDER_STATUSES)
+    if (errAbiertos) { avisar('No se pudo revisar si hay pedidos abiertos: ' + errAbiertos.message); return }
+    if (abiertos?.length) {
+      const nombres = abiertos.slice(0, 8).map(o => `• ${esWeb(o) ? etiquetaPedido(o) : nombreMesa(o.table)}${o.customer_name ? ` (${o.customer_name})` : ''}`)
+      if (abiertos.length > 8) nombres.push(`• y ${abiertos.length - 8} más`)
+      avisar(`Cobra o cancela estos pedidos antes de cerrar:\n${nombres.join('\n')}`, { titulo: `Hay ${abiertos.length} pedido${abiertos.length > 1 ? 's' : ''} abierto${abiertos.length > 1 ? 's' : ''}` })
+      return
+    }
 
     // Esperado final = apertura + ventas en efectivo + propinas en efectivo + ingresos - egresos
     const expectedFinal = computedExpected
@@ -282,6 +299,11 @@ export default function CajaPanel() {
             <section aria-label="Cierre de caja" className="bg-surface border border-zinc-200 rounded-2xl shadow-card p-5 flex flex-col gap-3">
               <h3 className="text-base font-extrabold tracking-tight text-zinc-900">Cerrar caja</h3>
               <p className="text-sm text-zinc-500">Cuenta el <b className="text-zinc-700">efectivo</b> del cajón (sin transferencias) y escríbelo aquí.</p>
+              {hayCajon() && (
+                <button onClick={() => abrirCajon()} className="self-start h-10 px-4 rounded-xl border border-zinc-300 bg-surface text-sm font-bold text-zinc-700 hover:bg-zinc-50">
+                  Abrir cajón para contar
+                </button>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label className="flex flex-col gap-1.5">
                   <span className="text-sm font-bold text-zinc-700">Efectivo contado</span>

@@ -117,3 +117,20 @@ menor a mayor; las demás después, por nombre. Social: Sala principal 1, Segund
   Probado con un pedido de prueba dentro de una transacción revertida.
 - `restaurants.ticket_solo_logo`: encabezado sin "× JEANCA". Social = true.
 - Social quedó sin el módulo `cocina`: lo enviado se cobra de una (`src/utils/cocina.js`); se cambia en Dev › Datos.
+
+**1700 (2026-11-09): APLICADA en producción.** Trigger `cash_registers_no_cerrar_con_pedidos`: la caja no pasa a
+`closed` si el restaurante tiene pedidos activos (la app también lo revisa y dice cuáles).
+
+**1800 (2026-11-09): APLICADA en producción.** Costeo (`src/utils/costeo.js`): `inventory_items.compra_nombre /
+compra_cantidad / compra_precio` (botella de 750 ml a $50.000 → `cost` = $66,67 por ml) y `stock_ideal` (hasta dónde pedir);
+`products.costo` (de compra, sin receta) y `products.costo_extra_pct` (% de hielo, limón, decoración…).
+
+**Demo QA (2026-11-09):** restaurante de prueba (slug `demo-qa`, copia del menú y mesas de Social) con el usuario
+`qa@demo-qa.invalid` (admin), creado por SQL para revisar pantallas con capturas. Se puede desactivar en Dev › Peligro.
+
+**1900 (2026-11-09): APLICADA en producción.** Reporte semanal por correo: `restaurants.reporte_correo` (Social y Benditas →
+el correo de Jeanca; se cambia en Dev › Datos), pg_cron `reporte-semanal` los lunes 12:47 UTC (7:47 a. m. Colombia) que llama
+la Edge Function `reporte-semanal` (desplegada, `verify_jwt` false: valida el token del Vault `reporte_cron_token` o la sesión
+de un admin/dev para el botón "Correo" del Dashboard). Falta el secreto `RESEND_API_KEY` (Edge Functions › Secrets): sin él la
+función responde "Falta configurar el servicio de correo". Remitente por defecto `onboarding@resend.dev` (solo envía al dueño
+de la cuenta de Resend); con un dominio propio verificado, poner `REPORTE_REMITENTE`.

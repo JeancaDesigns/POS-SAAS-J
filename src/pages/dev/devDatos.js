@@ -77,6 +77,7 @@ export const DATOS_VACIOS = {
   whatsapp: '', instagram: '', address: '', ticket_message: '',
   nequi_number: '', bre_b_key: '',
   ticket_solo_logo: false,
+  reporte_correo: '',
 }
 
 export function datosDesde(r) {
@@ -92,6 +93,7 @@ export function datosDesde(r) {
     nequi_number: r.nequi_number || '',
     bre_b_key: r.bre_b_key || '',
     ticket_solo_logo: !!r.ticket_solo_logo,
+    reporte_correo: r.reporte_correo || '',
   }
 }
 
@@ -109,5 +111,6 @@ export function datosAGuardar(d) {
     nequi_number: d.nequi_number.trim() || null,
     bre_b_key: d.bre_b_key.trim() || null,
     ticket_solo_logo: !!d.ticket_solo_logo,
+    reporte_correo: (d.reporte_correo || '').trim() || null,
   }
 }

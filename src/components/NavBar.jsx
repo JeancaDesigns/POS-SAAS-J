@@ -58,7 +58,7 @@ export default function NavBar() {
       {/* Marca del restaurante (solo escritorio / tablet horizontal) */}
       <div className="hidden lg:flex pt-5 pb-4">
         {logoUrl ? (
-          <img src={logoUrl} alt="" className="w-11 h-11 rounded-xl object-contain bg-zinc-50 border border-zinc-200" />
+          <img src={logoUrl} alt="" onError={e => { e.currentTarget.style.visibility = 'hidden' }} className="w-11 h-11 rounded-xl object-contain bg-zinc-50 border border-zinc-200" />
         ) : (
           <div className="w-11 h-11 rounded-xl bg-[var(--brand)] text-white flex items-center justify-center text-sm font-extrabold">
             {initials}

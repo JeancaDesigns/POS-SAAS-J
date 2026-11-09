@@ -50,6 +50,11 @@ export default function FormDatos({ datos, onDatos, logoActual, archivo, onArchi
       <Campo etiqueta="Dirección del local"><input value={datos.address} onChange={set('address')} placeholder="Calle 10 # 5-23, barrio Centro" className={campoClase} /></Campo>
       <Campo etiqueta="Mensaje al pie del ticket"><input value={datos.ticket_message} onChange={set('ticket_message')} placeholder="¡Gracias por su compra!" maxLength={80} className={campoClase} /></Campo>
 
+      <Titulo>Reporte semanal</Titulo>
+      <Campo etiqueta="Correo para el reporte de cada lunes (varios: sepáralos con coma)">
+        <input type="email" multiple inputMode="email" value={datos.reporte_correo ?? ''} onChange={set('reporte_correo')} placeholder="dueño@correo.com" className={campoClase} />
+      </Campo>
+
       <Titulo>Pagos por transferencia</Titulo>
       <div className="grid grid-cols-2 gap-2">
         <Campo etiqueta="Nequi"><input inputMode="numeric" value={datos.nequi_number} onChange={set('nequi_number')} className={`${campoClase} font-mono`} /></Campo>

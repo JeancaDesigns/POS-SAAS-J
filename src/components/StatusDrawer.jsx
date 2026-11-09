@@ -100,7 +100,7 @@ export default function StatusDrawer() {
         aria-label={`Estado: ${statusLabel}. Abrir menú`}
         className={`
           fixed right-0 z-[100] top-1/2 -translate-y-1/2
-          flex items-center gap-1.5 py-4 pl-1.5 pr-1
+          flex items-center gap-1.5 ${tone === 'ok' ? 'py-3 px-1 opacity-70 hover:opacity-100' : 'py-4 pl-1.5 pr-1'}
           rounded-l-xl border border-r-0 shadow-card
           transition-colors
           ${tone === 'offline' ? 'bg-red-50 border-red-200'
@@ -110,7 +110,8 @@ export default function StatusDrawer() {
         style={{ writingMode: 'vertical-rl' }}
       >
         <span className={`w-2 h-2 rounded-full shrink-0 ${statusColor} ${tone !== 'ok' ? 'animate-pulse' : ''}`} />
-        <span className={`text-[11px] font-semibold tracking-wide ${tone === 'offline' ? 'text-red-600' : tone === 'sync' ? 'text-yellow-600' : 'text-zinc-500'}`}>
+        {/* Conectado: solo el punto verde, para no tapar botones; sin conexión o sincronizando: con texto */}
+        <span className={`${tone === 'ok' ? 'sr-only' : ''} text-[11px] font-semibold tracking-wide ${tone === 'offline' ? 'text-red-600' : tone === 'sync' ? 'text-yellow-600' : 'text-zinc-500'}`}>
           {statusLabel}
         </span>
       </button>
@@ -192,16 +193,16 @@ export default function StatusDrawer() {
             </div>
             {[
               { clave: 'alCobrar', label: 'Comprobante al cobrar' },
-              { clave: 'comandaAlEnviar', label: 'Comanda al enviar a cocina' },
+              { clave: 'comandaAlEnviar', label: 'Comanda al enviar' },
               { clave: 'alCerrarCaja', label: 'Resumen al cerrar caja' },
             ].map(({ clave, label }) => (
               <label key={clave} className="flex items-center justify-between gap-3">
-                <span className="text-sm text-zinc-700">{label}</span>
+                <span className="text-sm text-zinc-700 min-w-0 flex-1">{label}</span>
                 <Selector
                   title={label}
                   value={impresion[clave]}
                   onChange={v => cambiarImpresion({ [clave]: v })}
-                  className="w-36 h-10 px-3 rounded-xl bg-surface border border-zinc-300 text-sm font-semibold text-zinc-900"
+                  className="w-32 shrink-0 h-10 px-3 rounded-xl bg-surface border border-zinc-300 text-sm font-semibold text-zinc-900"
                   options={[
                     { value: 'preguntar', label: 'Preguntar' },
                     { value: 'siempre', label: 'Siempre' },
@@ -218,7 +219,7 @@ export default function StatusDrawer() {
               ].map(({ clave, label, ayuda }) => (
                 <label key={clave} className="flex items-start justify-between gap-3 cursor-pointer">
                   <span className="flex flex-col">
-                    <span className="text-sm text-zinc-700">{label}</span>
+                    <span className="text-sm text-zinc-700 min-w-0 flex-1">{label}</span>
                     <span className="text-xs text-zinc-500">{ayuda}</span>
                   </span>
                   <input

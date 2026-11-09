@@ -18,7 +18,7 @@ import { useCajaResumen } from '../../hooks/useCajaResumen'
 import { Bell, Search, Printer } from 'lucide-react'
 import { avisar, confirmar } from '../../utils/dialogo'
 import { useRecarga } from '../../hooks/useRecarga'
-import { imprimirHTML, ofrecerImpresion } from '../../utils/imprimir'
+import { imprimirHTML, ofrecerImpresion, abrirCajon, hayCajon } from '../../utils/imprimir'
 import { ticketCobro, precuenta } from '../../utils/tickets'
 import { esWeb, etiquetaPedido, pagoDeclarado } from '../../utils/pedidoWeb'
 import EtiquetaPrioridad from '../../components/EtiquetaPrioridad'
@@ -476,6 +476,7 @@ export default function CajeroHome() {
       }
       const { error } = await supabase.rpc('pagar_productos', { p_pago: pago, p_items: items })
       if (error) throw new Error(error.message)
+      if (ventaEfectivo + tipCash > 0) abrirCajon() // entra efectivo: se abre el cajón
       ticket = ticketCobro({
         restaurante,
         order: baseCobro,
@@ -627,6 +628,7 @@ export default function CajeroHome() {
         })
       }
 
+      if (ventaEfectivo + tipCash > 0) abrirCajon() // entra efectivo: se abre el cajón
       ticket = ticketCobro({
         restaurante,
         order: cobrarOrderConDescuento,
@@ -745,9 +747,9 @@ export default function CajeroHome() {
   const fiadoIncompleto = fiado && (!debtorName.trim() || !debtAmount || Number(debtAmount) <= 0)
 
   const navItems = [
-    { key: 'cobrar', label: 'Por cobrar', count: porCobrar.length },
+    { key: 'cobrar', label: 'Por cobrar', corto: 'Cobrar', count: porCobrar.length },
     { key: 'curso', label: 'En curso', count: enCurso.length },
-    { key: 'historial', label: 'Historial de hoy', count: null },
+    { key: 'historial', label: 'Historial de hoy', corto: 'Hoy', count: null },
   ]
 
   // ─── Page ────────────────────────────────────────────────────────────────────
@@ -809,6 +811,11 @@ export default function CajeroHome() {
                 )}
               </dl>
               <p className="text-xs text-zinc-500">{caja.sales} cobro{caja.sales !== 1 ? 's' : ''} desde la apertura</p>
+              {hayCajon() && (
+                <button onClick={() => abrirCajon()} className="h-10 rounded-xl border border-zinc-300 bg-surface text-sm font-bold text-zinc-700 hover:bg-zinc-50">
+                  Abrir cajón
+                </button>
+              )}
             </>
           )}
         </div>
@@ -823,12 +830,12 @@ export default function CajeroHome() {
                 onClick={() => { setView(item.key); setCobrarOrder(null) }}
                 aria-current={active ? 'page' : undefined}
                 className={`
-                  h-11 px-3 rounded-xl flex items-center justify-center lg:justify-between gap-2
+                  h-11 px-2 lg:px-3 rounded-xl flex items-center justify-center lg:justify-between gap-1.5 lg:gap-2 whitespace-nowrap
                   text-sm font-bold transition-colors
                   ${active ? 'bg-[var(--brand-light)] text-zinc-900 lg:shadow-[inset_3px_0_0_var(--brand)]' : 'text-zinc-600 hover:bg-zinc-50'}
                 `}
               >
-                <span className="truncate">{item.label}</span>
+                <span className="truncate">{item.corto ? <><span className="lg:hidden">{item.corto}</span><span className="hidden lg:inline">{item.label}</span></> : item.label}</span>
                 {item.count != null && (
                   <span className={`font-mono text-xs min-w-6 h-6 px-1.5 rounded-full flex items-center justify-center ${active ? 'bg-[var(--brand)] text-white' : 'bg-zinc-100 text-zinc-600'}`}>
                     {item.count}
@@ -961,9 +968,9 @@ export default function CajeroHome() {
           <div className="flex-1 overflow-y-auto">
             <div className="max-w-2xl mx-auto w-full p-5 lg:p-7 pb-28 lg:pb-8 flex flex-col gap-5">
 
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <button onClick={() => setCobrarOrder(null)} className="lg:hidden -ml-1 mb-2 h-9 px-2 rounded-lg text-sm font-bold text-zinc-600 hover:bg-zinc-100">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <button onClick={() => setCobrarOrder(null)} className="lg:hidden -ml-1 mb-2 h-9 px-2 rounded-lg text-sm font-bold text-zinc-600 hover:bg-zinc-100 whitespace-nowrap">
                     ← Pedidos
                   </button>
                   <h2 className="text-2xl font-extrabold tracking-tight text-zinc-900">{orderTitle(cobrarOrder)}</h2>
@@ -973,8 +980,8 @@ export default function CajeroHome() {
                       .filter(Boolean).join(' · ')}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className={`h-7 px-2.5 inline-flex items-center rounded-full border text-xs font-bold ${statusInfo(cobrarOrder).cls}`}>{statusInfo(cobrarOrder).text}</span>
+                <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                  <span className={`h-7 px-2.5 inline-flex items-center rounded-full border text-xs font-bold whitespace-nowrap ${statusInfo(cobrarOrder).cls}`}>{statusInfo(cobrarOrder).text}</span>
                   <button
                     onClick={imprimirPrecuenta}
                     aria-label="Imprimir pre-cuenta"
@@ -986,7 +993,7 @@ export default function CajeroHome() {
                   </button>
                   <button
                     onClick={() => setSelectedOrder(cobrarOrder)}
-                    className="h-10 px-3.5 rounded-xl border border-zinc-300 bg-surface text-sm font-bold text-zinc-700 hover:bg-zinc-50 transition-colors"
+                    className="h-10 px-3.5 rounded-xl border border-zinc-300 bg-surface text-sm font-bold text-zinc-700 hover:bg-zinc-50 transition-colors whitespace-nowrap"
                   >
                     Ver / editar
                   </button>
@@ -1010,14 +1017,14 @@ export default function CajeroHome() {
               <div className="bg-surface border border-zinc-200 rounded-2xl shadow-card overflow-hidden">
                 {canPayCurrent && isOnline && unidades(cobrarOrder) > 1 && (
                   <div className="px-4 pt-3 pb-1 flex items-center justify-between gap-3">
-                    <span className="text-xs text-zinc-500">
-                      {seleccion ? `Paga ${unidadesSel} de ${unidades(cobrarOrder)} productos` : 'Si alguien paga solo lo suyo:'}
+                    <span className="text-xs text-zinc-500 min-w-0">
+                      {seleccion ? `Paga ${unidadesSel} de ${unidades(cobrarOrder)} productos` : '¿Paga solo lo suyo?'}
                     </span>
                     <button
                       type="button"
                       onClick={() => cambiarSeleccion(seleccion ? null : {})}
                       aria-pressed={!!seleccion}
-                      className={`h-9 px-3 rounded-xl text-sm font-bold border transition-colors ${seleccion ? 'bg-zinc-900 text-surface border-zinc-900' : 'border-zinc-300 bg-surface text-zinc-700 hover:bg-zinc-50'}`}
+                      className={`h-9 px-3 rounded-xl text-sm font-bold border transition-colors whitespace-nowrap shrink-0 ${seleccion ? 'bg-zinc-900 text-surface border-zinc-900' : 'border-zinc-300 bg-surface text-zinc-700 hover:bg-zinc-50'}`}
                     >
                       {seleccion ? 'Cobrar todo' : 'Pagar por producto'}
                     </button>
