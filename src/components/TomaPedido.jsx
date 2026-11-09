@@ -9,6 +9,7 @@ import { db } from '../db/localDB'
 import { newId } from '../utils/uuid'
 import { useCartPersistence } from '../hooks/useCartPersistence'
 import { horaProgramadaISO } from '../utils/hora'
+import { usaCocina } from '../utils/cocina'
 import { ACTIVE_ORDER_STATUSES, tipoMesa, pideNombre, nombreMesa } from '../utils/mesas'
 import { avisar } from '../utils/dialogo'
 import { ofrecerImpresion } from '../utils/imprimir'
@@ -206,7 +207,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
   function ofrecerComanda(orderParaImprimir) {
     const lineas = items.map(i => ({ quantity: i.quantity, product: i.product, variant: i.variant, note: i.note, status: 'pending' }))
     ofrecerImpresion('comandaAlEnviar', comanda({ order: orderParaImprimir, items: lineas }), {
-      titulo: 'Pedido enviado a cocina', mensaje: '¿Imprimir la comanda?',
+      titulo: usaCocina() ? 'Pedido enviado a cocina' : 'Pedido enviado', mensaje: '¿Imprimir la comanda?',
     })
   }
 
@@ -351,7 +352,7 @@ export default function TomaPedido({ table, onClose, onConfirmed }) {
           disabled={confirming || items.length === 0}
           className="h-14 rounded-xl text-base font-extrabold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {confirming ? 'Enviando…' : isOnline ? 'Enviar a cocina' : 'Guardar sin conexión'}
+          {confirming ? 'Enviando…' : isOnline ? (usaCocina() ? 'Enviar a cocina' : 'Enviar pedido') : 'Guardar sin conexión'}
         </button>
       </div>
     </div>

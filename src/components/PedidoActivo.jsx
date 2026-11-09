@@ -15,6 +15,8 @@ import { useAhora } from '../hooks/useAhora'
 import { imprimirHTML, ofrecerImpresion } from '../utils/imprimir'
 import { comanda, precuenta } from '../utils/tickets'
 import { esWeb, etiquetaPedido } from '../utils/pedidoWeb'
+import { usaCocina } from '../utils/cocina'
+import { pendienteDePago } from '../utils/totales'
 import { agregarItemsOffline, cambiarItemOffline, cambiarPedidoOffline, cancelarPedidoOffline } from '../db/edicionOffline'
 
 const money = n => `$${Number(n || 0).toLocaleString('es-CO')}`
@@ -23,6 +25,7 @@ const lineKey = (productId, variant) => `${productId}::${variant || ''}`
 const ITEM_STATUS = {
   pending: { text: 'En cocina', cls: 'text-zinc-500' },
   done: { text: 'Listo', cls: 'text-green-700' },
+  pedido: { text: 'Pedido', cls: 'text-zinc-500' }, // restaurante sin cocina
 }
 
 export default function PedidoActivo({ table, orderId = null, onClose }) {
@@ -52,7 +55,9 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
   useCartPersistence(`cart-mesa-${table.id}`, newItems, setNewItems)
 
   const activeItems = items.filter(i => i.status !== 'cancelled')
-  const total = activeItems.reduce((sum, i) => sum + precioUnitario(i) * i.quantity, 0)
+  // Pagar por producto: lo ya pagado en caja no se puede quitar y no cuenta en lo que falta
+  const yaPagado = pendienteDePago({ items: activeItems }).yaPagado || 0
+  const total = activeItems.reduce((sum, i) => sum + precioUnitario(i) * i.quantity, 0) - yaPagado
   const newTotal = newItems.reduce((sum, i) => sum + i.product.price * i.quantity, 0)
   const newCount = newItems.reduce((s, i) => s + i.quantity, 0)
   // Sin conexión también se puede agregar, quitar, anotar y cancelar: queda en el equipo y se
@@ -89,6 +94,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
   // ── Productos ya enviados ───────────────────────────────────────────────────
   async function decreaseConfirmedItem(item) {
     if (busyItem) return
+    if (item.quantity <= Number(item.paid_qty || 0)) { avisar('Esas unidades ya se pagaron en caja'); return }
     setBusyItem(item.id)
     const cambios = item.quantity === 1 ? { status: 'cancelled' } : { quantity: item.quantity - 1 }
     if (!isOnline) {
@@ -187,6 +193,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
 
   async function cancelFullOrder() {
     if (!order) return
+    if (yaPagado > 0) { avisar('Ya pagaron una parte en caja: cobra lo que falta o anula ese pago primero.'); return }
     // Única confirmación del flujo: es irreversible
     if (!(await confirmar('Se cancelan todos los productos y la mesa queda libre.', { titulo: '¿Cancelar todo el pedido?', aceptar: 'Sí, cancelar', cancelar: 'Volver' }))) return
     setCancelling(true)
@@ -250,7 +257,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
       order: { ...order, table },
       items: newItems.map(i => ({ quantity: i.quantity, product: i.product, variant: i.variant, note: i.note, status: 'pending' })),
       titulo: 'ADICIÓN',
-    }), { titulo: 'Productos enviados a cocina', mensaje: '¿Imprimir la comanda con lo agregado?' })
+    }), { titulo: usaCocina() ? 'Productos enviados a cocina' : 'Productos agregados', mensaje: '¿Imprimir la comanda con lo agregado?' })
     setNewItems([])
     setScheduledMore('')
     setPickerOpen(false)
@@ -267,7 +274,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
     // Valor del domicilio guardado por Caja en este equipo (para la pre-cuenta de domicilios)
     let deliveryFee = 0
     try { deliveryFee = Number(localStorage.getItem(`delivery-fee-${user?.restaurant_id}`)) || 0 } catch { /* sin storage */ }
-    imprimirHTML(precuenta({ restaurante, order: conLineas, deliveryFee }))
+    imprimirHTML(precuenta({ restaurante, order: pendienteDePago(conLineas), deliveryFee }))
   }
 
   if (loading) return (
@@ -301,7 +308,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
             ) : (
               <ul className="flex flex-col divide-y divide-zinc-100">
                 {activeItems.map(item => {
-                  const st = ITEM_STATUS[item.status] || ITEM_STATUS.pending
+                  const st = item.status === 'done' ? ITEM_STATUS.done : usaCocina() ? ITEM_STATUS.pending : ITEM_STATUS.pedido
                   return (
                     <li key={item.id} className="py-3 flex flex-col gap-2">
                       <div className="flex items-start gap-3">
@@ -310,6 +317,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
                           <p className="text-xs mt-0.5">
                             {item.variant && <span className="font-semibold text-[var(--brand-text)]">{item.variant} · </span>}
                             <span className={`font-semibold ${st.cls}`}>{st.text}</span>
+                            {item.paid_qty > 0 && <span className="font-semibold text-green-700"> · {item.paid_qty} pagado{item.paid_qty > 1 ? 's' : ''}</span>}
                           </p>
                         </div>
                         <span className="font-mono text-sm font-semibold text-zinc-900 tabular">{money(precioUnitario(item) * item.quantity)}</span>
@@ -412,7 +420,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
 
       <div className="p-5 border-t border-zinc-200 bg-surface-2 flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-bold text-zinc-600">Total del pedido</span>
+          <span className="text-sm font-bold text-zinc-600">{yaPagado > 0 ? "Falta por pagar" : "Total del pedido"}</span>
           <span className="font-mono text-2xl font-semibold tracking-tight text-zinc-900 tabular">{money(total + newTotal)}</span>
         </div>
         {newItems.length > 0 ? (
@@ -421,7 +429,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
             disabled={confirming || !editable}
             className="h-14 rounded-xl text-base font-extrabold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] transition-colors disabled:opacity-50"
           >
-            {confirming ? 'Enviando…' : `Enviar ${newCount} producto${newCount !== 1 ? 's' : ''} a cocina · ${money(newTotal)}`}
+            {confirming ? 'Enviando…' : `Enviar ${newCount} producto${newCount !== 1 ? 's' : ''}${usaCocina() ? ' a cocina' : ''} · ${money(newTotal)}`}
           </button>
         ) : (
           <button

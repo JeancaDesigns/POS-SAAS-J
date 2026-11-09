@@ -123,7 +123,7 @@ function Resumen({ restaurante, resumen }) {
 }
 
 function Datos({ restaurante, onGuardado }) {
-  const [datos, setDatos] = useState(() => datosDesde(restaurante))
+  const [datos, setDatos] = useState(() => ({ ...datosDesde(restaurante), usa_cocina: (restaurante.modules || []).includes('cocina') }))
   const [archivo, setArchivo] = useState(null)
   const [archivoTicket, setArchivoTicket] = useState(null)
   const [guardando, setGuardando] = useState(false)
@@ -132,6 +132,9 @@ function Datos({ restaurante, onGuardado }) {
     if (!datos.name.trim()) { avisar('El nombre no puede quedar vacío'); return }
     setGuardando(true)
     const cambios = datosAGuardar(datos)
+    // Cocina: módulo 'cocina' (sin él, lo que se pide se cobra de una; ver src/utils/cocina.js)
+    const sinCocina = (restaurante.modules || []).filter(m => m !== 'cocina')
+    cambios.modules = datos.usa_cocina ? [...sinCocina, 'cocina'] : sinCocina
     let falloLogo = ''
     if (archivo) {
       try { cambios.logo_url = await subirLogo(restaurante.slug, archivo) } catch (e) { falloLogo = e.message }

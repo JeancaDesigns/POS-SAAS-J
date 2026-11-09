@@ -76,6 +76,7 @@ export const DATOS_VACIOS = {
   name: '', opening_time: '', closing_time: '', delivery_fee: '1000',
   whatsapp: '', instagram: '', address: '', ticket_message: '',
   nequi_number: '', bre_b_key: '',
+  ticket_solo_logo: false,
 }
 
 export function datosDesde(r) {
@@ -90,6 +91,7 @@ export function datosDesde(r) {
     ticket_message: r.ticket_message || '',
     nequi_number: r.nequi_number || '',
     bre_b_key: r.bre_b_key || '',
+    ticket_solo_logo: !!r.ticket_solo_logo,
   }
 }
 
@@ -106,5 +108,6 @@ export function datosAGuardar(d) {
     ticket_message: d.ticket_message.trim() || null,
     nequi_number: d.nequi_number.trim() || null,
     bre_b_key: d.bre_b_key.trim() || null,
+    ticket_solo_logo: !!d.ticket_solo_logo,
   }
 }

@@ -39,3 +39,37 @@ export function separarPropina(efectivo, transferencia, propina) {
   const tipTransfer = Math.min(propina - tipCash, transferencia)
   return { tipCash, tipTransfer, ventaEfectivo: efectivo - tipCash, ventaTransfer: transferencia - tipTransfer }
 }
+
+// ── Pagar por producto (order_items.paid_qty) ─────────────────────────────────
+// Una línea con `cantidad` unidades: un descuento fijo se reparte en proporción
+// (si no, cada pago parcial volvería a restar el descuento completo).
+export function lineaConCantidad(item, cantidad) {
+  const q = Number(item.quantity) || 0
+  const descFijo = item.discount_type === 'fixed' && q > 0
+    ? Math.round(Number(item.discount_value || 0) * cantidad / q)
+    : item.discount_value
+  return { ...item, quantity: cantidad, discount_value: descFijo }
+}
+
+// Lo que falta por cobrar del pedido: cada línea menos las unidades ya pagadas por producto.
+// El descuento general y el domicilio quedan para este último pago.
+export function pendienteDePago(order) {
+  const items = order.items || order.order_items || []
+  if (!items.some(i => Number(i.paid_qty) > 0)) return order
+  const quedan = items
+    .map(i => (Number(i.paid_qty) > 0 ? lineaConCantidad(i, Number(i.quantity) - Number(i.paid_qty)) : i))
+    .filter(i => i.quantity > 0)
+  // Lo que ya pagaron por producto (para mostrarlo en caja)
+  const pagadas = items.filter(i => Number(i.paid_qty) > 0 && i.status !== 'cancelled')
+    .map(i => lineaConCantidad(i, Number(i.paid_qty)))
+  const yaPagado = orderTotal({ items: pagadas })
+  return { ...order, items: quedan, order_items: undefined, yaPagado }
+}
+
+// Las unidades elegidas para un pago por producto: { [item.id]: cantidad }.
+// Sin descuento general ni domicilio (van con lo que se cobre al final).
+export function seleccionDePago(order, seleccion) {
+  const items = (order.items || []).filter(i => i.status !== 'cancelled' && seleccion[i.id] > 0)
+    .map(i => lineaConCantidad(i, Math.min(seleccion[i.id], Number(i.quantity))))
+  return { ...order, items, discount_type: null, discount_value: 0, delivery_type: null }
+}

@@ -35,6 +35,13 @@ export default function FormDatos({ datos, onDatos, logoActual, archivo, onArchi
         <input type="number" inputMode="numeric" min="0" value={datos.delivery_fee} onChange={set('delivery_fee')} className={`${campoClase} font-mono`} />
       </Campo>
 
+      {'usa_cocina' in datos && (
+        <label className="flex items-start gap-2.5 text-sm text-zinc-800">
+          <input type="checkbox" checked={datos.usa_cocina} onChange={e => onDatos({ ...datos, usa_cocina: e.target.checked })} className="size-4 mt-0.5 accent-[var(--brand)]" />
+          <span>Los pedidos pasan por cocina<span className="block text-xs text-zinc-500">Sin marcar (p. ej. un bar que prepara en la barra): lo enviado se cobra de una, sin que cocina lo confirme.</span></span>
+        </label>
+      )}
+
       <Titulo>Contacto y ticket</Titulo>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <Campo etiqueta="WhatsApp"><input type="tel" inputMode="tel" value={datos.whatsapp} onChange={set('whatsapp')} placeholder="3001234567" className={`${campoClase} font-mono`} /></Campo>
@@ -52,6 +59,10 @@ export default function FormDatos({ datos, onDatos, logoActual, archivo, onArchi
       <Titulo>Logo</Titulo>
       <SelectorLogo logoActual={logoActual} archivo={archivo} onArchivo={onArchivo}
         logoTicketActual={logoTicketActual} archivoTicket={archivoTicket} onArchivoTicket={onArchivoTicket} />
+      <label className="flex items-center gap-2.5 text-sm text-zinc-800">
+        <input type="checkbox" checked={!!datos.ticket_solo_logo} onChange={e => onDatos({ ...datos, ticket_solo_logo: e.target.checked })} className="size-4 accent-[var(--brand)]" />
+        En los tickets, solo el logo del restaurante (sin “× JEANCA”)
+      </label>
     </div>
   )
 }
