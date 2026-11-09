@@ -37,6 +37,9 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
   const ahora = useAhora() // para "hace X min"
 
   const [newItems, setNewItems] = useState([])
+  // + / − sobre lo ya enviado: no se guarda al tocar, queda aquí hasta "Confirmar cambios"
+  // ({ [order_item.id]: unidades de más o de menos }). Así un toque de más en el rush no descuadra la cuenta.
+  const [ajustes, setAjustes] = useState({})
   const [pickerOpen, setPickerOpen] = useState(false) // celular
   const [editingNote, setEditingNote] = useState(null)
   const [noteDraft, setNoteDraft] = useState('')
@@ -51,7 +54,6 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
   const [zonaSeleccionada, setZonaSeleccionada] = useState(null)
   const [moviendoMesa, setMoviendoMesa] = useState(false)
   const [variantModal, setVariantModal] = useState(null)
-  const [busyItem, setBusyItem] = useState(null) // evita que dos toques rápidos pierdan una unidad
   useCartPersistence(`cart-mesa-${table.id}`, newItems, setNewItems)
 
   const activeItems = items.filter(i => i.status !== 'cancelled')
@@ -60,6 +62,11 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
   const total = activeItems.reduce((sum, i) => sum + precioUnitario(i) * i.quantity, 0) - yaPagado
   const newTotal = newItems.reduce((sum, i) => sum + i.product.price * i.quantity, 0)
   const newCount = newItems.reduce((s, i) => s + i.quantity, 0)
+  const listaAjustes = activeItems.filter(i => ajustes[i.id]).map(i => ({ item: i, delta: ajustes[i.id] }))
+  const ajustesTotal = listaAjustes.reduce((s, a) => s + precioUnitario(a.item) * a.delta, 0)
+  const masUnidades = newCount + listaAjustes.reduce((s, a) => s + Math.max(0, a.delta), 0)
+  const menosUnidades = listaAjustes.reduce((s, a) => s + Math.max(0, -a.delta), 0)
+  const hayCambios = newItems.length > 0 || listaAjustes.length > 0
   // Sin conexión también se puede agregar, quitar, anotar y cancelar: queda en el equipo y se
   // envía al volver (edicionOffline). Mover de mesa y cambiar el tipo de entrega sí necesitan conexión.
   const editable = !!order
@@ -91,50 +98,16 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
 
   const qtyOfProduct = productId => newItems.filter(i => i.product.id === productId).reduce((s, i) => s + i.quantity, 0)
 
-  // ── Productos ya enviados ───────────────────────────────────────────────────
-  async function decreaseConfirmedItem(item) {
-    if (busyItem) return
-    if (item.quantity <= Number(item.paid_qty || 0)) { avisar('Esas unidades ya se pagaron en caja'); return }
-    setBusyItem(item.id)
-    const cambios = item.quantity === 1 ? { status: 'cancelled' } : { quantity: item.quantity - 1 }
-    if (!isOnline) {
-      await cambiarItemOffline(order, item, cambios)
-      await refetch()
-      setBusyItem(null)
-      return
-    }
-    const { error } = await supabase.from('order_items').update(cambios).eq('id', item.id)
-    if (error) avisar('No se pudo quitar el producto: ' + error.message)
-    await refetch()
-    setBusyItem(null)
-  }
-
-  async function increaseConfirmedItem(item) {
-    if (busyItem) return
-    setBusyItem(item.id)
-    // Si cocina ya lo marcó como listo, la unidad extra va como línea nueva pendiente;
-    // subir la cantidad de una línea "lista" hacía que cocina nunca la preparara
-    if (!isOnline) {
-      if (item.status === 'done') await agregarItemsOffline(order, [{ product: item.product, quantity: 1, note: item.note, variant: item.variant }])
-      else await cambiarItemOffline(order, item, { quantity: item.quantity + 1 })
-      await refetch()
-      setBusyItem(null)
-      return
-    }
-    const { error } = item.status === 'done'
-      ? await supabase.from('order_items').insert({
-          order_id: item.order_id,
-          product_id: item.product_id,
-          quantity: 1,
-          note: item.note || null,
-          variant: item.variant || null,
-          status: 'pending',
-          kitchen_only: false,
-        })
-      : await supabase.from('order_items').update({ quantity: item.quantity + 1 }).eq('id', item.id)
-    if (error) avisar('No se pudo agregar el producto: ' + error.message)
-    await refetch()
-    setBusyItem(null)
+  // ── Productos ya enviados: + / − quedan pendientes hasta confirmar ──────────
+  function ajustar(item, delta) {
+    const actual = ajustes[item.id] || 0
+    const nueva = item.quantity + actual + delta
+    if (nueva < Number(item.paid_qty || 0)) { avisar('Esas unidades ya se pagaron en caja'); return }
+    if (nueva < 0) return
+    setAjustes(prev => {
+      const { [item.id]: _, ...resto } = prev // eslint-disable-line no-unused-vars
+      return actual + delta === 0 ? resto : { ...resto, [item.id]: actual + delta }
+    })
   }
 
   async function saveNote(itemId, note) {
@@ -223,28 +196,54 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
     refetch()
   }
 
-  async function handleAddMore() {
-    if (newItems.length === 0 || !order) return
+  // Envía todo junto: productos nuevos, unidades de más (como líneas nuevas, para que la comanda
+  // de ADICIÓN y la estación de impresión las vean) y unidades de menos (sin imprimir nada).
+  async function confirmarCambios() {
+    if (!hayCambios || !order) return
+    const nombre = i => `${i.product?.name}${i.variant ? ` (${i.variant})` : ''}`
+    const agregar = [
+      ...listaAjustes.filter(a => a.delta > 0).map(a => ({ product: a.item.product, quantity: a.delta, note: a.item.note, variant: a.item.variant })),
+      ...newItems,
+    ]
+    const quitar = listaAjustes.filter(a => a.delta < 0)
+    const resumen = [
+      ...agregar.map(l => `+${l.quantity}  ${nombre(l)}`),
+      ...quitar.map(a => `−${-a.delta}  ${nombre(a.item)}`),
+    ].join('\n')
+    if (!(await confirmar(resumen, { titulo: '¿Confirmar los cambios?', aceptar: 'Confirmar', cancelar: 'Volver', peligro: false }))) return
+
     setConfirming(true)
     if (!isOnline) {
-      await agregarItemsOffline(order, newItems)
+      if (agregar.length) await agregarItemsOffline(order, agregar)
+      for (const a of quitar) {
+        const q = a.item.quantity + a.delta
+        await cambiarItemOffline(order, a.item, q === 0 ? { status: 'cancelled' } : { quantity: q })
+      }
       if (scheduledMore) await cambiarPedidoOffline(order, { scheduled_for: horaProgramadaISO(scheduledMore) })
     } else {
-      const { error } = await supabase.from('order_items').insert(
-        newItems.map(i => ({
-          order_id: order.id,
-          product_id: i.product.id,
-          quantity: i.quantity,
-          note: i.note || null,
-          variant: i.variant || null,
-          status: 'pending',
-          kitchen_only: false,
-        }))
-      )
-      if (error) {
-        avisar('No se pudieron agregar los productos. Intenta de nuevo.')
-        setConfirming(false)
-        return
+      if (agregar.length) {
+        const { error } = await supabase.from('order_items').insert(
+          agregar.map(i => ({
+            order_id: order.id,
+            product_id: i.product.id,
+            quantity: i.quantity,
+            note: i.note || null,
+            variant: i.variant || null,
+            status: 'pending',
+            kitchen_only: false,
+          }))
+        )
+        if (error) {
+          avisar('No se pudieron agregar los productos. Intenta de nuevo.')
+          setConfirming(false)
+          return
+        }
+      }
+      for (const a of quitar) {
+        const q = a.item.quantity + a.delta
+        const { error } = await supabase.from('order_items')
+          .update(q === 0 ? { status: 'cancelled' } : { quantity: q }).eq('id', a.item.id)
+        if (error) avisar(`No se pudo quitar ${nombre(a.item)}: ${error.message}`)
       }
       if (scheduledMore) {
         await supabase.from('orders').update({
@@ -252,17 +251,26 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
         }).eq('id', order.id)
       }
     }
-    // Comanda solo con lo nuevo, para que cocina no repita lo ya preparado
-    ofrecerImpresion('comandaAlEnviar', comanda({
-      order: { ...order, table },
-      items: newItems.map(i => ({ quantity: i.quantity, product: i.product, variant: i.variant, note: i.note, status: 'pending' })),
-      titulo: 'ADICIÓN',
-    }), { titulo: usaCocina() ? 'Productos enviados a cocina' : 'Productos agregados', mensaje: '¿Imprimir la comanda con lo agregado?' })
+    // Comanda solo con lo agregado (nuevo o unidades de más); lo que se quita no imprime
+    if (agregar.length) {
+      ofrecerImpresion('comandaAlEnviar', comanda({
+        order: { ...order, table },
+        items: agregar.map(i => ({ quantity: i.quantity, product: i.product, variant: i.variant, note: i.note, status: 'pending' })),
+        titulo: 'ADICIÓN',
+      }), { titulo: usaCocina() ? 'Productos enviados a cocina' : 'Productos agregados', mensaje: '¿Imprimir la comanda con lo agregado?' })
+    }
     setNewItems([])
+    setAjustes({})
     setScheduledMore('')
     setPickerOpen(false)
     setConfirming(false)
     refetch()
+  }
+
+  // Salir con + / − sin confirmar: se avisa (los productos nuevos sí quedan guardados en el equipo)
+  async function salir() {
+    if (listaAjustes.length && !(await confirmar('Los cambios de cantidad que hiciste no se han enviado.', { titulo: '¿Salir sin confirmar?', aceptar: 'Salir sin enviar', cancelar: 'Volver' }))) return
+    onClose()
   }
 
   function imprimir(tipo) {
@@ -309,6 +317,8 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
               <ul className="flex flex-col divide-y divide-zinc-100">
                 {activeItems.map(item => {
                   const st = item.status === 'done' ? ITEM_STATUS.done : usaCocina() ? ITEM_STATUS.pending : ITEM_STATUS.pedido
+                  const delta = ajustes[item.id] || 0
+                  const cantidad = item.quantity + delta
                   return (
                     <li key={item.id} className="py-3 flex flex-col gap-2">
                       <div className="flex items-start gap-3">
@@ -319,14 +329,19 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
                             <span className={`font-semibold ${st.cls}`}>{st.text}</span>
                             {item.paid_qty > 0 && <span className="font-semibold text-green-700"> · {item.paid_qty} pagado{item.paid_qty > 1 ? 's' : ''}</span>}
                           </p>
+                          {delta !== 0 && (
+                            <p className={`mt-1 inline-flex h-6 px-2 items-center rounded-full text-xs font-bold ${delta > 0 ? 'bg-[var(--brand-light)] text-[var(--brand-text)]' : 'bg-red-50 text-red-700'}`}>
+                              {item.quantity} → {cantidad} · {delta > 0 ? `+${delta} por enviar` : cantidad === 0 ? 'se quita' : `−${-delta} por quitar`}
+                            </p>
+                          )}
                         </div>
-                        <span className="font-mono text-sm font-semibold text-zinc-900 tabular">{money(precioUnitario(item) * item.quantity)}</span>
+                        <span className={`font-mono text-sm font-semibold tabular ${cantidad === 0 ? 'text-zinc-400 line-through' : 'text-zinc-900'}`}>{money(precioUnitario(item) * (cantidad || item.quantity))}</span>
                       </div>
                       <div className="flex items-center justify-between gap-2">
-                        <div className={`flex items-center rounded-lg border border-zinc-200 bg-surface ${!editable || busyItem === item.id ? 'opacity-50 pointer-events-none' : ''}`}>
-                          <button onClick={() => decreaseConfirmedItem(item)} aria-label={`Quitar uno de ${item.product?.name}`} className="w-10 h-9 flex items-center justify-center text-zinc-600 hover:bg-zinc-50 rounded-l-lg"><Minus size={15} /></button>
-                          <span className="w-8 text-center font-mono text-sm font-semibold text-zinc-900">{item.quantity}</span>
-                          <button onClick={() => increaseConfirmedItem(item)} aria-label={`Agregar uno de ${item.product?.name}`} className="w-10 h-9 flex items-center justify-center text-zinc-600 hover:bg-zinc-50 rounded-r-lg"><Plus size={15} /></button>
+                        <div className={`flex items-center rounded-lg border bg-surface ${delta !== 0 ? 'border-[var(--brand)]' : 'border-zinc-200'} ${!editable || confirming ? 'opacity-50 pointer-events-none' : ''}`}>
+                          <button onClick={() => ajustar(item, -1)} aria-label={`Quitar uno de ${item.product?.name}`} className="w-10 h-9 flex items-center justify-center text-zinc-600 hover:bg-zinc-50 rounded-l-lg"><Minus size={15} /></button>
+                          <span className="w-8 text-center font-mono text-sm font-semibold text-zinc-900">{cantidad}</span>
+                          <button onClick={() => ajustar(item, 1)} aria-label={`Agregar uno de ${item.product?.name}`} className="w-10 h-9 flex items-center justify-center text-zinc-600 hover:bg-zinc-50 rounded-r-lg"><Plus size={15} /></button>
                         </div>
                         <button
                           disabled={!editable}
@@ -421,16 +436,23 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
       <div className="p-5 border-t border-zinc-200 bg-surface-2 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <span className="text-sm font-bold text-zinc-600">{yaPagado > 0 ? "Falta por pagar" : "Total del pedido"}</span>
-          <span className="font-mono text-2xl font-semibold tracking-tight text-zinc-900 tabular">{money(total + newTotal)}</span>
+          <span className="font-mono text-2xl font-semibold tracking-tight text-zinc-900 tabular">{money(total + newTotal + ajustesTotal)}</span>
         </div>
-        {newItems.length > 0 ? (
-          <button
-            onClick={handleAddMore}
-            disabled={confirming || !editable}
-            className="h-14 rounded-xl text-base font-extrabold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] transition-colors disabled:opacity-50"
-          >
-            {confirming ? 'Enviando…' : `Enviar ${newCount} producto${newCount !== 1 ? 's' : ''}${usaCocina() ? ' a cocina' : ''} · ${money(newTotal)}`}
-          </button>
+        {hayCambios ? (
+          <div className="flex gap-2">
+            {listaAjustes.length > 0 && (
+              <button onClick={() => setAjustes({})} disabled={confirming} className="h-14 px-4 rounded-xl text-sm font-bold text-zinc-700 border border-zinc-300 bg-surface hover:bg-zinc-50 disabled:opacity-50">
+                Deshacer
+              </button>
+            )}
+            <button
+              onClick={confirmarCambios}
+              disabled={confirming || !editable}
+              className="flex-1 h-14 rounded-xl text-base font-extrabold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] transition-colors disabled:opacity-50"
+            >
+              {confirming ? 'Enviando…' : `Confirmar cambios · ${[masUnidades && `+${masUnidades}`, menosUnidades && `−${menosUnidades}`].filter(Boolean).join(' ')}`}
+            </button>
+          </div>
         ) : (
           <button
             onClick={() => setPickerOpen(true)}
@@ -449,7 +471,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
 
       {/* Encabezado */}
       <header className="shrink-0 min-h-16 px-3 lg:px-5 py-2 flex items-center gap-3 bg-surface border-b border-zinc-200">
-        <button onClick={onClose} aria-label="Volver" className="w-11 h-11 rounded-xl flex items-center justify-center text-zinc-700 hover:bg-zinc-100">
+        <button onClick={salir} aria-label="Volver" className="w-11 h-11 rounded-xl flex items-center justify-center text-zinc-700 hover:bg-zinc-100">
           <ArrowLeft size={20} />
         </button>
         <div className="min-w-0 flex-1">
