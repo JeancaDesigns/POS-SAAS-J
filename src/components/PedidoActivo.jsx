@@ -54,7 +54,10 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
   const [zonaSeleccionada, setZonaSeleccionada] = useState(null)
   const [moviendoMesa, setMoviendoMesa] = useState(false)
   const [variantModal, setVariantModal] = useState(null)
-  useCartPersistence(`cart-mesa-${table.id}`, newItems, setNewItems)
+  // Lo que aún no se confirma se guarda por PEDIDO (no por mesa): al cobrarlo o cancelarlo
+  // desaparece con él y no le sale de residuo al siguiente cliente de esa mesa.
+  useCartPersistence(order?.id ? `pendiente-nuevos-${order.id}` : null, newItems, setNewItems)
+  useCartPersistence(order?.id ? `pendiente-ajustes-${order.id}` : null, ajustes, setAjustes)
 
   const activeItems = items.filter(i => i.status !== 'cancelled')
   // Pagar por producto: lo ya pagado en caja no se puede quitar y no cuenta en lo que falta
@@ -62,7 +65,10 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
   const total = activeItems.reduce((sum, i) => sum + precioUnitario(i) * i.quantity, 0) - yaPagado
   const newTotal = newItems.reduce((sum, i) => sum + i.product.price * i.quantity, 0)
   const newCount = newItems.reduce((s, i) => s + i.quantity, 0)
-  const listaAjustes = activeItems.filter(i => ajustes[i.id]).map(i => ({ item: i, delta: ajustes[i.id] }))
+  // Si mientras tanto alguien cambió la línea, el ajuste nunca la deja bajo lo pagado ni en negativo
+  const listaAjustes = activeItems.filter(i => ajustes[i.id])
+    .map(i => ({ item: i, delta: Math.max(ajustes[i.id], Number(i.paid_qty || 0) - i.quantity) }))
+    .filter(a => a.delta !== 0)
   const ajustesTotal = listaAjustes.reduce((s, a) => s + precioUnitario(a.item) * a.delta, 0)
   const masUnidades = newCount + listaAjustes.reduce((s, a) => s + Math.max(0, a.delta), 0)
   const menosUnidades = listaAjustes.reduce((s, a) => s + Math.max(0, -a.delta), 0)
@@ -151,14 +157,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
     }
     await supabase.from('tables').update({ status: table.status === 'waiting_payment' ? 'waiting_payment' : 'occupied' }).eq('id', nuevaMesa.id)
     await liberarMesaSiQuedaVacia(table.id)
-    // El carrito sin enviar se va con el pedido a la mesa nueva
-    try {
-      const pending = sessionStorage.getItem(`cart-mesa-${table.id}`)
-      if (pending) {
-        sessionStorage.setItem(`cart-mesa-${nuevaMesa.id}`, pending)
-        sessionStorage.removeItem(`cart-mesa-${table.id}`)
-      }
-    } catch { /* sin storage */ }
+    // Lo pendiente sin confirmar va guardado por pedido: se mueve solo con él
     setMoviendoMesa(false)
     setShowMoverMesa(false)
     onClose()
@@ -267,12 +266,6 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
     refetch()
   }
 
-  // Salir con + / − sin confirmar: se avisa (los productos nuevos sí quedan guardados en el equipo)
-  async function salir() {
-    if (listaAjustes.length && !(await confirmar('Los cambios de cantidad que hiciste no se han enviado.', { titulo: '¿Salir sin confirmar?', aceptar: 'Salir sin enviar', cancelar: 'Volver' }))) return
-    onClose()
-  }
-
   function imprimir(tipo) {
     setShowImprimir(false)
     if (!order) return
@@ -317,7 +310,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
               <ul className="flex flex-col divide-y divide-zinc-100">
                 {activeItems.map(item => {
                   const st = item.status === 'done' ? ITEM_STATUS.done : usaCocina() ? ITEM_STATUS.pending : ITEM_STATUS.pedido
-                  const delta = ajustes[item.id] || 0
+                  const delta = listaAjustes.find(a => a.item.id === item.id)?.delta || 0
                   const cantidad = item.quantity + delta
                   return (
                     <li key={item.id} className="py-3 flex flex-col gap-2">
@@ -471,7 +464,7 @@ export default function PedidoActivo({ table, orderId = null, onClose }) {
 
       {/* Encabezado */}
       <header className="shrink-0 min-h-16 px-3 lg:px-5 py-2 flex items-center gap-3 bg-surface border-b border-zinc-200">
-        <button onClick={salir} aria-label="Volver" className="w-11 h-11 rounded-xl flex items-center justify-center text-zinc-700 hover:bg-zinc-100">
+        <button onClick={onClose} aria-label="Volver" className="w-11 h-11 rounded-xl flex items-center justify-center text-zinc-700 hover:bg-zinc-100">
           <ArrowLeft size={20} />
         </button>
         <div className="min-w-0 flex-1">
