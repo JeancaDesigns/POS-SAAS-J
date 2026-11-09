@@ -1,13 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../../supabaseClient'
-import {
-  TrendingUp, ShoppingBag, DollarSign, Bike,
-  Package, AlertTriangle, Users, Clock3,
-} from 'lucide-react'
+import { TrendingUp } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { inicioJornada } from '../../utils/jornada'
 import { fetchAll } from '../../utils/fetchAll'
 import { pideNombre, nombreMesa } from '../../utils/mesas'
+import Analitica from './Analitica'
 
 // ── Consultas del panel (devuelven datos; el componente solo los guarda) ─────────
 
@@ -23,58 +21,6 @@ async function obtenerPagosHoy(restaurantId) {
     .order('created_at', { ascending: true })
 
   return data || []
-}
-
-async function obtenerResumen(restaurantId) {
-  const todayISO = inicioJornada().toISOString()
-
-  const thirtyDaysAgo = new Date()
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-  const thirtyDaysAgoISO = thirtyDaysAgo.toISOString()
-
-  const todayOrdersData = await fetchAll(() => supabase
-    .from('orders').select('*')
-    .eq('restaurant_id', restaurantId)
-    .gte('created_at', todayISO)
-    .order('created_at', { ascending: false }))
-
-  const allOrdersData = await fetchAll(() => supabase
-    .from('orders').select('*')
-    .eq('restaurant_id', restaurantId)
-    .gte('created_at', thirtyDaysAgoISO)
-    .order('created_at', { ascending: false }))
-
-  // Ítems filtrados por join con orders (antes: .in() con todos los ids, que se
-  // rompe con muchos pedidos por el largo de la URL y el tope de 1.000 filas)
-  const itemsSince = iso => fetchAll(() => supabase
-    .from('order_items')
-    .select('*, product:products(*), orders!inner(restaurant_id, created_at)')
-    .eq('orders.restaurant_id', restaurantId)
-    .gte('orders.created_at', iso)
-    .neq('status', 'cancelled')
-    .order('id'))
-  const todayItemsData = await itemsSince(todayISO)
-  const allItemsData = await itemsSince(thirtyDaysAgoISO)
-
-  const { data: productsData } = await supabase
-    .from('products').select('*')
-    .eq('restaurant_id', restaurantId)
-
-  // Ventas de hoy: se leen directo de payments.total (ya incluye descuentos y
-  // solo cuenta lo que de verdad se cobró, no pedidos sin pagar)
-  const todayPaymentsData = await fetchAll(() => supabase
-    .from('payments').select('total')
-    .eq('restaurant_id', restaurantId)
-    .eq('voided', false)
-    .gte('created_at', todayISO)
-    .order('created_at'))
-
-  return {
-    orders: allOrdersData || [],
-    orderItems: allItemsData || [],
-    products: productsData || [],
-    stats: calcularStats(todayOrdersData || [], todayItemsData || [], todayPaymentsData || []),
-  }
 }
 
 async function obtenerMeses(restaurantId) {
@@ -106,91 +52,6 @@ async function obtenerMeses(restaurantId) {
   return Object.values(monthMap).sort((a, b) => b.key.localeCompare(a.key))
 }
 
-function calcularStats(ordersData, itemsData, todayPaymentsData = []) {
-  const validOrders = ordersData.filter(o => o.status !== 'cancelled')
-  const activeOrders = ordersData.filter(o => o.status === 'confirmed').length
-  const cancelledOrders = ordersData.filter(o => o.status === 'cancelled').length
-  const deliveryOrders = validOrders.filter(o => o.delivery_type === 'delivery')
-
-  // Ventas: lo que realmente entró (payments.total ya incluye descuentos y solo cuenta pedidos pagados)
-  const totalSales = todayPaymentsData.reduce((sum, p) => sum + Number(p.total), 0)
-
-  const productsSold = itemsData
-    .filter(item => item.status !== 'cancelled')
-    .reduce((sum, item) => sum + Number(item.quantity), 0)
-
-  return {
-    totalSales, totalOrders: validOrders.length, deliveryOrders: deliveryOrders.length,
-    averageTicket: todayPaymentsData.length > 0 ? totalSales / todayPaymentsData.length : 0,
-    productsSold, activeOrders, cancelledOrders,
-  }
-}
-
-// Ventas por día (últimos 14 días) — una serie, color de la marca, tooltip al pasar
-function DailySalesChart({ days }) {
-  const [hover, setHover] = useState(null)
-  const max = Math.max(1, ...days.map(d => d.total))
-  const money = n => `$${Math.round(n).toLocaleString('es-CO')}`
-  const best = days.reduce((a, d) => (d.total > (a?.total ?? -1) ? d : a), null)
-  const shown = hover != null ? days[hover] : null
-
-  return (
-    <div className="rounded-2xl bg-surface border border-zinc-200 shadow-card p-5 flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h3 className="text-base font-extrabold tracking-tight text-zinc-900">Ventas por día</h3>
-          <p className="text-sm text-zinc-500">Últimos 14 días · cobros registrados</p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{shown ? shown.label : 'Mejor día'}</p>
-          <p className="font-mono text-lg font-semibold text-zinc-900 tabular">{shown ? money(shown.total) : best ? `${money(best.total)}` : '—'}</p>
-          {!shown && best && <p className="text-xs text-zinc-500">{best.label}</p>}
-          {shown && <p className="text-xs text-zinc-500">{shown.count} cobro{shown.count !== 1 ? 's' : ''}</p>}
-        </div>
-      </div>
-
-      <div className="relative h-44" onMouseLeave={() => setHover(null)}>
-        {/* Líneas guía recesivas */}
-        {[0.5, 1].map(f => (
-          <div key={f} className="absolute inset-x-0 border-t border-dashed border-zinc-200" style={{ bottom: `${f * 100}%` }} aria-hidden="true" />
-        ))}
-        <div className="absolute inset-0 flex items-end gap-[2px]" aria-hidden="true">
-          {days.map((d, i) => (
-            <button
-              key={d.key}
-              type="button"
-              tabIndex={-1}
-              onMouseEnter={() => setHover(i)}
-              onFocus={() => setHover(i)}
-              onTouchStart={() => setHover(i)}
-              className="flex-1 h-full flex items-end group"
-            >
-              <span
-                className={`w-full rounded-t-[4px] transition-opacity ${hover == null || hover === i ? 'opacity-100' : 'opacity-40'} ${d.total ? 'bg-[var(--brand)]' : 'bg-zinc-200'}`}
-                style={{ height: `${Math.max(d.total ? 3 : 1.5, (d.total / max) * 100)}%` }}
-              />
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="flex justify-between text-[11px] font-semibold text-zinc-500" aria-hidden="true">
-        <span>{days[0]?.short}</span>
-        <span>{days[Math.floor(days.length / 2)]?.short}</span>
-        <span>{days[days.length - 1]?.short}</span>
-      </div>
-
-      {/* Vista de tabla para lectores de pantalla. El sr-only va en un div: en la tabla no oculta el <caption> */}
-      <div className="sr-only">
-        <table>
-          <caption>Ventas por día, últimos 14 días</caption>
-          <thead><tr><th>Día</th><th>Ventas</th><th>Cobros</th></tr></thead>
-          <tbody>{days.map(d => <tr key={d.key}><td>{d.label}</td><td>{money(d.total)}</td><td>{d.count}</td></tr>)}</tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
-
 export default function ReportesPanel() {
   const { user } = useAuthStore()
 
@@ -211,31 +72,15 @@ export default function ReportesPanel() {
   const [monthlyReports, setMonthlyReports] = useState([])
   const [selectedMonth, setSelectedMonth] = useState(null)
   const [monthlyDetail, setMonthlyDetail] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [orders, setOrders] = useState([])
   const [todayPaidOrders, setTodayPaidOrders] = useState([])
   const [expandedPayment, setExpandedPayment] = useState(null)
   const [paymentItems, setPaymentItems] = useState({})
-  const [orderItems, setOrderItems] = useState([])
-  const [products, setProducts] = useState([])
-  const [stats, setStats] = useState({
-    totalSales: 0, totalOrders: 0, deliveryOrders: 0,
-    averageTicket: 0, productsSold: 0, activeOrders: 0, cancelledOrders: 0,
-  })
 
   const restaurantId = user?.restaurant_id
   useEffect(() => {
     let vivo = true
     obtenerPagosHoy(restaurantId).then(data => { if (vivo) setTodayPaidOrders(data) })
     obtenerMeses(restaurantId).then(meses => { if (vivo) setMonthlyReports(meses) })
-    obtenerResumen(restaurantId).then(r => {
-      if (!vivo) return
-      setOrders(r.orders)
-      setOrderItems(r.orderItems)
-      setProducts(r.products)
-      setStats(r.stats)
-      setLoading(false)
-    })
     return () => { vivo = false }
   }, [restaurantId])
 
@@ -304,200 +149,10 @@ export default function ReportesPanel() {
     setPaymentItems(prev => ({ ...prev, [payment.id]: data || [] }))
   }
 
-  const topProducts = useMemo(() => {
-    const map = {}
-    orderItems.forEach(item => {
-      if (!item.product) return
-      const id = item.product.id
-      if (!map[id]) map[id] = { name: item.product.name, quantity: 0 }
-      map[id].quantity += Number(item.quantity)
-    })
-    return Object.values(map).sort((a, b) => b.quantity - a.quantity).slice(0, 5)
-  }, [orderItems])
-
-  const topClients = useMemo(() => {
-    const map = {}
-    orders.forEach(order => {
-      if (!order.customer_name) return
-      if (!map[order.customer_name]) map[order.customer_name] = { name: order.customer_name, orders: 0 }
-      map[order.customer_name].orders += 1
-    })
-    return Object.values(map).sort((a, b) => b.orders - a.orders).slice(0, 5)
-  }, [orders])
-
-  // Últimos 14 días a partir de los pagos ya cargados (por fecha local)
-  const dailySales = useMemo(() => {
-    const all = monthlyReports.flatMap(r => r.payments)
-    const map = {}
-    all.forEach(p => {
-      const d = new Date(p.created_at)
-      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
-      if (!map[key]) map[key] = { total: 0, count: 0 }
-      map[key].total += Number(p.total || 0)
-      map[key].count += 1
-    })
-    return [...Array(14)].map((_, i) => {
-      const d = new Date()
-      d.setDate(d.getDate() - (13 - i))
-      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
-      return {
-        key,
-        total: map[key]?.total || 0,
-        count: map[key]?.count || 0,
-        label: d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'short' }),
-        short: d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' }),
-      }
-    })
-  }, [monthlyReports])
-
-  const cards = [
-    { title: 'Ventas hoy', value: `$${stats.totalSales.toLocaleString('es-CO')}`, icon: DollarSign, accent: 'text-[var(--brand-text)]', bg: 'bg-[var(--brand-light)]', border: 'border-[var(--brand-border)]' },
-    { title: 'Pedidos', value: stats.totalOrders, icon: ShoppingBag, accent: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' },
-    { title: 'Domicilios', value: stats.deliveryOrders, icon: Bike, accent: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-200' },
-    { title: 'Ticket promedio', value: `$${Math.round(stats.averageTicket).toLocaleString('es-CO')}`, icon: TrendingUp, accent: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200' },
-    { title: 'Productos vendidos', value: stats.productsSold, icon: Package, accent: 'text-pink-500', bg: 'bg-pink-50', border: 'border-pink-200' },
-    { title: 'Pedidos activos', value: stats.activeOrders, icon: Clock3, accent: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-200' },
-  ]
-
   return (
     <div className="space-y-6">
 
-      {/* ── Loading ── */}
-      {loading && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-36 rounded-2xl bg-zinc-200 animate-pulse" />
-          ))}
-        </div>
-      )}
-
-      {!loading && (
-        <>
-          {/* ── Cifras del día ── */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="col-span-2 rounded-2xl bg-surface border border-[var(--brand)] border-[1.5px] shadow-card p-5 flex flex-col justify-between gap-3">
-              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Ventas de hoy</p>
-              <p className="font-mono text-4xl font-semibold tracking-tight text-zinc-900 tabular">${stats.totalSales.toLocaleString('es-CO')}</p>
-              <p className="text-sm text-zinc-500">
-                {stats.totalOrders} pedido{stats.totalOrders !== 1 ? 's' : ''} · ticket promedio <span className="font-mono font-semibold text-zinc-700">${Math.round(stats.averageTicket).toLocaleString('es-CO')}</span>
-              </p>
-            </div>
-            {cards.slice(2).map(card => {
-              const Icon = card.icon
-              return (
-                <div key={card.title} className="rounded-2xl bg-surface border border-zinc-200 shadow-card p-4 flex flex-col gap-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{card.title}</p>
-                    <Icon size={16} className="text-zinc-400" aria-hidden="true" />
-                  </div>
-                  <p className="font-mono text-2xl font-semibold text-zinc-900 tabular">{card.value}</p>
-                </div>
-              )
-            })}
-          </div>
-
-          <DailySalesChart days={dailySales} />
-
-          {/* ── Top productos + clientes ── */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-
-            {/* Top productos */}
-            <div className="rounded-2xl bg-surface border border-zinc-200 p-5
-              shadow-card">
-              <div className="flex items-center gap-2 mb-4">
-                <Package size={18} className="text-[var(--brand-text)]" />
-                <h2 className="font-bold text-zinc-900">Productos más vendidos</h2>
-              </div>
-              <div className="space-y-2">
-                {topProducts.length === 0 ? (
-                  <p className="text-zinc-400 text-sm">Sin ventas todavía</p>
-                ) : (
-                  topProducts.map((product, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between rounded-xl bg-zinc-50 border border-zinc-100 px-4 py-3"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-7 h-7 rounded-lg bg-[var(--brand-light)] border border-[var(--brand-border)] flex items-center justify-center text-xs font-bold text-[var(--brand-text)]">
-                          #{index + 1}
-                        </div>
-                        <p className="font-semibold text-zinc-800 text-sm">{product.name}</p>
-                      </div>
-                      <span className="text-[var(--brand-text)] font-bold text-sm">x{product.quantity}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Clientes frecuentes */}
-            <div className="rounded-2xl bg-surface border border-zinc-200 p-5
-              shadow-card">
-              <div className="flex items-center gap-2 mb-4">
-                <Users size={18} className="text-blue-500" />
-                <h2 className="font-bold text-zinc-900">Clientes frecuentes</h2>
-              </div>
-              <div className="space-y-2">
-                {topClients.length === 0 ? (
-                  <p className="text-zinc-400 text-sm">Aún no hay suficientes datos</p>
-                ) : (
-                  topClients.map((client, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between rounded-xl bg-zinc-50 border border-zinc-100 px-4 py-3"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-7 h-7 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-xs font-bold text-blue-600">
-                          #{index + 1}
-                        </div>
-                        <p className="font-semibold text-zinc-800 text-sm">{client.name}</p>
-                      </div>
-                      <span className="text-blue-600 font-bold text-sm">{client.orders} pedidos</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-          </div>
-
-          {/* ── Alertas ── */}
-          <div className="rounded-2xl bg-red-50 border border-red-200 p-5
-            shadow-card">
-            <div className="flex items-center gap-2 mb-4">
-              <AlertTriangle size={18} className="text-red-500" />
-              <h2 className="font-bold text-zinc-900">Alertas del sistema</h2>
-            </div>
-            <div className="space-y-2">
-              {stats.cancelledOrders > 0 && (
-                <div className="rounded-xl bg-surface border border-red-200 px-4 py-3">
-                  <p className="text-sm text-zinc-700">
-                    Hay{' '}
-                    <span className="font-bold text-red-500">{stats.cancelledOrders}</span>{' '}
-                    pedidos cancelados hoy
-                  </p>
-                </div>
-              )}
-              {products.filter(p => p.available === false).length > 0 && (
-                <div className="rounded-xl bg-surface border border-red-200 px-4 py-3">
-                  <p className="text-sm text-zinc-700">
-                    Hay productos marcados como no disponibles
-                  </p>
-
-                </div>
-              )}
-
-              {stats.cancelledOrders === 0 &&
-                products.filter(p => p.available === false).length === 0 && (
-                  <div className="rounded-xl bg-surface border border-green-200 px-4 py-3">
-                    <p className="text-sm text-green-600">✅ Todo funcionando correctamente</p>
-                  </div>
-                )}
-
-            </div>
-          </div>
-        </>
-      )}
+      <Analitica restaurantId={restaurantId} />
 
       {/* ── Desglose de ventas del día ── */}
       <div className="rounded-2xl bg-surface border border-zinc-200 p-5

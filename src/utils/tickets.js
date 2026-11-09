@@ -217,3 +217,33 @@ export function cierreCaja({ restaurante, r, cerro }) {
     ${SEP}
     <div class="t-firma">Firma</div>`
 }
+
+// ── Reporte del período (Dashboard › Imprimir reporte) ─────────────────────────
+// a: resultado de analizar() (src/utils/analitica.js); periodo: { nombre, desde, hasta }
+export function reportePeriodo({ restaurante, periodo, a, anterior }) {
+  const pct = n => `${Math.round(n)} %`
+  const delta = (x, y) => (y > 0 ? ` (${x >= y ? '+' : '−'}${Math.round(Math.abs(x - y) / y * 100)} %)` : '')
+  const fecha = d => new Date(d).toLocaleDateString('es-CO', { timeZone: 'America/Bogota', day: 'numeric', month: 'short' })
+  const hasta = new Date(periodo.hasta.getTime() - 1)
+  const top = a.masVendidos.slice(0, 10)
+    .map((p, i) => linea(`${i + 1}. ${esc(p.nombre)}`, `${p.unidades} · ${money(p.ingresos)}`, 't-pequeno')).join('')
+  return `<div class="t-centro t-titulo">${esc(restaurante.nombre || 'Restaurante')}</div>
+    <div class="t-centro t-grande">REPORTE</div>
+    <div class="t-centro t-pequeno">${esc(periodo.nombre)} · ${fecha(periodo.desde)}${fecha(periodo.desde) !== fecha(hasta) ? ` – ${fecha(hasta)}` : ''}</div>
+    ${SEP}
+    ${linea('Ventas', money(a.ventas) + (anterior ? delta(a.ventas, anterior.ventas) : ''), 't-total')}
+    ${linea('Pedidos cobrados', esc(a.pedidosPagados))}
+    ${linea('Ticket promedio', money(a.ticketPromedio))}
+    ${linea('Productos vendidos', esc(a.unidades))}
+    ${linea('Efectivo', money(a.efectivo), 't-pequeno')}
+    ${linea('Transferencias', money(a.transferencia), 't-pequeno')}
+    ${a.propinas ? linea('Propinas', money(a.propinas), 't-pequeno') : ''}
+    ${a.costo > 0 ? `${SEP}${linea('Costo estimado', money(a.costo))}${linea('Ganancia estimada', money(a.ganancia), 't-negrita')}${linea('Costo / ventas', pct(a.pctCosto), 't-pequeno')}${a.cobertura < 99 ? `<div class="t-pequeno">Sobre el ${pct(a.cobertura)} de lo vendido (productos con costo)</div>` : ''}` : ''}
+    ${SEP}
+    <div class="t-negrita">Más vendidos</div>
+    ${top || '<div class="t-pequeno">Sin ventas</div>'}
+    ${a.categorias.length ? `${SEP}<div class="t-negrita">Por categoría</div>${a.categorias.slice(0, 8).map(c => linea(esc(c.nombre), money(c.total), 't-pequeno')).join('')}` : ''}
+    ${a.cancelados ? `${SEP}${linea('Pedidos cancelados', esc(a.cancelados), 't-pequeno')}` : ''}
+    ${SEP}
+    <div class="t-centro t-pequeno">Impreso ${fechaHora(new Date())}</div>`
+}
