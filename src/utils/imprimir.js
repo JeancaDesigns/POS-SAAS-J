@@ -93,6 +93,24 @@ const sunmi = () => {
 
 export const hayImpresoraSunmi = () => !!sunmi()
 
+// En la Sunmi, apenas abre el POS se deja listo lo que la primera impresión tendría que cargar
+// (la librería que dibuja y la firma del pie), y se dibuja algo mínimo para "calentar" el motor.
+if (typeof window !== 'undefined') {
+  setTimeout(async () => {
+    if (!sunmi()) return
+    try {
+      new Image().src = '/marca/jeanca-icono-negro-192.png'
+      const { default: html2canvas } = await import('html2canvas-pro')
+      const prueba = document.createElement('div')
+      prueba.style.cssText = 'position:fixed;left:-10000px;top:0;width:40px;font:12px Manrope'
+      prueba.textContent = 'POS'
+      document.body.appendChild(prueba)
+      await html2canvas(prueba, { logging: false, ignoreElements: el => !(el === prueba || el.contains(prueba) || document.head.contains(el)) })
+      prueba.remove()
+    } catch { /* si falla, la primera impresión solo tarda un poco más */ }
+  }, 3000)
+}
+
 // Dibuja #zona-impresion al ancho exacto del papel (8 puntos por mm), en negro puro, y lo manda
 // a la app. Devuelve false si no hay impresora Sunmi o algo falla (entonces va window.print()).
 async function imprimirSunmi(zona, papel) {
@@ -114,6 +132,8 @@ async function imprimirSunmi(zona, papel) {
         backgroundColor: '#ffffff',
         logging: false,
         useCORS: true,
+        // Copiar solo el ticket (y los estilos): copiar toda la pantalla del POS era lo que más demoraba
+        ignoreElements: el => !(el === zona || el.contains(zona) || zona.contains(el) || document.head.contains(el)),
       })
     } finally {
       zona.style.display = ''
