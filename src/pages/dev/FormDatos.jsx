@@ -42,6 +42,13 @@ export default function FormDatos({ datos, onDatos, logoActual, archivo, onArchi
         </label>
       )}
 
+      {'usa_asistencia' in datos && (
+        <label className="flex items-start gap-2.5 text-sm text-zinc-800">
+          <input type="checkbox" checked={datos.usa_asistencia} onChange={e => onDatos({ ...datos, usa_asistencia: e.target.checked })} className="size-4 mt-0.5 accent-[var(--brand)]" />
+          <span>Control de turnos y nómina<span className="block text-xs text-zinc-500">El personal inicia y termina turno desde su celular escaneando el QR de la caja.</span></span>
+        </label>
+      )}
+
       <Titulo>Contacto y ticket</Titulo>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <Campo etiqueta="WhatsApp"><input type="tel" inputMode="tel" value={datos.whatsapp} onChange={set('whatsapp')} placeholder="3001234567" className={`${campoClase} font-mono`} /></Campo>

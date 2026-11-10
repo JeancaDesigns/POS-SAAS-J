@@ -15,7 +15,8 @@ import { inicioJornada } from '../../utils/jornada'
 import { usaCocina } from '../../utils/cocina'
 import { marcarListoYDescontar } from '../../utils/inventario'
 import { useCajaResumen } from '../../hooks/useCajaResumen'
-import { Bell, Search, Printer } from 'lucide-react'
+import { Bell, Search, Printer, QrCode } from 'lucide-react'
+import QrTurnos from '../../components/QrTurnos'
 import { avisar, confirmar } from '../../utils/dialogo'
 import { useRecarga } from '../../hooks/useRecarga'
 import { imprimirHTML, ofrecerImpresion, abrirCajon, hayCajon } from '../../utils/imprimir'
@@ -211,7 +212,8 @@ function quickBills(total) {
 }
 
 export default function CajeroHome() {
-  const { user } = useAuthStore()
+  const { user, slug, modules } = useAuthStore()
+  const [qrTurnos, setQrTurnos] = useState(false)
   const restaurante = restauranteTicket()
   const { orders, refetch } = useCajaOrders(user?.restaurant_id)
   const { count: deliveryCount } = useDeliveryCount(user?.restaurant_id)
@@ -767,6 +769,17 @@ export default function CajeroHome() {
             <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900">Caja</h1>
             <p className="text-sm text-zinc-500 first-letter:uppercase">{today}</p>
           </div>
+          <div className="flex gap-2">
+          {modules.includes('asistencia') && (
+            <button
+              onClick={() => setQrTurnos(true)}
+              aria-label="QR de turnos"
+              title="QR de turnos"
+              className="w-11 h-11 rounded-xl border border-zinc-200 bg-surface hover:bg-zinc-50 flex items-center justify-center text-zinc-700 transition-colors"
+            >
+              <QrCode size={19} aria-hidden="true" />
+            </button>
+          )}
           <button
             onClick={() => { setShowNotifications(true); setUnreadCount(0) }}
             aria-label={`Pedidos online${unreadCount > 0 ? `, ${unreadCount} nuevos` : ''}`}
@@ -779,6 +792,7 @@ export default function CajeroHome() {
               </span>
             )}
           </button>
+          </div>
         </div>
 
         {/* Efectivo esperado */}
@@ -1339,6 +1353,8 @@ export default function CajeroHome() {
 
 
       {/* ── Modal notificaciones ── */}
+      {qrTurnos && <QrTurnos restaurantId={user.restaurant_id} slug={slug} onClose={() => setQrTurnos(false)} />}
+
       {showNotifications && (
         <div
           className="fixed inset-0 z-[60] flex items-end justify-center"

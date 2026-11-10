@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  LayoutDashboard, Wallet, Receipt, UtensilsCrossed, Boxes, Grid3x3, Users, Settings, ChevronDown, X, Check,
+  LayoutDashboard, Wallet, Receipt, UtensilsCrossed, Boxes, Grid3x3, Users, Settings, ChevronDown, X, Check, Clock,
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 
@@ -12,6 +12,7 @@ import TicketsPanel from './TicketsPanel'
 import ReportesPanel from './ReportesPanel'
 import CajaPanel from './CajaPanel'
 import InventarioPanel from './InventarioPanel'
+import AsistenciaPanel from './AsistenciaPanel'
 
 // Secciones de administración agrupadas (estilo panel de configuración)
 const GROUPS = [
@@ -35,6 +36,7 @@ const GROUPS = [
     label: 'Equipo y ajustes',
     items: [
       { key: 'usuarios', label: 'Usuarios', desc: 'Personal, roles y accesos', icon: Users, Panel: UsuariosPanel },
+      { key: 'asistencia', label: 'Turnos y nómina', desc: 'Quién trabajó, a qué horas y cuánto se le paga', icon: Clock, Panel: AsistenciaPanel },
       { key: 'config', label: 'Configuración', desc: 'Datos del restaurante y pagos', icon: Settings, Panel: ConfigPanel },
     ],
   },

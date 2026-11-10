@@ -11,6 +11,7 @@ import CocinaHome from './pages/cocina/CocinaHome'
 import AdminHome from './pages/admin/AdminHome'
 import PedidoPublico from './pages/pedir/PedidoPublico'
 import DomiciliarioHome from './pages/domiciliario/DomiciliarioHome'
+import MiTurno from './pages/turno/MiTurno'
 import RestaurantSelector from './pages/RestaurantSelector'
 import NavBar from './components/NavBar'
 import StatusDrawer from './components/StatusDrawer'
@@ -90,9 +91,14 @@ function RoleRedirect() {
 function ProtectedRoute({ children, roles }) {
   const { user, slug: storeSlug, loading } = useAuthStore()
   const { slug: urlSlug } = useParams()
+  const location = useLocation()
 
   if (loading) return <div className="min-h-screen bg-canvas" />
-  if (!user) return <Navigate to={`/${urlSlug}/login`} />
+  if (!user) {
+    // Volver aquí después de iniciar sesión (p. ej. el enlace del QR de turnos)
+    try { sessionStorage.setItem('volver-a', location.pathname + location.search) } catch { /* sin storage */ }
+    return <Navigate to={`/${urlSlug}/login`} />
+  }
   if (!storeSlug) return <div className="min-h-screen bg-canvas" />
 
   const isDev = user.roles.includes('dev')
@@ -202,6 +208,14 @@ export default function App() {
             <SlugGuard>
               <ProtectedRoute roles={['domiciliario', 'admin']}>
                 <DomiciliarioHome />
+              </ProtectedRoute>
+            </SlugGuard>
+          } />
+
+          <Route path="/:slug/turno" element={
+            <SlugGuard>
+              <ProtectedRoute>
+                <MiTurno />
               </ProtectedRoute>
             </SlugGuard>
           } />
