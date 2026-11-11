@@ -107,7 +107,11 @@ export default function Login() {
     // Animación de marca encima de la app mientras la pantalla de destino carga sus datos
     useAuthStore.setState({ intro: true })
 
-    if (profile.roles.includes('cocina')) navigate(`/${slug}/cocina`)
+    // Venía de un enlace que pedía sesión (p. ej. el QR de turnos): volver allí
+    let volver = null
+    try { volver = sessionStorage.getItem('volver-a'); sessionStorage.removeItem('volver-a') } catch { /* sin storage */ }
+    if (volver && volver.startsWith(`/${slug}/`) && profile.roles.length > 0) navigate(volver)
+    else if (profile.roles.includes('cocina')) navigate(`/${slug}/cocina`)
     else if (profile.roles.includes('cajero')) navigate(`/${slug}/caja`)
     else if (profile.roles.includes('mesero')) navigate(`/${slug}/mesero`)
     else if (profile.roles.includes('admin')) navigate(`/${slug}/admin`)

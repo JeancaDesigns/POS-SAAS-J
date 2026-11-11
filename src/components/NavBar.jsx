@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore, signOutAndClear } from '../store/authStore'
 import {
-  UtensilsCrossed, Wallet, ChefHat, Bike, Settings, LogOut,
+  UtensilsCrossed, Wallet, ChefHat, Bike, Settings, LogOut, Clock,
 } from 'lucide-react'
 import { confirmar } from '../utils/dialogo'
 
@@ -10,15 +10,16 @@ const NAV_ITEMS = {
   caja: { path: 'caja', label: 'Caja', icon: Wallet },
   cocina: { path: 'cocina', label: 'Cocina', icon: ChefHat },
   domiciliario: { path: 'domiciliario', label: 'Domis', icon: Bike },
+  turno: { path: 'turno', label: 'Turno', icon: Clock, modulo: 'asistencia' },
   admin: { path: 'admin', label: 'Admin', icon: Settings },
 }
 
 const ROLE_TABS = {
-  admin: ['mesero', 'caja', 'cocina', 'domiciliario', 'admin'],
-  cajero: ['mesero', 'caja', 'cocina'],
-  mesero: ['mesero', 'cocina'],
-  cocina: ['cocina'],
-  domiciliario: ['domiciliario'],
+  admin: ['mesero', 'caja', 'cocina', 'domiciliario', 'turno', 'admin'],
+  cajero: ['mesero', 'caja', 'cocina', 'turno'],
+  mesero: ['mesero', 'cocina', 'turno'],
+  cocina: ['cocina', 'turno'],
+  domiciliario: ['domiciliario', 'turno'],
 }
 
 export default function NavBar() {
@@ -31,7 +32,7 @@ export default function NavBar() {
   if (location.pathname.endsWith('/login') || location.pathname.includes('/pedir')) return null
 
   const tabs = [...new Set(user.roles.flatMap(role => ROLE_TABS[role] || []))]
-  const orderedTabs = Object.keys(NAV_ITEMS).filter(t => tabs.includes(t) && modules.includes(t))
+  const orderedTabs = Object.keys(NAV_ITEMS).filter(t => tabs.includes(t) && modules.includes(NAV_ITEMS[t].modulo || t))
 
   if (orderedTabs.length < 1) return null
 

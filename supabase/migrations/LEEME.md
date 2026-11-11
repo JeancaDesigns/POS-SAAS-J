@@ -137,3 +137,17 @@ de la cuenta de Resend); con un dominio propio verificado, poner `REPORTE_REMITE
 - (2026-11-09, v3 de la función) El correo trae un resumen corto y el **reporte en PDF adjunto** (`pdf.js`, pdf-lib,
   tamaño carta, 2 páginas: cifras con comparación, ventas por día vs. semana anterior, horas pico, productos, categorías,
   lo que más ganancia deja). Se despliega con `import_map_path: deno.json`.
+
+**2000 (2026-11-10, rama `ccr-ac368c66-4rls90`): NO APLICADA todavía.** Control de turnos con QR y nómina.
+- Módulo `asistencia` en `restaurants.modules` (Dev › Datos › "Control de turnos y nómina").
+- La caja (cajero/admin) muestra un QR que cambia cada 30 s (`asistencia_codigo`; cada código sirve 3 min). El empleado,
+  con su sesión en el celular, va a `/:slug/turno` (pestaña Turno o escaneando el QR con la cámara) y toca Iniciar /
+  Terminar turno: `marcar_turno` valida el código y pone la **hora del servidor**. No hace falta WiFi: basta con datos.
+- Ubicación: solo se anota. Lejos del local (`asistencia_lat/lng` + `asistencia_radio_m`) o sin ubicación = "por revisar".
+- `asistencia_turnos` (una fila por turno, uno abierto por persona) y `asistencia_cambios` (quién corrigió qué y por qué).
+  Solo se escriben con funciones: `guardar_turno` (crear/corregir/aprobar) y `borrar_turno`, ambas solo admin/dev.
+- Nómina en la app (`src/utils/asistencia.js`): `restaurants.asistencia_pago` = `turno` (días × `users.pago_turno`) u
+  `hora` (`users.pago_hora` + recargos de `asistencia_recargos`: nocturno 35 % desde 19:00, dominical/festivo 90 %).
+  Quincenas 1–15 y 16–fin; el turno cuenta en el día en que empezó (corte 3:00 a. m.).
+- Probada en un Postgres local con tablas mínimas: 28 casos (mesero/cajero/admin/otro restaurante/anónimo, código
+  vencido o rotado, doble marcación, ubicación lejos, correcciones con motivo, RLS).

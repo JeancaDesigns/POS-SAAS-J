@@ -123,7 +123,7 @@ function Resumen({ restaurante, resumen }) {
 }
 
 function Datos({ restaurante, onGuardado }) {
-  const [datos, setDatos] = useState(() => ({ ...datosDesde(restaurante), usa_cocina: (restaurante.modules || []).includes('cocina') }))
+  const [datos, setDatos] = useState(() => ({ ...datosDesde(restaurante), usa_cocina: (restaurante.modules || []).includes('cocina'), usa_asistencia: (restaurante.modules || []).includes('asistencia') }))
   const [archivo, setArchivo] = useState(null)
   const [archivoTicket, setArchivoTicket] = useState(null)
   const [guardando, setGuardando] = useState(false)
@@ -133,8 +133,9 @@ function Datos({ restaurante, onGuardado }) {
     setGuardando(true)
     const cambios = datosAGuardar(datos)
     // Cocina: módulo 'cocina' (sin él, lo que se pide se cobra de una; ver src/utils/cocina.js)
-    const sinCocina = (restaurante.modules || []).filter(m => m !== 'cocina')
-    cambios.modules = datos.usa_cocina ? [...sinCocina, 'cocina'] : sinCocina
+    // Asistencia: módulo 'asistencia' (control de turnos con QR y nómina; ver src/utils/asistencia.js)
+    const base = (restaurante.modules || []).filter(m => m !== 'cocina' && m !== 'asistencia')
+    cambios.modules = [...base, ...(datos.usa_cocina ? ['cocina'] : []), ...(datos.usa_asistencia ? ['asistencia'] : [])]
     let falloLogo = ''
     if (archivo) {
       try { cambios.logo_url = await subirLogo(restaurante.slug, archivo) } catch (e) { falloLogo = e.message }
