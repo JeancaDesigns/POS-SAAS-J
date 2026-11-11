@@ -175,3 +175,10 @@ ingredientes y no duplica insumos. Los supuestos (tamaños de botella, "top", "y
 en `inventory_bajas` (motivos: personal, cortesia, dano, vencido, otro). `anular_baja` (admin) lo devuelve a la barra.
 `guardar_conteo(barra|bodega, [{id, contado}], nota)` (admin) deja el stock en lo contado y guarda esperado, contado,
 diferencia y su valor en `inventory_conteos` / `inventory_conteo_items`. Probado en Postgres local (13 casos).
+
+**2400 (2026-11-11): lista de compras.** `compras_listas` (una abierta por restaurante) y `compras_items`. pg_cron
+`lista-compras` (8:30 UTC = 3:30 a. m. Colombia) llama `_generar_listas_compras()` para los restaurantes con el módulo
+`compras` (Social lo trae activado): misma regla que Por pedir; si ya hay lista abierta la actualiza sin tocar lo marcado.
+`marcar_compra(item, comprado|no_habia|pendiente, cantidad en presentaciones, precio total, nota, barra|bodega)` (admin)
+suma lo comprado al inventario y actualiza el precio de compra; volver a pendiente lo deshace. `cerrar_lista_compras`.
+Pantalla `/:slug/compras` (pestaña Compras del admin). Probado en Postgres local (12 casos).
