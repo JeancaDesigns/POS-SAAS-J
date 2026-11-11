@@ -4,6 +4,8 @@ import { useAuthStore } from '../../store/authStore'
 import { Package, Plus, Pencil, X, Trash2, ArrowUpDown, Search } from 'lucide-react'
 import { avisar, confirmar } from '../../utils/dialogo'
 import Selector from '../../components/Selector'
+import ConteoInventario from './ConteoInventario'
+import BajasInventario from './BajasInventario'
 import { useRecarga } from '../../hooks/useRecarga'
 import { costoUnitario, costoReceta, enPresentaciones, porPedir, margen, TONO_MARGEN, pesos, num, plural, OZ_ML, stockTotal } from '../../utils/costeo'
 
@@ -333,7 +335,7 @@ export default function InventarioPanel() {
     <div className="flex flex-col gap-4">
 
       <div role="tablist" aria-label="Inventario" className="self-start max-w-full overflow-x-auto flex p-1 rounded-xl bg-zinc-100 border border-zinc-200">
-        {[['inventario', `Insumos · ${items.length}`], ['pedir', `Por pedir · ${listaPedido.length}`], ['recetas', 'Recetas']].map(([k, l]) => (
+        {[['inventario', `Insumos · ${items.length}`], ['pedir', `Por pedir · ${listaPedido.length}`], ['conteo', 'Conteo'], ['bajas', 'Bajas'], ['recetas', 'Recetas']].map(([k, l]) => (
           <button key={k} role="tab" aria-selected={view === k} onClick={() => setView(k)} className={`h-10 px-3 sm:px-4 whitespace-nowrap rounded-lg text-sm font-bold transition-colors ${view === k ? 'bg-surface text-zinc-900 shadow-card' : 'text-zinc-500'}`}>{l}</button>
         ))}
       </div>
@@ -431,6 +433,9 @@ export default function InventarioPanel() {
           </div>
         </>
       )}
+
+      {view === 'conteo' && <ConteoInventario items={items} restaurantId={restaurantId} onGuardado={recargarItems} />}
+      {view === 'bajas' && <BajasInventario restaurantId={restaurantId} onCambio={recargarItems} />}
 
       {view === 'pedir' && (
         <>

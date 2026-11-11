@@ -17,6 +17,9 @@ import { marcarListoYDescontar } from '../../utils/inventario'
 import { useCajaResumen } from '../../hooks/useCajaResumen'
 import { Bell, Search, Printer, QrCode } from 'lucide-react'
 import QrTurnos from '../../components/QrTurnos'
+import DarDeBaja from '../../components/DarDeBaja'
+import { usePorPedir } from '../../hooks/usePorPedir'
+import { PackageMinus } from 'lucide-react'
 import { avisar, confirmar } from '../../utils/dialogo'
 import { useRecarga } from '../../hooks/useRecarga'
 import { imprimirHTML, ofrecerImpresion, abrirCajon, hayCajon } from '../../utils/imprimir'
@@ -214,8 +217,12 @@ function quickBills(total) {
 export default function CajeroHome() {
   const { user, slug, modules } = useAuthStore()
   const [qrTurnos, setQrTurnos] = useState(false)
+  const [bajaAbierta, setBajaAbierta] = useState(false)
+  const [bajas, setBajas] = useState(0)
   const restaurante = restauranteTicket()
   const { orders, refetch } = useCajaOrders(user?.restaurant_id)
+  // Cobrar un pedido lo saca de la lista: buen momento para revisar el inventario
+  const porPedirLista = usePorPedir(user?.restaurant_id, orders.length + bajas * 1000)
   const { count: deliveryCount } = useDeliveryCount(user?.restaurant_id)
   const canDiscount = user?.roles?.some(r => ['admin', 'dev'].includes(r))
   const [discountType, setDiscountType] = useState('percent')
@@ -834,6 +841,19 @@ export default function CajeroHome() {
           )}
         </div>
 
+        <button onClick={() => setBajaAbierta(true)} className="h-11 rounded-xl border border-zinc-300 bg-surface text-sm font-bold text-zinc-700 hover:bg-zinc-50 flex items-center justify-center gap-2">
+          <PackageMinus size={17} aria-hidden="true" /> Dar de baja
+        </button>
+
+        {porPedirLista.length > 0 && (
+          <div role="status" className="rounded-2xl border border-orange-200 bg-orange-50 p-3.5 text-sm">
+            <p className="font-extrabold text-orange-800">{porPedirLista.length} insumo{porPedirLista.length > 1 ? 's' : ''} en el mínimo</p>
+            <p className="text-orange-800/90 mt-0.5">
+              {porPedirLista.slice(0, 4).map(x => x.item.name).join(', ')}{porPedirLista.length > 4 ? ` y ${porPedirLista.length - 4} más` : ''}.
+            </p>
+          </div>
+        )}
+
         {/* Vistas */}
         <nav aria-label="Vistas de caja" className="grid grid-cols-3 lg:grid-cols-1 gap-1">
           {navItems.map(item => {
@@ -1353,6 +1373,7 @@ export default function CajeroHome() {
 
 
       {/* ── Modal notificaciones ── */}
+      {bajaAbierta && <DarDeBaja restaurantId={user.restaurant_id} onClose={() => setBajaAbierta(false)} onListo={() => setBajas(b => b + 1)} />}
       {qrTurnos && <QrTurnos restaurantId={user.restaurant_id} slug={slug} onClose={() => setQrTurnos(false)} />}
 
       {showNotifications && (
