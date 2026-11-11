@@ -1,0 +1,76 @@
+# Aplica en Supabase las migraciones nuevas de supabase/migrations/ cuando llegan a main.
+# Así la base de datos queda al día junto con la app (Vercel), sin pegar SQL a mano.
+#
+# Secreto necesario (Settings › Secrets and variables › Actions):
+#   SUPABASE_DB_URL = dirección "Session pooler" (URI) de Supabase › Connect, con la contraseña puesta.
+#
+# Lleva su propia lista de archivos aplicados en ci.migraciones_aplicadas (el historial de Supabase
+# no coincide con los archivos: varias migraciones se aplicaron a mano). La primera vez marca como
+# aplicadas todas las anteriores a 20261110 (ya estaban en producción) y aplica las demás.
+# Cada archivo corre en una sola transacción: si falla, no queda a medias y la acción sale en rojo.
+name: Migraciones Supabase
+
+on:
+  push:
+    branches: [main]
+    paths: ['supabase/migrations/**.sql']
+  workflow_dispatch:
+
+concurrency:
+  group: migraciones-supabase
+  cancel-in-progress: false
+
+jobs:
+  aplicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar psql
+        run: |
+          if ! command -v psql >/dev/null; then sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client; fi
+
+      - name: Aplicar migraciones pendientes
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "$DB" ]; then echo "::error::Falta el secreto SUPABASE_DB_URL"; exit 1; fi
+          q() { psql "$DB" -v ON_ERROR_STOP=1 -qtAX "$@"; }
+
+          q -c "create schema if not exists ci;
+                revoke all on schema ci from public, anon, authenticated;
+                create table if not exists ci.migraciones_aplicadas (
+                  archivo text primary key,
+                  aplicada timestamptz not null default now());"
+
+          # Primera vez: todo lo anterior a 20261110 ya estaba en producción
+          if [ "$(q -c 'select count(*) from ci.migraciones_aplicadas')" = "0" ]; then
+            for f in supabase/migrations/*.sql; do
+              n=$(basename "$f")
+              if [[ "$n" < "20261110" ]]; then
+                q -c "insert into ci.migraciones_aplicadas (archivo) values ('$n') on conflict do nothing"
+              fi
+            done
+            echo "Línea base: $(q -c 'select count(*) from ci.migraciones_aplicadas') migraciones marcadas como ya aplicadas"
+          fi
+
+          aplicadas=0
+          for f in $(ls supabase/migrations/*.sql | sort); do
+            n=$(basename "$f")
+            if [ "$(q -c "select count(*) from ci.migraciones_aplicadas where archivo = '$n'")" = "1" ]; then continue; fi
+            echo "::group::Aplicando $n"
+            # El archivo y su registro van en la misma transacción
+            { cat "$f"; echo; echo "insert into ci.migraciones_aplicadas (archivo) values ('$n');"; } \
+              | psql "$DB" -v ON_ERROR_STOP=1 --single-transaction -q
+            echo "::endgroup::"
+            echo "✓ $n"
+            aplicadas=$((aplicadas + 1))
+          done
+
+          if [ "$aplicadas" -gt 0 ]; then
+            q -c "notify pgrst, 'reload schema'"
+            echo "### $aplicadas migración(es) aplicada(s)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Nada pendiente" >> "$GITHUB_STEP_SUMMARY"
+          fi

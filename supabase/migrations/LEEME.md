@@ -1,5 +1,13 @@
 # Migraciones de la auditoría (actualizado 2026-10-16, contra el esquema real)
 
+## Desde 2026-11-11: se aplican solas
+`.github/workflows/migraciones.yml` aplica en Supabase cada archivo nuevo de esta carpeta cuando llega a `main`
+(o a mano: Actions › Migraciones Supabase › Run workflow). Necesita el secreto `SUPABASE_DB_URL` (Supabase › Connect ›
+Direct › Session pooler › URI, con la contraseña). Lleva su lista en `ci.migraciones_aplicadas`; la primera vez marcó como
+aplicadas todas las anteriores a `20261110`. Cada archivo corre en una transacción: si falla, no queda nada a medias y
+la acción sale en rojo. Reglas para archivos nuevos: nombre `AAAAMMDDhhmmss_nombre.sql` (mayor que el último) y no
+editar uno que ya se aplicó (hacer otro).
+
 El 2026-10-16 revisé la base de producción y ajusté estos archivos a lo que existe de verdad.
 
 **Estado (2026-10-16, ~02:10 hora Colombia):**
@@ -138,7 +146,7 @@ de la cuenta de Resend); con un dominio propio verificado, poner `REPORTE_REMITE
   tamaño carta, 2 páginas: cifras con comparación, ventas por día vs. semana anterior, horas pico, productos, categorías,
   lo que más ganancia deja). Se despliega con `import_map_path: deno.json`.
 
-**2000 (2026-11-10, rama `ccr-ac368c66-4rls90`): NO APLICADA todavía.** Control de turnos con QR y nómina.
+**2000 (2026-11-10): la aplica la acción de GitHub (ver arriba).** Control de turnos con QR y nómina.
 - Módulo `asistencia` en `restaurants.modules` (Dev › Datos › "Control de turnos y nómina").
 - La caja (cajero/admin) muestra un QR que cambia cada 30 s (`asistencia_codigo`; cada código sirve 3 min). El empleado,
   con su sesión en el celular, va a `/:slug/turno` (pestaña Turno o escaneando el QR con la cámara) y toca Iniciar /
