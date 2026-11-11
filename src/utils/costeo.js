@@ -68,11 +68,18 @@ export const pesos = n => `$${Math.round(Number(n) || 0).toLocaleString('es-CO')
 // Números con coma decimal y sin ceros de más (3,2 · 66,67)
 export const num = (n, dec = 1) => Number(n || 0).toLocaleString('es-CO', { maximumFractionDigits: dec })
 
+// Lo que hay en total de un insumo: barra (stock, de ahí descuentan las ventas) + bodega
+export function stockTotal(insumo) {
+  return (Number(insumo?.stock) || 0) + (Number(insumo?.stock_bodega) || 0)
+}
+
 // Lo que hay que pedir de un insumo: hasta el ideal (o el doble del mínimo si no hay ideal),
 // redondeado hacia arriba a presentaciones completas cuando se sabe cuánto trae cada una.
 export function porPedir(insumo) {
-  const stock = Number(insumo.stock) || 0
+  const stock = stockTotal(insumo)
   const minimo = Number(insumo.min_stock) || 0
+  // Sin mínimo ni ideal no se pide (preparaciones caseras, cosas que no controla el jefe)
+  if (minimo <= 0 && !(Number(insumo.stock_ideal) > 0)) return null
   if (stock > minimo) return null
   const ideal = Number(insumo.stock_ideal) || minimo * 2 || 0
   const falta = Math.max(0, ideal - stock)
@@ -87,5 +94,5 @@ export function porPedir(insumo) {
 // "3 botella" → "3 botellas" (unidades cortas como ml, und o gr no cambian)
 export function plural(nombre, cantidad) {
   if (!nombre || Number(cantidad) === 1 || nombre.length <= 3 || /s$/i.test(nombre)) return nombre
-  return /[aeiouáéó]$/i.test(nombre) ? `${nombre}s` : `${nombre}es`
+  return /[aeiouáéók]$/i.test(nombre) ? `${nombre}s` : `${nombre}es`
 }

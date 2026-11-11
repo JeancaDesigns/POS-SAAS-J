@@ -114,13 +114,13 @@ export default function Analitica({ restaurantId }) {
     Promise.all([
       supabase.from('recipes').select('product_id, recipe_items(quantity, inventory_item:inventory_items(name, unit, cost, compra_cantidad, compra_precio))').eq('restaurant_id', restaurantId),
       supabase.from('products').select('id, name, price, active, available').eq('restaurant_id', restaurantId).eq('active', true),
-      supabase.from('inventory_items').select('stock, min_stock').eq('restaurant_id', restaurantId),
+      supabase.from('inventory_items').select('stock, stock_bodega, min_stock').eq('restaurant_id', restaurantId),
     ]).then(([{ data: recs }, { data: prods }, { data: ins }]) => {
       if (!vivo) return
       setExtras({
         recetas: Object.fromEntries((recs || []).map(r => [r.product_id, r.recipe_items])),
         productos: prods || [],
-        porPedir: (ins || []).filter(i => Number(i.stock) <= Number(i.min_stock) && Number(i.min_stock) > 0).length,
+        porPedir: (ins || []).filter(i => Number(i.stock) + Number(i.stock_bodega || 0) <= Number(i.min_stock) && Number(i.min_stock) > 0).length,
       })
     })
     return () => { vivo = false }

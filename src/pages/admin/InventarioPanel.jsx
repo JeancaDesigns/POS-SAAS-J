@@ -5,7 +5,7 @@ import { Package, Plus, Pencil, X, Trash2, ArrowUpDown, Search } from 'lucide-re
 import { avisar, confirmar } from '../../utils/dialogo'
 import Selector from '../../components/Selector'
 import { useRecarga } from '../../hooks/useRecarga'
-import { costoUnitario, costoReceta, enPresentaciones, porPedir, margen, TONO_MARGEN, pesos, num, plural, OZ_ML } from '../../utils/costeo'
+import { costoUnitario, costoReceta, enPresentaciones, porPedir, margen, TONO_MARGEN, pesos, num, plural, OZ_ML, stockTotal } from '../../utils/costeo'
 
 const inputClass = 'w-full h-11 rounded-xl px-3.5 bg-surface border border-zinc-300 text-[15px] text-zinc-900 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--brand-soft)] placeholder:text-zinc-400 transition-[border-color,box-shadow]'
 
@@ -13,6 +13,7 @@ export default function InventarioPanel() {
   const { user } = useAuthStore()
   const [view, setView] = useState('inventario')
   const [stockFilter, setStockFilter] = useState('all') // 'all' | 'low' | 'empty'
+  const [categoria, setCategoria] = useState('')
   const [query, setQuery] = useState('')
 
   // ── Inventario ───────────────────────────────────────────────────────────────
@@ -21,9 +22,10 @@ export default function InventarioPanel() {
   const [showItemModal, setShowItemModal] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
   const [movementModal, setMovementModal] = useState(null)
-  const FORM_VACIO = { name: '', stock: '', min_stock: '', stock_ideal: '', unit: 'ml', cost: '', compra_nombre: '', compra_cantidad: '', compra_precio: '' }
+  const FORM_VACIO = { name: '', stock: '', stock_bodega: '', min_stock: '', stock_ideal: '', unit: 'ml', cost: '', compra_nombre: '', compra_cantidad: '', compra_precio: '' }
   const [itemForm, setItemForm] = useState(FORM_VACIO)
-  const [movement, setMovement] = useState({ type: 'in', quantity: '', reason: '' })
+  const MOV_VACIO = { type: 'in', quantity: '', reason: '', ubicacion: 'bodega', enPres: true }
+  const [movement, setMovement] = useState(MOV_VACIO)
 
   // ── Recetas ──────────────────────────────────────────────────────────────────
   const [recipes, setRecipes] = useState([])
@@ -68,13 +70,14 @@ export default function InventarioPanel() {
     const payload = {
       name: itemForm.name.trim(),
       stock: Number(itemForm.stock) || 0,
+      stock_bodega: Number(itemForm.stock_bodega) || 0,
       min_stock: Number(itemForm.min_stock) || 0,
       stock_ideal: Number(itemForm.stock_ideal) || null,
       unit: itemForm.unit,
       ...compra,
       // costo por unidad: sale de la compra (botella $50.000 / 750 ml); si no, el que se escribió
       cost: compra.compra_precio && compra.compra_cantidad ? compra.compra_precio / compra.compra_cantidad : Number(itemForm.cost) || 0,
-      available: true,
+      available: (Number(itemForm.stock) || 0) > 0,
       restaurant_id: user.restaurant_id,
     }
     const { error } = editingItem
@@ -99,7 +102,7 @@ export default function InventarioPanel() {
   function openEditItem(item) {
     setEditingItem(item)
     setItemForm({
-      name: item.name, stock: item.stock ?? '', min_stock: item.min_stock ?? '', stock_ideal: item.stock_ideal ?? '',
+      name: item.name, stock: item.stock ?? '', stock_bodega: item.stock_bodega ?? '', min_stock: item.min_stock ?? '', stock_ideal: item.stock_ideal ?? '',
       unit: item.unit || 'und', cost: item.cost ?? '',
       compra_nombre: item.compra_nombre || '', compra_cantidad: item.compra_cantidad ?? '', compra_precio: item.compra_precio ?? '',
     })
@@ -108,31 +111,45 @@ export default function InventarioPanel() {
 
   async function registerMovement() {
     if (!movement.quantity || !movementModal) return
-    const qty = Number(movement.quantity)
+    // En botellas/bolsas… si el insumo tiene presentación: se guarda en su unidad (ml, und…)
+    const factor = movement.enPres && Number(movementModal.compra_cantidad) > 1 ? Number(movementModal.compra_cantidad) : 1
+    const qty = Number(movement.quantity) * factor
     if (!(qty >= 0)) { avisar('Cantidad inválida'); return }
-    // Stock leído justo antes: la cocina pudo descontar mientras el modal estaba abierto
+    // Stock leído justo antes: la caja pudo descontar mientras el modal estaba abierto
     const { data: fresh, error: readError } = await supabase
-      .from('inventory_items').select('stock').eq('id', movementModal.id).single()
+      .from('inventory_items').select('stock, stock_bodega').eq('id', movementModal.id).single()
     if (readError || !fresh) { avisar('No se pudo leer el stock actual'); return }
-    const currentStock = Number(fresh.stock)
-    let newStock = currentStock
-    if (movement.type === 'in')         newStock += qty
-    if (movement.type === 'out')        newStock -= qty
-    if (movement.type === 'adjustment') newStock  = qty
-    if (newStock < 0) newStock = 0
+    let barra = Number(fresh.stock) || 0
+    let bodega = Number(fresh.stock_bodega) || 0
+    const enBodega = movement.ubicacion === 'bodega'
+    if (movement.type === 'traslado') {
+      // ubicacion = de dónde sale
+      const disponible = enBodega ? bodega : barra
+      if (qty > disponible + 1e-9) { avisar(`En ${enBodega ? 'bodega' : 'barra'} solo hay ${num(disponible, 2)} ${movementModal.unit}`); return }
+      if (enBodega) { bodega -= qty; barra += qty } else { barra -= qty; bodega += qty }
+    } else {
+      let actual = enBodega ? bodega : barra
+      if (movement.type === 'in')         actual += qty
+      if (movement.type === 'out')        actual -= qty
+      if (movement.type === 'adjustment') actual  = qty
+      actual = Math.max(0, actual)
+      if (enBodega) bodega = actual; else barra = actual
+    }
 
     const { error: upError } = await supabase.from('inventory_items')
-      .update({ stock: newStock, available: newStock > 0 })
+      .update({ stock: barra, stock_bodega: bodega, available: barra > 0 })
       .eq('id', movementModal.id)
     if (upError) { avisar('No se pudo actualizar el stock: ' + upError.message); return }
     await supabase.from('inventory_movements').insert({
       item_id: movementModal.id,
       type: movement.type,
-      quantity: qty,
+      // traslado: positivo = hacia la barra
+      quantity: movement.type === 'traslado' && !enBodega ? -qty : qty,
+      ubicacion: movement.type === 'traslado' ? null : movement.ubicacion,
       reason: movement.reason || null,
     })
 
-    setMovement({ type: 'in', quantity: '', reason: '' })
+    setMovement(MOV_VACIO)
     setMovementModal(null)
     recargarItems()
   }
@@ -273,8 +290,8 @@ export default function InventarioPanel() {
   // ── Stats ─────────────────────────────────────────────────────────────────────
   const stats = useMemo(() => ({
     total: items.length,
-    low:   items.filter(i => i.stock <= i.min_stock && i.stock > 0).length,
-    empty: items.filter(i => i.stock <= 0).length,
+    low:   items.filter(i => stockTotal(i) <= i.min_stock && stockTotal(i) > 0).length,
+    empty: items.filter(i => stockTotal(i) <= 0).length,
   }), [items])
 
   // ── Productos sin receta (para el selector) ───────────────────────────────────
@@ -285,9 +302,11 @@ export default function InventarioPanel() {
   }, [products, recipes, editingRecipe])
 
   const q = query.trim().toLowerCase()
-  const levelOf = i => i.stock <= 0 ? 'empty' : i.stock <= i.min_stock ? 'low' : 'ok'
+  const levelOf = i => stockTotal(i) <= 0 ? 'empty' : stockTotal(i) <= i.min_stock ? 'low' : 'ok'
+  const categorias = [...new Set(items.map(i => i.categoria).filter(Boolean))].sort()
   const visibleItems = items
     .filter(i => stockFilter === 'all' || levelOf(i) === stockFilter)
+    .filter(i => !categoria || i.categoria === categoria)
     .filter(i => !q || i.name.toLowerCase().includes(q))
   const money = pesos
   // Lo que hay que pedir: insumos en el mínimo o por debajo, con cantidad sugerida
@@ -298,10 +317,17 @@ export default function InventarioPanel() {
     ...listaPedido.map(({ item, pedir }) => `• ${item.name}: ${num(pedir.cantidad, 2)} ${plural(pedir.unidad, pedir.cantidad)}`),
   ].join('\n')
   // Stock en unidades y, si se sabe la presentación, en botellas/bolsas…
-  const stockTexto = i => {
-    const pres = enPresentaciones(i, i.stock)
-    return `${num(i.stock, 2)} ${i.unit}${pres != null ? ` · ${num(pres)} ${plural(i.compra_nombre || 'pres.', num(pres))}` : ''}`
+  // Con presentación (botella de 750 ml) se muestra en botellas; si no, en su unidad
+  const cantTexto = (i, cant) => {
+    const pres = Number(i.compra_cantidad) > 1 ? enPresentaciones(i, cant) : null
+    return pres != null ? `${num(pres, 2)} ${plural(i.compra_nombre || 'pres.', pres)}` : `${num(cant, 2)} ${i.unit}`
   }
+  const stockTexto = i => {
+    const total = stockTotal(i)
+    const partes = Number(i.stock_bodega) > 0 ? ` (barra ${cantTexto(i, i.stock)} · bodega ${cantTexto(i, i.stock_bodega)})` : ''
+    return `${cantTexto(i, total)}${partes}`
+  }
+  const minTexto = i => cantTexto(i, i.min_stock)
 
   return (
     <div className="flex flex-col gap-4">
@@ -332,11 +358,17 @@ export default function InventarioPanel() {
             ))}
           </div>
 
-          <div className="flex gap-2">
-            <label className="flex-1 flex items-center gap-2 h-11 px-3 rounded-xl bg-surface border border-zinc-200 focus-within:border-[var(--brand)] transition-colors">
+          <div className="flex flex-wrap gap-2">
+            <label className="flex-1 min-w-[200px] flex items-center gap-2 h-11 px-3 rounded-xl bg-surface border border-zinc-200 focus-within:border-[var(--brand)] transition-colors">
               <Search size={17} className="text-zinc-400 shrink-0" aria-hidden="true" />
               <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar insumo" aria-label="Buscar insumo" className="flex-1 bg-transparent outline-none text-sm text-zinc-900 placeholder:text-zinc-400" />
             </label>
+            {categorias.length > 1 && (
+              <select value={categoria} onChange={e => setCategoria(e.target.value)} aria-label="Categoría" className="h-11 px-3 rounded-xl bg-surface border border-zinc-200 text-sm text-zinc-800 flex-1 sm:flex-none">
+                <option value="">Todas</option>
+                {categorias.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+              </select>
+            )}
             <button onClick={() => { resetItemForm(); setShowItemModal(true) }} className="h-11 px-4 rounded-xl bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white text-sm font-bold flex items-center gap-1.5 transition-colors shrink-0">
               <Plus size={16} aria-hidden="true" /> Insumo
             </button>
@@ -354,8 +386,8 @@ export default function InventarioPanel() {
               <ul className="divide-y divide-zinc-100">
                 {visibleItems.map(item => {
                   const level = levelOf(item)
-                  const ref = Math.max(Number(item.min_stock) * 2, Number(item.stock), 1)
-                  const pct = Math.max(0, Math.min(100, (Number(item.stock) / ref) * 100))
+                  const ref = Math.max(Number(item.min_stock) * 2, stockTotal(item), 1)
+                  const pct = Math.max(0, Math.min(100, (stockTotal(item) / ref) * 100))
                   return (
                     <li key={item.id} className="px-4 py-3 flex items-center gap-4">
                       <div className="flex-1 min-w-0">
@@ -371,7 +403,7 @@ export default function InventarioPanel() {
                           <div className="flex-1 max-w-[220px] h-1.5 rounded-full bg-zinc-100 overflow-hidden" aria-hidden="true">
                             <div className={`h-full rounded-full ${level === 'empty' ? 'bg-red-500' : level === 'low' ? 'bg-orange-500' : 'bg-[var(--brand)]'}`} style={{ width: `${pct}%` }} />
                           </div>
-                          <span className="text-xs text-zinc-500 font-mono tabular">{stockTexto(item)} · mín {num(item.min_stock, 2)}</span>
+                          <span className="text-xs text-zinc-500 font-mono tabular">{stockTexto(item)} · mín {minTexto(item)}</span>
                         </div>
                       </div>
                       <span className="hidden sm:block text-right w-32 shrink-0">
@@ -385,7 +417,7 @@ export default function InventarioPanel() {
                         )}
                       </span>
                       <div className="flex shrink-0">
-                        <button onClick={() => setMovementModal(item)} aria-label={`Registrar movimiento de ${item.name}`} className="h-9 px-2.5 rounded-lg flex items-center gap-1.5 text-xs font-bold text-[var(--brand-text)] hover:bg-[var(--brand-light)]">
+                        <button onClick={() => { setMovement(MOV_VACIO); setMovementModal(item) }} aria-label={`Registrar movimiento de ${item.name}`} className="h-9 px-2.5 rounded-lg flex items-center gap-1.5 text-xs font-bold text-[var(--brand-text)] hover:bg-[var(--brand-light)]">
                           <ArrowUpDown size={14} aria-hidden="true" /> <span className="hidden md:inline">Movimiento</span>
                         </button>
                         <button onClick={() => openEditItem(item)} aria-label={`Editar ${item.name}`} className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-500 hover:bg-zinc-100"><Pencil size={15} /></button>
@@ -415,7 +447,7 @@ export default function InventarioPanel() {
                   <li key={item.id} className="px-4 py-3 flex items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-zinc-900">{item.name}</p>
-                      <p className="text-xs text-zinc-500 font-mono tabular">Hay {stockTexto(item)} · mín {num(item.min_stock, 2)}</p>
+                      <p className="text-xs text-zinc-500 font-mono tabular">Hay {stockTexto(item)} · mín {minTexto(item)}</p>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-sm font-extrabold text-zinc-900 whitespace-nowrap">{num(pedir.cantidad, 2)} {plural(pedir.unidad, pedir.cantidad)}</p>
@@ -564,13 +596,21 @@ export default function InventarioPanel() {
                 )}
               </fieldset>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <label className="flex flex-col gap-1">
-                  <span className="text-xs font-semibold text-zinc-500">Hay ({itemForm.unit})</span>
+                  <span className="text-xs font-semibold text-zinc-500">En barra ({itemForm.unit})</span>
                   <input type="number" inputMode="decimal" placeholder="0" value={itemForm.stock}
                     onChange={e => setItemForm({ ...itemForm, stock: e.target.value })}
                     className={`${inputClass} font-mono`} />
                 </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-zinc-500">En bodega ({itemForm.unit})</span>
+                  <input type="number" inputMode="decimal" placeholder="0" value={itemForm.stock_bodega}
+                    onChange={e => setItemForm({ ...itemForm, stock_bodega: e.target.value })}
+                    className={`${inputClass} font-mono`} />
+                </label>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
                 <label className="flex flex-col gap-1">
                   <span className="text-xs font-semibold text-zinc-500">Pedir con ({itemForm.unit})</span>
                   <input type="number" inputMode="decimal" placeholder="mínimo" value={itemForm.min_stock}
@@ -584,8 +624,8 @@ export default function InventarioPanel() {
                     className={`${inputClass} font-mono`} />
                 </label>
               </div>
-              {Number(itemForm.compra_cantidad) > 0 && Number(itemForm.stock) > 0 && (
-                <p className="text-xs text-zinc-500 -mt-1">Hay {num(Number(itemForm.stock) / Number(itemForm.compra_cantidad))} {itemForm.compra_nombre || 'presentaciones'}.</p>
+              {Number(itemForm.compra_cantidad) > 1 && (Number(itemForm.stock) > 0 || Number(itemForm.stock_bodega) > 0) && (
+                <p className="text-xs text-zinc-500 -mt-1">Hay {num((Number(itemForm.stock) + Number(itemForm.stock_bodega || 0)) / Number(itemForm.compra_cantidad), 2)} {itemForm.compra_nombre || 'presentaciones'} en total.</p>
               )}
             </div>
             <div className="flex gap-3 mt-6">
@@ -618,13 +658,15 @@ export default function InventarioPanel() {
               </button>
             </div>
             <div className="space-y-3">
-              <div className="grid grid-cols-3 gap-2">
+              <p className="text-xs text-zinc-500 font-mono">Hay {stockTexto(movementModal)}</p>
+              <div className="grid grid-cols-4 gap-2">
                 {[
-                  { key: 'in',         label: 'Entrada' },
-                  { key: 'out',        label: 'Salida'  },
-                  { key: 'adjustment', label: 'Ajuste'  },
+                  { key: 'in',         label: 'Entrada', ubicacion: 'bodega' },
+                  { key: 'out',        label: 'Salida',  ubicacion: 'barra' },
+                  { key: 'adjustment', label: 'Ajuste',  ubicacion: 'barra' },
+                  { key: 'traslado',   label: 'Pasar',   ubicacion: 'bodega' },
                 ].map(opt => (
-                  <button key={opt.key} onClick={() => setMovement({ ...movement, type: opt.key })}
+                  <button key={opt.key} onClick={() => setMovement({ ...movement, type: opt.key, ubicacion: opt.ubicacion })}
                     className={`py-2.5 rounded-xl text-sm font-semibold border transition-all duration-200
                       ${movement.type === opt.key
                         ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
@@ -634,9 +676,28 @@ export default function InventarioPanel() {
                   </button>
                 ))}
               </div>
-              <input type="number" placeholder="Cantidad" value={movement.quantity}
-                onChange={e => setMovement({ ...movement, quantity: e.target.value })}
-                className={inputClass} />
+              <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Ubicación">
+                {(movement.type === 'traslado'
+                  ? [['bodega', 'Bodega → Barra'], ['barra', 'Barra → Bodega']]
+                  : [['barra', 'Barra'], ['bodega', 'Bodega']]
+                ).map(([k, l]) => (
+                  <button key={k} role="radio" aria-checked={movement.ubicacion === k} onClick={() => setMovement({ ...movement, ubicacion: k })}
+                    className={`py-2 rounded-xl text-sm font-semibold border ${movement.ubicacion === k ? 'border-[var(--brand)] bg-[var(--brand-light)] text-zinc-900' : 'border-zinc-200 text-zinc-500'}`}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input type="number" inputMode="decimal" placeholder={movement.type === 'adjustment' ? 'Cantidad real' : 'Cantidad'} value={movement.quantity}
+                  onChange={e => setMovement({ ...movement, quantity: e.target.value })}
+                  className={inputClass} />
+                {Number(movementModal.compra_cantidad) > 1 && (
+                  <button onClick={() => setMovement({ ...movement, enPres: !movement.enPres })}
+                    className="h-11 px-3 shrink-0 rounded-xl border border-zinc-300 text-sm font-bold text-zinc-700 whitespace-nowrap">
+                    {movement.enPres ? plural(movementModal.compra_nombre || 'pres.', 2) : movementModal.unit}
+                  </button>
+                )}
+              </div>
               <input placeholder="Motivo (opcional)" value={movement.reason}
                 onChange={e => setMovement({ ...movement, reason: e.target.value })}
                 className={inputClass} />

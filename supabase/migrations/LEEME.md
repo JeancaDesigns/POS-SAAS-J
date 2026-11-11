@@ -159,3 +159,13 @@ de la cuenta de Resend); con un dominio propio verificado, poner `REPORTE_REMITE
   Quincenas 1–15 y 16–fin; el turno cuenta en el día en que empezó (corte 3:00 a. m.).
 - Probada en un Postgres local con tablas mínimas: 28 casos (mesero/cajero/admin/otro restaurante/anónimo, código
   vencido o rotado, doble marcación, ubicación lejos, correcciones con motivo, RLS).
+
+**2100 (2026-11-11): Barra y Bodega.** `inventory_items.stock` = lo que hay en barra (de ahí descuentan las ventas),
+`stock_bodega` = bodega. "Por pedir" y los avisos miran el total. Movimientos con `ubicacion` y tipo `traslado`
+(quantity positiva = de bodega a barra). `clave` (único por restaurante) y `categoria` para importar sin duplicar.
+
+**2200 (2026-11-11): inventario y recetas de Social**, generado con
+`node scripts/importar-social.mjs ../gestion-personal/bar` desde los CSV de gestion-personal: 148 insumos (licores y
+siropes en ml, lo demás por unidad; mínimo e ideal del CSV) y 71 recetas (cócteles, batidos, sodas, shots de 57 ml,
+botellas, cervezas, gaseosas y comida). Stock 0 hasta el primer conteo; costos de compra vacíos. Solo llena recetas sin
+ingredientes y no duplica insumos. Los supuestos (tamaños de botella, "top", "y 3") van al final del archivo.
