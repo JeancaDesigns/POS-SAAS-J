@@ -169,3 +169,9 @@ de la cuenta de Resend); con un dominio propio verificado, poner `REPORTE_REMITE
 siropes en ml, lo demás por unidad; mínimo e ideal del CSV) y 71 recetas (cócteles, batidos, sodas, shots de 57 ml,
 botellas, cervezas, gaseosas y comida). Stock 0 hasta el primer conteo; costos de compra vacíos. Solo llena recetas sin
 ingredientes y no duplica insumos. Los supuestos (tamaños de botella, "top", "y 3") van al final del archivo.
+
+**2300 (2026-11-11): bajas y conteos.** `dar_de_baja(producto o insumo, cantidad, motivo, nota)` descuenta la receta
+(o el insumo) de la barra —y de bodega si en barra no alcanza— sin tocar ventas ni caja; guarda costo estimado y detalle
+en `inventory_bajas` (motivos: personal, cortesia, dano, vencido, otro). `anular_baja` (admin) lo devuelve a la barra.
+`guardar_conteo(barra|bodega, [{id, contado}], nota)` (admin) deja el stock en lo contado y guarda esperado, contado,
+diferencia y su valor en `inventory_conteos` / `inventory_conteo_items`. Probado en Postgres local (13 casos).
