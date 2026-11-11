@@ -1,5 +1,5 @@
 -- ============================================================================
--- Control de turnos (asistencia) con QR de la caja (2026-11-10). NO APLICADA aún.
+-- Control de turnos (asistencia) con QR de la caja (2026-11-10). La aplica la acción migraciones.yml.
 --
 -- Cómo funciona:
 -- 1. La caja (cajero/admin con el POS abierto) muestra un QR que cambia cada 30 s
@@ -103,7 +103,7 @@ grant execute on function public.current_user_id() to authenticated;
 
 -- Distancia en metros entre dos puntos (haversine)
 create or replace function public._distancia_m(lat1 float8, lng1 float8, lat2 float8, lng2 float8)
-returns float8 language sql immutable as $$
+returns float8 language sql immutable set search_path = public as $$
   select 2 * 6371000 * asin(sqrt(
     power(sin(radians(lat2 - lat1) / 2), 2) +
     cos(radians(lat1)) * cos(radians(lat2)) * power(sin(radians(lng2 - lng1) / 2), 2)
