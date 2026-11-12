@@ -19,6 +19,7 @@ export default function CajaPanel() {
   const [movementType, setMovementType] = useState('income')
   const [movements, setMovements] = useState([])
   const [closingAmount, setClosingAmount] = useState('')
+  const [justificacion, setJustificacion] = useState('')
   const [history, setHistory] = useState([])
   // Solo el efectivo entra al cajón; las transferencias se muestran aparte
   const [cashSales, setCashSales] = useState(0)
@@ -136,6 +137,10 @@ export default function CajaPanel() {
     const expectedFinal = computedExpected
 
     const difference = counted - expectedFinal
+    if (difference !== 0 && justificacion.trim().length < 5) {
+      avisar('La caja no cuadra: escribe por qué (ej.: un pago en efectivo llegó por Nequi, se pagó un domicilio…). Si fue un pago mal marcado, corrígelo en Caja › Historial de hoy › Corregir.', { titulo: 'Falta la justificación' })
+      return
+    }
     const confirmed = await confirmar(
       `Diferencia contra lo esperado: ${difference >= 0 ? '+' : ''}$${difference.toLocaleString('es-CO')}`,
       { titulo: '¿Cerrar la caja?', aceptar: 'Cerrar caja', peligro: false }
@@ -149,6 +154,7 @@ export default function CajaPanel() {
         closing_amount: counted,
         expected_amount: expectedFinal,
         difference_amount: difference,
+        notes: justificacion.trim() || null,
       })
       .eq('id', cashRegister.id)
     if (error) { console.error(error); avisar(error.message); return }
@@ -172,6 +178,7 @@ export default function CajaPanel() {
     setCashSales(0)
     setTransferSales(0)
     setClosingAmount('')
+    setJustificacion('')
     await recargar()
 
     ofrecerImpresion('alCerrarCaja', resumen, { titulo: 'Caja cerrada', mensaje: '¿Imprimir el resumen del cierre?' })
@@ -190,6 +197,7 @@ export default function CajaPanel() {
         description: movementDescription.trim(),
       })
     if (error) { console.error(error); avisar(error.message); return }
+    abrirCajon() // entra o sale efectivo del cajón
     setMovementAmount('')
     setMovementDescription('')
     await recargar()
@@ -316,6 +324,15 @@ export default function CajaPanel() {
                   </div>
                 </div>
               </div>
+              {diff != null && diff !== 0 && (
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-sm font-bold text-zinc-700">¿Por qué no cuadra? <span className="font-normal text-zinc-500">(obligatorio, llega en el correo del cierre)</span></span>
+                  <textarea value={justificacion} onChange={e => setJustificacion(e.target.value)} rows={2}
+                    placeholder="Ej.: un pago de $20.000 se marcó en efectivo pero llegó por Nequi"
+                    className={`${field} h-auto py-2.5`} />
+                  <span className="text-xs text-zinc-500">Si un pago quedó con el método equivocado, el admin lo corrige en Caja › Historial de hoy › Corregir, y la diferencia se arregla sola.</span>
+                </label>
+              )}
               <button onClick={closeCash} className="self-start h-12 px-6 rounded-xl bg-[#DC2626] hover:bg-[#B91C1C] text-white text-sm font-bold transition-colors">
                 Cerrar caja
               </button>
@@ -341,6 +358,7 @@ export default function CajaPanel() {
                     <p className="text-xs text-zinc-500 font-mono tabular">
                       {open ? 'Abierta' : `${money(item.closing_amount)} de ${money(item.expected_amount)}`}
                     </p>
+                    {item.notes && <p className="text-xs text-zinc-600 mt-0.5">📝 {item.notes}</p>}
                   </div>
                   {!open && (
                     <span className={`font-mono text-sm font-semibold tabular ${d === 0 ? 'text-green-700' : d > 0 ? 'text-blue-700' : 'text-red-600'}`}>

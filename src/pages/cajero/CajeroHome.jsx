@@ -18,6 +18,7 @@ import { useCajaResumen } from '../../hooks/useCajaResumen'
 import { Bell, Search, Printer, QrCode } from 'lucide-react'
 import QrTurnos from '../../components/QrTurnos'
 import DarDeBaja from '../../components/DarDeBaja'
+import CorregirPago from '../../components/CorregirPago'
 import { usePorPedir } from '../../hooks/usePorPedir'
 import { PackageMinus } from 'lucide-react'
 import { avisar, confirmar } from '../../utils/dialogo'
@@ -218,6 +219,7 @@ export default function CajeroHome() {
   const { user, slug, modules } = useAuthStore()
   const [qrTurnos, setQrTurnos] = useState(false)
   const [bajaAbierta, setBajaAbierta] = useState(false)
+  const [corrigiendo, setCorrigiendo] = useState(null)
   const [bajas, setBajas] = useState(0)
   const restaurante = restauranteTicket()
   const { orders, refetch } = useCajaOrders(user?.restaurant_id)
@@ -960,6 +962,7 @@ export default function CajeroHome() {
                   <span className="font-mono text-sm font-semibold text-zinc-900 tabular">{money(payment.total)}</span>
                   <div className="flex items-center gap-3">
                     <button onClick={() => reimprimir(payment)} className="text-xs font-bold text-zinc-600 hover:underline">Reimprimir</button>
+                    {canDiscount && <button onClick={() => setCorrigiendo(payment)} className="text-xs font-bold text-[var(--brand-text)] hover:underline">Corregir</button>}
                     <button onClick={() => handleVoid(payment)} className="text-xs font-bold text-red-600 hover:underline">Anular</button>
                   </div>
                 </div>
@@ -1373,6 +1376,7 @@ export default function CajeroHome() {
 
 
       {/* ── Modal notificaciones ── */}
+      {corrigiendo && <CorregirPago pago={corrigiendo} onClose={() => setCorrigiendo(null)} onListo={() => { recargarHistorial(); caja.refresh() }} />}
       {bajaAbierta && <DarDeBaja restaurantId={user.restaurant_id} onClose={() => setBajaAbierta(false)} onListo={() => setBajas(b => b + 1)} />}
       {qrTurnos && <QrTurnos restaurantId={user.restaurant_id} slug={slug} onClose={() => setQrTurnos(false)} />}
 
