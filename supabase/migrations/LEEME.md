@@ -182,3 +182,10 @@ diferencia y su valor en `inventory_conteos` / `inventory_conteo_items`. Probado
 `marcar_compra(item, comprado|no_habia|pendiente, cantidad en presentaciones, precio total, nota, barra|bodega)` (admin)
 suma lo comprado al inventario y actualiza el precio de compra; volver a pendiente lo deshace. `cerrar_lista_compras`.
 Pantalla `/:slug/compras` (pestaña Compras del admin). Probado en Postgres local (12 casos).
+
+**2500 (2026-11-12): caja.** `corregir_pago(pago, efectivo, transferencia, propina efectivo, propina transferencia, motivo)`
+(solo admin): cambia el método sin cambiar el total; queda en `pagos_ajustes`. El POS exige justificación
+(`cash_registers.notes`) al cerrar con diferencia. Trigger `cash_registers_correo_cierre`: al cerrar, pg_net llama la
+Edge Function `cierre-caja` (desplegada 2026-11-12 por el conector, `verify_jwt` false; valida el token del Vault
+`reporte_cron_token`) que manda el resumen a `restaurants.reporte_correo`. Las Edge Functions NO las publica la acción
+de GitHub: se publican con el conector de Supabase o `supabase functions deploy`.
