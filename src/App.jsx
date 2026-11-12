@@ -12,6 +12,7 @@ import AdminHome from './pages/admin/AdminHome'
 import PedidoPublico from './pages/pedir/PedidoPublico'
 import DomiciliarioHome from './pages/domiciliario/DomiciliarioHome'
 import MiTurno from './pages/turno/MiTurno'
+import ComprasHome from './pages/compras/ComprasHome'
 import RestaurantSelector from './pages/RestaurantSelector'
 import NavBar from './components/NavBar'
 import StatusDrawer from './components/StatusDrawer'
@@ -216,6 +217,14 @@ export default function App() {
             <SlugGuard>
               <ProtectedRoute>
                 <MiTurno />
+              </ProtectedRoute>
+            </SlugGuard>
+          } />
+
+          <Route path="/:slug/compras" element={
+            <SlugGuard>
+              <ProtectedRoute roles={['admin', 'cajero']}>
+                <ComprasHome />
               </ProtectedRoute>
             </SlugGuard>
           } />

@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore, signOutAndClear } from '../store/authStore'
 import {
-  UtensilsCrossed, Wallet, ChefHat, Bike, Settings, LogOut, Clock,
+  UtensilsCrossed, Wallet, ChefHat, Bike, Settings, LogOut, Clock, ShoppingCart,
 } from 'lucide-react'
 import { confirmar } from '../utils/dialogo'
 
@@ -11,11 +11,12 @@ const NAV_ITEMS = {
   cocina: { path: 'cocina', label: 'Cocina', icon: ChefHat },
   domiciliario: { path: 'domiciliario', label: 'Domis', icon: Bike },
   turno: { path: 'turno', label: 'Turno', icon: Clock, modulo: 'asistencia' },
+  compras: { path: 'compras', label: 'Compras', icon: ShoppingCart, modulo: 'compras' },
   admin: { path: 'admin', label: 'Admin', icon: Settings },
 }
 
 const ROLE_TABS = {
-  admin: ['mesero', 'caja', 'cocina', 'domiciliario', 'turno', 'admin'],
+  admin: ['mesero', 'caja', 'cocina', 'domiciliario', 'turno', 'compras', 'admin'],
   cajero: ['mesero', 'caja', 'cocina', 'turno'],
   mesero: ['mesero', 'cocina', 'turno'],
   cocina: ['cocina', 'turno'],
