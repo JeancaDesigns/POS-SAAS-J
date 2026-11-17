@@ -117,6 +117,11 @@ export default function Login() {
     else if (profile.roles.includes('admin')) navigate(`/${slug}/admin`)
     else if (profile.roles.includes('domiciliario')) navigate(`/${slug}/domiciliario`)
     else if (profile.roles.includes('dev')) navigate(`/${slug}/admin`)
+    else if (profile.roles.includes('contadora')) {
+      // La contadora usa su propia app (contable/), no el POS
+      setError('Esta cuenta es de Social Contable: entra por la app de contabilidad, no por el POS.')
+      await signOutAndClear()
+    }
     else {
       // Sin ningún rol válido la pantalla se quedaba quieta, sin mensaje
       setError('Este usuario no tiene un rol asignado. Pide a un administrador que te asigne uno.')
