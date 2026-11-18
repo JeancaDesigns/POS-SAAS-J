@@ -1,154 +1,251 @@
 import { useState } from 'react'
-import { supabase } from '../supabase.js'
-import { nominaDe, hojaNomina, hojaTurnos } from '../datos.js'
-import { diaBonito, diaJornada, horaCO, conPuntos, mensajeError, hoyCO } from '../util.js'
-import { quincenaDe, quincenaAnterior, quincenaSiguiente, nombreQuincena, horas } from '../../../src/utils/asistencia.js'
-import { descargarExcel } from '../xlsx.js'
 import { useCarga } from '../useCarga.js'
-import { Estado, Dinero, BotonExcel } from '../comunes.jsx'
+import { empleados as leerEmpleados, guardarEmpleado, nominaDe, guardarNomina, lineaNomina, calcularLinea, hojaNomina } from '../datos.js'
+import { quincenaDe, quincenaAnterior, quincenaSiguiente, nombreQuincena, hoyCO, conPuntos, aNumero, num, dinero, mensajeError, momento } from '../util.js'
+import { descargarExcel } from '../xlsx.js'
+import Icono from '../iconos.jsx'
+import { Cabecera, SelectorPeriodo, Estado, Dinero, BotonExcel, Vacio, Dialogo, Confirmar, Campo, CampoDinero, Insignia } from '../ui.jsx'
+import { useAviso } from '../avisos.js'
 
-const ESTADOS = { borrador: 'Borrador', validada: 'Validada por el jefe', pagada: 'Pagada' }
+export default function Nomina({ perfil, puedeValidar }) {
+  const [vista, setVista] = useState('quincena')
+  const pestanas = (
+    <div className="pestanas-internas" role="tablist">
+      <button role="tab" aria-selected={vista === 'quincena'} className={vista === 'quincena' ? 'activo' : ''} onClick={() => setVista('quincena')}>Liquidación quincenal</button>
+      <button role="tab" aria-selected={vista === 'personal'} className={vista === 'personal' ? 'activo' : ''} onClick={() => setVista('personal')}>Personal</button>
+    </div>
+  )
+  return vista === 'quincena'
+    ? <Quincena perfil={perfil} puedeValidar={puedeValidar} pestanas={pestanas} irPersonal={() => setVista('personal')} />
+    : <Personal pestanas={pestanas} />
+}
 
-export default function Nomina({ rest, perfil, esJefe }) {
+// ── Liquidación de una quincena ─────────────────────────────────────────────
+function Quincena({ puedeValidar, irPersonal, pestanas }) {
+  const avisar = useAviso()
   const [q, setQ] = useState(() => quincenaDe(hoyCO()))
-  const carga = useCarga(() => nominaDe(rest, q), [rest.id, q.desde])
-  const n = carga.datos
-  // Ajustes escritos (por empleado). Se reinician cuando llegan datos nuevos de la quincena.
-  const [escritos, setEscritos] = useState({ para: null, valores: {} })
-  const [abierto, setAbierto] = useState(null)
-  const [guardando, setGuardando] = useState(false)
-  const [error, setError] = useState('')
-  const [aviso, setAviso] = useState('')
+  const carga = useCarga(async () => {
+    const [lista, guardada] = await Promise.all([leerEmpleados(), nominaDe(q)])
+    return { lista, guardada }
+  }, [q.desde])
+  const [borrador, setBorrador] = useState({ para: null, lineas: [] })
+  const [ocupado, setOcupado] = useState(false)
+  const [confirmar, setConfirmar] = useState(null)
+  const d = carga.datos
 
-  const ajustes = escritos.para === n ? escritos.valores
-    : Object.fromEntries((n?.filas || []).map(f => [f.empleado.id, { ajuste: f.ajuste ? String(f.ajuste) : '', nota: f.nota }]))
-  const setAjuste = (id, k, v) => setEscritos({ para: n, valores: { ...ajustes, [id]: { ...ajustes[id], [k]: v } } })
+  // Líneas: las guardadas (fotografía de la quincena) o, si no hay, una por empleado activo
+  const base = d ? (d.guardada
+    ? d.guardada.detalle.map(l => calcularLinea(l))
+    : d.lista.filter(e => e.activo).map(e => lineaNomina(e))) : []
+  const lineas = borrador.para === d ? borrador.lineas : base
+  const estado = d?.guardada?.estado || null
+  const bloqueada = estado === 'pagada' || (estado === 'validada' && !puedeValidar)
+  const total = lineas.reduce((s, l) => s + num(l.total), 0)
+  const cambiado = borrador.para === d && borrador.para !== null
+  const faltantes = d ? d.lista.filter(e => e.activo && !lineas.some(l => l.empleado_id === e.id)) : []
 
-  const estado = n?.guardada?.estado || null
-  const bloqueada = estado && estado !== 'borrador' && !esJefe
-  const filas = (n?.filas || []).map(f => {
-    const a = ajustes[f.empleado.id] || { ajuste: '', nota: '' }
-    const ajuste = Number(String(a.ajuste).replace(/[^\d-]/g, '').replace(/(?!^)-/g, '')) || 0
-    return { ...f, ajuste, ajusteTxt: a.ajuste, nota: a.nota, pagar: f.total + ajuste }
-  })
-  const total = filas.reduce((s, f) => s + f.pagar, 0)
-  const sinTarifa = filas.filter(f => f.turnos > 0 && !(n.modo === 'hora' ? Number(f.empleado.pago_hora) : Number(f.empleado.pago_turno)))
+  const editar = (i, k, v) => {
+    const nuevas = lineas.map((l, j) => (j === i ? calcularLinea({ ...l, [k]: v }) : l))
+    setBorrador({ para: d, lineas: nuevas })
+  }
+  const agregar = e => setBorrador({ para: d, lineas: [...lineas, lineaNomina(e)] })
+  const quitar = i => setBorrador({ para: d, lineas: lineas.filter((_, j) => j !== i) })
 
   async function guardar(nuevoEstado) {
-    setGuardando(true); setError(''); setAviso('')
+    setOcupado(true)
     try {
-      const detalle = filas.map(f => ({
-        user_id: f.empleado.id, nombre: f.empleado.name, dias: f.dias, horas: Math.round(f.horas * 100) / 100,
-        calculado: f.total, ajuste: f.ajuste, nota: f.nota || '', total: f.pagar,
-      }))
-      const fila = { restaurant_id: rest.id, desde: q.desde, hasta: q.hasta, detalle, total, estado: nuevoEstado }
-      if (!n.guardada || n.guardada.estado === 'borrador') Object.assign(fila, { preparada_por: perfil.id, preparada_en: new Date().toISOString() })
-      const { error } = await supabase.from('nomina_quincenas').upsert(fila, { onConflict: 'restaurant_id,desde' })
-      if (error) throw error
-      setAviso(nuevoEstado === 'validada' ? 'Nómina validada.' : nuevoEstado === 'pagada' ? 'Marcada como pagada.' : 'Guardada. El jefe la puede revisar y validar.')
+      await guardarNomina({ desde: q.desde, hasta: q.hasta, estado: nuevoEstado, detalle: lineas, total })
+      avisar({ borrador: 'Liquidación guardada', validada: 'Nómina validada', pagada: 'Nómina marcada como pagada' }[nuevoEstado])
+      setBorrador({ para: null, lineas: [] })
       carga.recargar()
-    } catch (e) { setError(mensajeError(e)) }
-    setGuardando(false)
+    } catch (e) { avisar(mensajeError(e), 'error') }
+    setOcupado(false)
+    setConfirmar(null)
   }
 
-  const cambiarQ = nq => { setQ(nq); setError(''); setAviso('') }
-
   return (
     <>
-      <div className="selector-mes">
-        <button onClick={() => cambiarQ(quincenaAnterior(q))} aria-label="Quincena anterior">‹</button>
-        <b>Quincena {nombreQuincena(q)}</b>
-        <button onClick={() => cambiarQ(quincenaSiguiente(q))} disabled={q.hasta >= hoyCO()} aria-label="Quincena siguiente">›</button>
-      </div>
+      <Cabecera titulo="Nómina" descripcion="Liquidación por quincena. Contabilidad la prepara y la gerencia la valida.">
+        <SelectorPeriodo texto={nombreQuincena(q)} onAnterior={() => { setQ(quincenaAnterior(q)); setBorrador({ para: null, lineas: [] }) }} onSiguiente={() => { setQ(quincenaSiguiente(q)); setBorrador({ para: null, lineas: [] }) }} sinSiguiente={q.hasta >= hoyCO() && q.desde <= hoyCO()} />
+        {d?.guardada && <BotonExcel onClick={() => descargarExcel([{ ...hojaNomina([{ q, nomina: { ...d.guardada, detalle: lineas } }]), titulo: `Nómina — ${nombreQuincena(q)}` }], `Social - Nomina ${q.desde}`)} />}
+      </Cabecera>
+      {pestanas}
+
       <Estado carga={carga}>
-        {n && <>
-          <div className="barra-acciones">
-            <p className="suave">
-              Sale de los turnos que cada uno marca en el POS (QR de la caja). {n.modo === 'hora' ? 'Pago por hora, con recargos nocturnos y festivos.' : 'Pago por turno trabajado.'}
-              {estado && <> · <span className={`etiqueta ${estado}`}>{ESTADOS[estado]}</span></>}
-            </p>
-            <BotonExcel onClick={() => descargarExcel([hojaNomina([{ ...n, filas, total }]), hojaTurnos([n])], `Social nómina ${q.desde} a ${q.hasta}`)} />
-          </div>
+        {d && <div className={carga.cargando ? 'actualizando' : ''}>
+          <section className="estado-nomina">
+            <div>
+              <span className="ind-etiqueta">Estado</span>
+              <Insignia estado={estado || 'pendiente'} />
+            </div>
+            <div>
+              <span className="ind-etiqueta">Total a pagar</span>
+              <Dinero v={total} className="ind-valor" />
+            </div>
+            <div className="auditoria-nomina">
+              {d.guardada?.validada_en && <span><Icono n="sello" tam={16} />Validada {momento(d.guardada.validada_en)}</span>}
+              {d.guardada?.pagada_en && <span><Icono n="check" tam={16} />Pagada {momento(d.guardada.pagada_en)}</span>}
+              {d.guardada && !d.guardada.validada_en && <span>Guardada {momento(d.guardada.actualizado)}</span>}
+            </div>
+          </section>
 
-          {sinTarifa.length > 0 && <p className="aviso">Falta el valor del {n.modo === 'hora' ? 'pago por hora' : 'pago por turno'} de {sinTarifa.map(f => f.empleado.name).join(', ')}. Se pone en el POS: Admin › Turnos.</p>}
-          {filas.length === 0 && <p className="tarjeta suave">No hay turnos en esta quincena.</p>}
+          {d.lista.length === 0
+            ? <Vacio icono="nomina" titulo="Aún no hay personal registrado" texto="Agregue a cada empleado con su cargo y cómo se le paga (por turno o fijo quincenal)." accion={<button className="btn primario" onClick={irPersonal}><Icono n="mas" tam={18} />Agregar personal</button>} />
+            : <section className="panel sin-relleno">
+                <table className="tabla nomina">
+                  <thead><tr><th>Empleado</th><th className="num">Turnos</th><th className="num">Valor</th><th className="num">Base</th><th className="num">Bonificaciones</th><th className="num">Descuentos</th><th className="num">Total</th>{!bloqueada && <th aria-label="Quitar" />}</tr></thead>
+                  <tbody>
+                    {lineas.map((l, i) => (
+                      <tr key={l.empleado_id || i}>
+                        <td className="empleado"><b>{l.nombre}</b><small className="sub">{[l.cargo, l.modalidad === 'turno' ? 'Por turno' : 'Fijo quincenal'].filter(Boolean).join(' · ')}</small>
+                          {!bloqueada ? <input className="nota-linea" placeholder="Agregar observación" value={l.nota || ''} onChange={e => editar(i, 'nota', e.target.value)} />
+                            : l.nota && <small className="nota-ver">{l.nota}</small>}
+                        </td>
+                        <td className="num" data-l="Turnos">{l.modalidad === 'turno'
+                          ? (bloqueada ? num(l.turnos) : <input className="celda-num corta" inputMode="decimal" value={l.turnos ?? ''} placeholder="0" onChange={e => editar(i, 'turnos', e.target.value.replace(/[^\d.,]/g, '').replace(',', '.'))} aria-label={`Turnos de ${l.nombre}`} />)
+                          : <span className="tenue">—</span>}</td>
+                        <td className="num" data-l={l.modalidad === 'turno' ? 'Valor turno' : 'Fijo'}><Dinero v={l.valor} /></td>
+                        <td className="num" data-l="Base"><Dinero v={l.base} /></td>
+                        <td className="num" data-l="Bonificaciones">{bloqueada ? <Dinero v={l.bonos} /> : <CeldaDinero valor={l.bonos} onCambio={v => editar(i, 'bonos', v)} etiqueta={`Bonificaciones de ${l.nombre}`} />}</td>
+                        <td className="num" data-l="Descuentos">{bloqueada ? <Dinero v={-num(l.descuentos)} /> : <CeldaDinero valor={l.descuentos} onCambio={v => editar(i, 'descuentos', v)} etiqueta={`Descuentos de ${l.nombre}`} />}</td>
+                        <td className="num fuerte" data-l="Total"><Dinero v={l.total} /></td>
+                        {!bloqueada && <td className="acc"><button className="btn-icono tenue" title="Quitar de esta quincena" aria-label={`Quitar a ${l.nombre}`} onClick={() => quitar(i)}><Icono n="cerrar" tam={16} /></button></td>}
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot><tr>
+                    <td>Total quincena</td><td /><td /><td className="num"><Dinero v={lineas.reduce((s, l) => s + num(l.base), 0)} /></td>
+                    <td className="num"><Dinero v={lineas.reduce((s, l) => s + num(l.bonos), 0)} /></td><td className="num"><Dinero v={-lineas.reduce((s, l) => s + num(l.descuentos), 0)} /></td>
+                    <td className="num total-final"><Dinero v={total} /></td>{!bloqueada && <td />}
+                  </tr></tfoot>
+                </table>
+              </section>}
 
-          {filas.length > 0 && (
-            <section className="tarjeta sin-relleno">
-              <table className="tabla nomina">
-                <thead><tr><th>Empleado</th><th className="num">Días</th><th className="num">Horas</th><th className="num">Calculado</th><th className="num">Ajuste</th><th className="num">A pagar</th></tr></thead>
-                <tbody>
-                  {filas.map(f => (
-                    <FilaEmpleado key={f.empleado.id} f={f} n={n} bloqueada={bloqueada} abierto={abierto === f.empleado.id}
-                      onAbrir={() => setAbierto(abierto === f.empleado.id ? null : f.empleado.id)}
-                      onAjuste={(k, v) => setAjuste(f.empleado.id, k, v)} />
-                  ))}
-                </tbody>
-                <tfoot><tr><td>Total a pagar</td><td className="vacia" /><td className="vacia" /><td className="num" data-l="Calculado"><Dinero v={filas.reduce((s, f) => s + f.total, 0)} /></td><td className="num" data-l="Ajustes"><Dinero v={filas.reduce((s, f) => s + f.ajuste, 0)} /></td><td className="num" data-l="A pagar"><Dinero v={total} /></td></tr></tfoot>
-              </table>
-            </section>
+          {!bloqueada && faltantes.length > 0 && (
+            <div className="agregar-linea">
+              <span className="tenue">Agregar a la liquidación:</span>
+              {faltantes.map(e => <button key={e.id} className="ficha" onClick={() => agregar(e)}>{e.nombre}<Icono n="mas" tam={14} /></button>)}
+            </div>
           )}
 
-          {n.guardada?.validada_en && <p className="suave chico">Validada el {diaBonito(n.guardada.validada_en.slice(0, 10))} a las {horaCO(n.guardada.validada_en)}.</p>}
-          {error && <p className="aviso error">{error}</p>}
-          {aviso && <p className="aviso ok">{aviso}</p>}
-
-          {filas.length > 0 && <div className="botones">
-            {!bloqueada && estado !== 'pagada' && <button className="btn" disabled={guardando} onClick={() => guardar(estado === 'validada' && esJefe ? 'validada' : 'borrador')}>{guardando ? 'Guardando…' : 'Guardar cambios'}</button>}
-            {esJefe && estado !== 'validada' && estado !== 'pagada' && <button className="btn primario" disabled={guardando} onClick={() => guardar('validada')}>✓ Validar nómina</button>}
-            {esJefe && estado === 'validada' && <button className="btn primario" disabled={guardando} onClick={() => guardar('pagada')}>Marcar como pagada</button>}
-            {esJefe && estado && estado !== 'borrador' && <button className="btn" disabled={guardando} onClick={() => guardar('borrador')}>Volver a borrador</button>}
-            {bloqueada && <p className="suave">El jefe ya la validó. Si hay que cambiar algo, pídele que la vuelva a borrador.</p>}
-          </div>}
-        </>}
+          {d.lista.length > 0 && (
+            <div className="barra-acciones">
+              {estado === 'pagada' && <p className="tenue"><Icono n="candado" tam={16} />Esta quincena ya se pagó y quedó cerrada.{puedeValidar && ' Puede reabrirla si necesita corregirla.'}</p>}
+              {(estado === 'validada') && !puedeValidar && <p className="tenue"><Icono n="candado" tam={16} />La gerencia ya validó esta nómina. Para corregirla, pida que la reabran.</p>}
+              <span className="espacio" />
+              {!bloqueada && <button className="btn" disabled={ocupado || (!cambiado && !!d.guardada)} onClick={() => guardar(estado === 'validada' ? 'validada' : 'borrador')}>{ocupado ? 'Guardando…' : d.guardada ? 'Guardar cambios' : 'Guardar liquidación'}</button>}
+              {puedeValidar && estado !== 'validada' && estado !== 'pagada' && <button className="btn primario" disabled={ocupado || !lineas.length} onClick={() => setConfirmar('validada')}><Icono n="sello" tam={18} />Validar nómina</button>}
+              {puedeValidar && estado === 'validada' && <button className="btn primario" disabled={ocupado} onClick={() => setConfirmar('pagada')}><Icono n="check" tam={18} />Marcar como pagada</button>}
+              {puedeValidar && (estado === 'validada' || estado === 'pagada') && <button className="btn" disabled={ocupado} onClick={() => setConfirmar('borrador')}>Reabrir</button>}
+            </div>
+          )}
+        </div>}
       </Estado>
+
+      {confirmar && <Confirmar peligro={false}
+        titulo={{ validada: 'Validar nómina', pagada: 'Marcar como pagada', borrador: 'Reabrir nómina' }[confirmar]}
+        texto={{
+          validada: `Se aprobará la nómina de la quincena ${nombreQuincena(q)} por ${dinero(total)}. Después, contabilidad ya no podrá modificarla.`,
+          pagada: `Se registrará que la nómina de ${nombreQuincena(q)} (${dinero(total)}) ya fue pagada.`,
+          borrador: 'La nómina volverá a borrador para que contabilidad pueda corregirla. Deberá validarse otra vez.',
+        }[confirmar]}
+        accion={{ validada: 'Validar', pagada: 'Marcar pagada', borrador: 'Reabrir' }[confirmar]}
+        onNo={() => setConfirmar(null)} onSi={() => guardar(confirmar)} />}
     </>
   )
 }
 
-function FilaEmpleado({ f, n, abierto, bloqueada, onAbrir, onAjuste }) {
-  const turnos = n.turnos.filter(t => t.user_id === f.empleado.id)
+function CeldaDinero({ valor, onCambio, etiqueta }) {
+  return <input className="celda-num" inputMode="numeric" placeholder="0" aria-label={etiqueta}
+    value={num(valor) ? conPuntos(String(valor)) : ''} onChange={e => onCambio(aNumero(e.target.value))} />
+}
+
+// ── Personal ────────────────────────────────────────────────────────────────
+function Personal({ pestanas }) {
+  const carga = useCarga(() => leerEmpleados(), [])
+  const [editando, setEditando] = useState(null)
+  const lista = carga.datos
   return (
     <>
-      <tr className="fila-empleado">
-        <td>
-          <button className="enlace" onClick={onAbrir} aria-expanded={abierto}>{abierto ? '▾' : '▸'} {f.empleado.name}</button>
-          {f.abiertos > 0 && <span className="etiqueta">en turno</span>}
-          {f.porRevisar > 0 && <span className="etiqueta revisar" title="Marcó lejos del local o sin ubicación">{f.porRevisar} por revisar</span>}
-        </td>
-        <td className="num" data-l="Días">{f.dias}</td>
-        <td className="num" data-l="Horas">{horas(f.horas)}</td>
-        <td className="num" data-l="Calculado"><Dinero v={f.total} /></td>
-        <td className="num" data-l="Ajuste">
-          <input className="ajuste" inputMode="numeric" placeholder="0" disabled={bloqueada} aria-label={`Ajuste de ${f.empleado.name} (negativo para descontar)`}
-            value={ajusteTexto(f.ajusteTxt)} onChange={e => onAjuste('ajuste', e.target.value.replace(/[^\d-]/g, '').replace(/(?!^)-/g, ''))} />
-        </td>
-        <td className="num fuerte" data-l="A pagar"><Dinero v={f.pagar} /></td>
-      </tr>
-      {abierto && (
-        <tr className="detalle"><td colSpan={6}>
-          <label className="nota-ajuste">Nota del ajuste (ej. adelanto, bono, préstamo)
-            <input value={f.nota} disabled={bloqueada} onChange={e => onAjuste('nota', e.target.value)} />
-          </label>
-          <ul className="turnos">
-            {turnos.length === 0 && <li className="suave">Sin turnos en esta quincena.</li>}
-            {turnos.map(t => (
-              <li key={t.id} className={t.revisar ? 'revisar' : ''}>
-                <b>{diaBonito(diaJornada(t.entrada))}</b> {horaCO(t.entrada)} – {t.salida ? horaCO(t.salida) : 'en turno'}
-                {t.salida && <span className="suave"> · {horas((new Date(t.salida) - new Date(t.entrada)) / 3600e3)}</span>}
-                {t.manual && <span className="suave"> · corregido por el jefe</span>}
-                {t.revisar && <span className="etiqueta revisar">{t.motivo_revision || 'por revisar'}</span>}
-              </li>
-            ))}
-          </ul>
-        </td></tr>
-      )}
+      <Cabecera titulo="Nómina" descripcion="Empleados y cómo se les paga. Los inactivos no aparecen en nuevas liquidaciones.">
+        <button className="btn primario" onClick={() => setEditando({})}><Icono n="mas" tam={18} />Agregar empleado</button>
+      </Cabecera>
+      {pestanas}
+      <Estado carga={carga}>
+        {lista && (lista.length === 0
+          ? <Vacio icono="nomina" titulo="Sin personal registrado" texto="Agregue a cada persona con su cargo y su forma de pago." accion={<button className="btn primario" onClick={() => setEditando({})}><Icono n="mas" tam={18} />Agregar empleado</button>} />
+          : <section className="panel sin-relleno">
+              <table className="tabla personal">
+                <thead><tr><th>Nombre</th><th className="solo-ancho">Cargo</th><th>Forma de pago</th><th className="num">Valor</th><th>Estado</th></tr></thead>
+                <tbody>
+                  {lista.map(e => (
+                    <tr key={e.id} className={`fila-clic ${e.activo ? '' : 'inactivo'}`} onClick={() => setEditando(e)} tabIndex={0} onKeyDown={ev => ev.key === 'Enter' && setEditando(e)}>
+                      <td><b>{e.nombre}</b>{e.documento && <small className="sub">C.C. {e.documento}</small>}</td>
+                      <td className="solo-ancho">{e.cargo || '—'}</td>
+                      <td>{e.modalidad === 'turno' ? 'Por turno' : 'Fijo quincenal'}</td>
+                      <td className="num"><Dinero v={e.valor} /></td>
+                      <td><span className={`punto-estado ${e.activo ? 'activo' : ''}`}>{e.activo ? 'Activo' : 'Inactivo'}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>)}
+      </Estado>
+      {editando && <FormEmpleado inicial={editando} onCerrar={c => { setEditando(null); if (c) carga.recargar() }} />}
     </>
   )
 }
 
-// Muestra el ajuste con puntos de miles y conserva el signo menos (para descontar)
-function ajusteTexto(t = '') {
-  const s = String(t)
-  return (s.startsWith('-') ? '-' : '') + conPuntos(s)
+function FormEmpleado({ inicial, onCerrar }) {
+  const avisar = useAviso()
+  const [f, setF] = useState(() => ({
+    nombre: inicial.nombre || '', cargo: inicial.cargo || '', documento: inicial.documento || '',
+    modalidad: inicial.modalidad || 'turno', valor: inicial.valor ? conPuntos(String(Math.round(inicial.valor))) : '',
+    activo: inicial.activo ?? true, notas: inicial.notas || '',
+  }))
+  const [error, setError] = useState('')
+  const [guardando, setGuardando] = useState(false)
+  const cambia = k => v => setF(x => ({ ...x, [k]: v }))
+
+  async function guardar(e) {
+    e.preventDefault()
+    if (f.nombre.trim().length < 2) return setError('Escriba el nombre completo.')
+    setGuardando(true); setError('')
+    try {
+      await guardarEmpleado({ nombre: f.nombre.trim(), cargo: f.cargo.trim() || null, documento: f.documento.trim() || null, modalidad: f.modalidad, valor: aNumero(f.valor), activo: f.activo, notas: f.notas.trim() || null }, inicial.id)
+      avisar(inicial.id ? 'Datos actualizados' : 'Empleado agregado')
+      onCerrar(true)
+    } catch (er) { setError(mensajeError(er)); setGuardando(false) }
+  }
+
+  return (
+    <Dialogo titulo={inicial.id ? inicial.nombre : 'Agregar empleado'} subtitulo={inicial.id ? 'Datos del empleado' : 'Datos básicos para la liquidación.'} onCerrar={() => onCerrar(false)}
+      pie={<>
+        <span className="espacio" />
+        <button type="button" className="btn" onClick={() => onCerrar(false)} disabled={guardando}>Cancelar</button>
+        <button type="submit" form="form-empleado" className="btn primario" disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar'}</button>
+      </>}>
+      <form id="form-empleado" onSubmit={guardar} className="formulario">
+        <Campo etiqueta="Nombre completo" ancho><input value={f.nombre} onChange={e => cambia('nombre')(e.target.value)} required /></Campo>
+        <div className="fila-campos">
+          <Campo etiqueta="Cargo" opcional><input value={f.cargo} onChange={e => cambia('cargo')(e.target.value)} placeholder="Ej.: Bartender, mesera, chef" /></Campo>
+          <Campo etiqueta="Documento" opcional><input inputMode="numeric" value={f.documento} onChange={e => cambia('documento')(e.target.value.replace(/[^\d.]/g, ''))} placeholder="Cédula" /></Campo>
+        </div>
+        <div className="fila-campos">
+          <Campo etiqueta="Forma de pago">
+            <div className="segmentado" role="radiogroup">
+              {[['turno', 'Por turno'], ['quincena', 'Fijo quincenal']].map(([m, t]) => <button type="button" key={m} role="radio" aria-checked={f.modalidad === m} className={f.modalidad === m ? 'activo' : ''} onClick={() => cambia('modalidad')(m)}>{t}</button>)}
+            </div>
+          </Campo>
+          <Campo etiqueta={f.modalidad === 'turno' ? 'Valor por turno' : 'Valor por quincena'}><CampoDinero valor={f.valor} onCambio={cambia('valor')} /></Campo>
+        </div>
+        <label className="interruptor">
+          <input type="checkbox" checked={f.activo} onChange={e => cambia('activo')(e.target.checked)} />
+          <span className="riel" /><span>Empleado activo</span>
+        </label>
+        <Campo etiqueta="Observaciones" opcional ancho><textarea rows={2} value={f.notas} onChange={e => cambia('notas')(e.target.value)} /></Campo>
+        {error && <p className="mensaje error"><Icono n="alerta" tam={18} />{error}</p>}
+      </form>
+    </Dialogo>
+  )
 }

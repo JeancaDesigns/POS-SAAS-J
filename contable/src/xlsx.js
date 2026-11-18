@@ -49,46 +49,69 @@ function zip(archivos) { // [{ nombre, datos: Uint8Array }]
 
 const letra = i => { let s = ''; i++; while (i) { const r = (i - 1) % 26; s = String.fromCharCode(65 + r) + s; i = Math.floor((i - 1) / 26) } return s }
 
-// Estilos: 0 normal · 1 encabezado · 2 dinero · 3 total (negrita) · 4 total dinero · 5 número con decimales
+// Estilos (índices de cellXfs): 0 normal · 1 encabezado · 2 dinero · 3 total texto · 4 total dinero
+// 5 número · 6 fecha · 7 título del informe · 8 sección (negrita) · 9 total número
 function celda(v, ref, estilo) {
-  if (v === null || v === undefined || v === '') return `<c r="${ref}"${estilo ? ` s="${estilo}"` : ''}/>`
-  if (typeof v === 'number' && Number.isFinite(v)) return `<c r="${ref}"${estilo ? ` s="${estilo}"` : ''}><v>${v}</v></c>`
-  return `<c r="${ref}" t="inlineStr"${estilo ? ` s="${estilo}"` : ''}><is><t xml:space="preserve">${esc(v)}</t></is></c>`
+  const s = estilo ? ` s="${estilo}"` : ''
+  if (v === null || v === undefined || v === '') return `<c r="${ref}"${s}/>`
+  if (typeof v === 'number' && Number.isFinite(v)) return `<c r="${ref}"${s}><v>${v}</v></c>`
+  return `<c r="${ref}" t="inlineStr"${s}><is><t xml:space="preserve">${esc(v)}</t></is></c>`
 }
 
-function hoja({ columnas, filas, total }) {
+// "AAAA-MM-DD" → número de serie de Excel (así se puede ordenar y filtrar por fecha)
+const serieFecha = v => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v))
+  return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) / 86400000 + 25569 : v
+}
+
+function hoja({ columnas, filas, total, titulo }) {
+  const desfase = titulo ? 2 : 0
   const est = (col, esTotal) => {
     if (col.tipo === 'dinero') return esTotal ? 4 : 2
-    if (col.tipo === 'numero') return esTotal ? 3 : 5
+    if (col.tipo === 'numero') return esTotal ? 9 : 5
+    if (col.tipo === 'fecha') return esTotal ? 3 : 6
     return esTotal ? 3 : 0
   }
-  const filasXml = [
-    `<row r="1">${columnas.map((c, i) => celda(c.titulo, `${letra(i)}1`, 1)).join('')}</row>`,
-    ...filas.map((f, r) => `<row r="${r + 2}">${columnas.map((c, i) => celda(f[i], `${letra(i)}${r + 2}`, est(c, false))).join('')}</row>`),
-  ]
+  const valor = (col, v) => (col.tipo === 'fecha' ? serieFecha(v) : v)
+  // Filas de sección: texto en mayúsculas y lo demás vacío (ej. "INGRESOS")
+  const esSeccion = f => typeof f[0] === 'string' && f[0].length > 1 && f[0] === f[0].toUpperCase() && f.slice(1).every(x => x === '' || x == null)
+  const xml = []
+  if (titulo) xml.push(`<row r="1" ht="22" customHeight="1">${celda(titulo, 'A1', 7)}</row>`)
+  const h = desfase + 1
+  xml.push(`<row r="${h}">${columnas.map((c, i) => celda(c.titulo, `${letra(i)}${h}`, 1)).join('')}</row>`)
+  filas.forEach((f, k) => {
+    const r = h + 1 + k
+    xml.push(`<row r="${r}">${columnas.map((c, i) => celda(valor(c, f[i]), `${letra(i)}${r}`, esSeccion(f) ? 8 : est(c, false))).join('')}</row>`)
+  })
   if (total) {
-    const r = filas.length + 2
-    filasXml.push(`<row r="${r}">${columnas.map((c, i) => celda(total[i], `${letra(i)}${r}`, est(c, true))).join('')}</row>`)
+    const r = h + 1 + filas.length
+    xml.push(`<row r="${r}">${columnas.map((c, i) => celda(valor(c, total[i]), `${letra(i)}${r}`, est(c, true))).join('')}</row>`)
   }
   const cols = columnas.map((c, i) => `<col min="${i + 1}" max="${i + 1}" width="${c.ancho || 14}" customWidth="1"/>`).join('')
+  const ultima = h + filas.length
+  const filtro = filas.length && !titulo ? `<autoFilter ref="A${h}:${letra(columnas.length - 1)}${ultima}"/>` : ''
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${cols}</cols><sheetData>${filasXml.join('')}</sheetData></worksheet>`
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane ySplit="${h}" topLeftCell="A${h + 1}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${cols}</cols><sheetData>${xml.join('')}</sheetData>${filtro}<pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`
 }
 
 const ESTILOS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<numFmts count="2"><numFmt numFmtId="164" formatCode="&quot;$&quot;#,##0"/><numFmt numFmtId="165" formatCode="#,##0.##"/></numFmts>
-<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>
-<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE4ECE9"/><bgColor indexed="64"/></patternFill></fill></fills>
-<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
+<numFmts count="3"><numFmt numFmtId="164" formatCode="&quot;$&quot;#,##0;[Red]-&quot;$&quot;#,##0"/><numFmt numFmtId="165" formatCode="#,##0.##"/><numFmt numFmtId="166" formatCode="dd/mm/yyyy"/></numFmts>
+<fonts count="4"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="14"/><color rgb="FF173A31"/><name val="Calibri"/></font></fonts>
+<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF173A31"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF1EDE4"/><bgColor indexed="64"/></patternFill></fill></fills>
+<borders count="3"><border><left/><right/><top/><bottom/><diagonal/></border><border><left/><right/><top/><bottom style="hair"><color rgb="FFD9D3C7"/></bottom><diagonal/></border><border><left/><right/><top style="thin"><color rgb="FF173A31"/></top><bottom style="double"><color rgb="FF173A31"/></bottom><diagonal/></border></borders>
 <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-<cellXfs count="6">
-<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
-<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>
-<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
-<xf numFmtId="165" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyNumberFormat="1"/>
-<xf numFmtId="164" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyNumberFormat="1"/>
-<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
+<cellXfs count="10">
+<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/>
+<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"><alignment vertical="center"/></xf>
+<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>
+<xf numFmtId="0" fontId="2" fillId="0" borderId="2" xfId="0" applyFont="1" applyBorder="1"/>
+<xf numFmtId="164" fontId="2" fillId="0" borderId="2" xfId="0" applyFont="1" applyNumberFormat="1" applyBorder="1"/>
+<xf numFmtId="165" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>
+<xf numFmtId="166" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"><alignment horizontal="left"/></xf>
+<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+<xf numFmtId="0" fontId="2" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1"/>
+<xf numFmtId="165" fontId="2" fillId="0" borderId="2" xfId="0" applyFont="1" applyNumberFormat="1" applyBorder="1"/>
 </cellXfs>
 <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
 </styleSheet>`

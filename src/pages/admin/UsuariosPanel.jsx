@@ -6,7 +6,7 @@ import { avisar } from '../../utils/dialogo'
 import { useRecarga } from '../../hooks/useRecarga'
 
 // 'dev' da acceso a todos los restaurantes: solo un dev puede asignarlo
-const STAFF_ROLES = ['admin', 'cajero', 'mesero', 'cocina', 'domiciliario', 'contadora']
+const STAFF_ROLES = ['admin', 'cajero', 'mesero', 'cocina', 'domiciliario']
 
 
 export default function UsuariosPanel() {
@@ -107,7 +107,6 @@ export default function UsuariosPanel() {
     mesero: 'Tomar y editar pedidos',
     cocina: 'Tablero de comandas',
     domiciliario: 'Rutas y entregas',
-    contadora: 'Solo la app Social Contable: gastos, ventas, cierres y nómina (no entra al POS)',
     dev: 'Acceso técnico a todos los restaurantes',
   }
   const field = 'w-full h-11 rounded-xl px-3.5 bg-surface border border-zinc-300 text-[15px] text-zinc-900 outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--brand-soft)] placeholder:text-zinc-400 transition-[border-color,box-shadow]'

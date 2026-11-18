@@ -7,7 +7,7 @@ const corsHeaders = {
 }
 
 // Roles que un admin de restaurante puede asignar. 'dev' solo lo asigna otro dev.
-const STAFF_ROLES = ['admin', 'cajero', 'mesero', 'cocina', 'domiciliario', 'contadora']
+const STAFF_ROLES = ['admin', 'cajero', 'mesero', 'cocina', 'domiciliario']
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
