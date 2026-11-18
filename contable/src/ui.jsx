@@ -230,11 +230,12 @@ export function Cabecera({ titulo, descripcion, children }) {
   )
 }
 
-export function Marca({ grande }) {
+// Logo de Social Drinks and Coffee (public/social-logo.png) teñido con el color del tema + "Contabilidad"
+export function Marca({ grande, fila }) {
   return (
-    <div className={`marca ${grande ? 'grande' : ''}`}>
-      <span className="monograma" aria-hidden="true">S</span>
-      <span className="marca-texto"><b>Social</b><small>Contabilidad</small></span>
+    <div className={`marca ${grande ? 'grande' : ''} ${fila ? 'fila' : ''}`} role="img" aria-label="Social Drinks and Coffee · Contabilidad">
+      <span className="logo-social" aria-hidden="true" />
+      <small className="marca-sub" aria-hidden="true">Contabilidad</small>
     </div>
   )
 }
