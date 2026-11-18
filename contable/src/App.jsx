@@ -102,7 +102,7 @@ function Raiz() {
       </aside>
 
       <header className="barra-movil">
-        <Marca />
+        <Marca fila />
         <span className="avatar chico" aria-label={yo.nombre}>{iniciales}</span>
       </header>
 
